@@ -1,0 +1,30 @@
+{
+  "name": "assetorbit",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n BACKEND,FRONTEND \"npm run dev -w @ats/backend\" \"npm run dev -w @ats/frontend\"",
+    "build": "npm run build -w @ats/backend && npm run build -w @ats/frontend && npm run build -w @ats/shared",
+    "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings=0",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css,html}\"",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@rushstack/eslint-patch": "^1.4.3",
+    "concurrently": "^8.2.0",
+    "eslint": "^8.50.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.2.3",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2"
+  },
+  "lint-staged": {
+    "**/*.{js,ts,tsx}": [
+      "npm run lint",
+      "npm run format"
+    ]
+  }
+} 
