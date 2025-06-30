@@ -1,3 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @tailwind base;
 @tailwind components;
-@tailwind utilities; 
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss02', 'cv06', 'cv07', 'cv08', 'cv09', 'cv10';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: theme('colors.slate.50');
+    color: theme('colors.slate.900');
+    overflow-x: hidden;
+  }
+
+  body.dark {
+    background: theme('colors.slate.950');
+    color: theme('colors.slate.100');
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.slate.300');
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.slate.400');
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: theme('colors.slate.600');
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.slate.500');
+  }
+
+  /* Glass morphism utilities */
+  .glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Focus styles */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50;
+  }
+
+  /* Text selection */
+  ::selection {
+    background: theme('colors.brand.500/20');
+    color: theme('colors.brand.900');
+  }
+
+  .dark ::selection {
+    background: theme('colors.brand.400/20');
+    color: theme('colors.brand.100');
+  }
+}
+
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply bg-gradient-to-r from-brand-500 to-navy-600 hover:from-brand-600 hover:to-navy-700 text-white font-medium px-4 py-2 rounded-xl transition-all duration-200 shadow-elevation-2 hover:shadow-elevation-3;
+  }
+
+  .btn-secondary {
+    @apply bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 font-medium px-4 py-2 rounded-xl transition-all duration-200 border border-white/20 dark:border-slate-700/50 shadow-glass-sm;
+  }
+
+  .btn-ghost {
+    @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 font-medium px-4 py-2 rounded-xl transition-all duration-200;
+  }
+
+  /* Input styles */
+  .input-primary {
+    @apply bg-white/50 dark:bg-slate-800/50 border border-white/20 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all duration-200;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-glass;
+  }
+
+  .card-elevated {
+    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-elevation-3;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  /* Backdrop blur utilities */
+  .backdrop-blur-glass {
+    backdrop-filter: blur(10px) saturate(100%) contrast(45%) brightness(130%);
+  }
+
+  /* Text gradient utilities */
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-brand-600 to-navy-600 dark:from-brand-400 dark:to-navy-400 bg-clip-text text-transparent;
+  }
+} 

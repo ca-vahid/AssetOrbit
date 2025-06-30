@@ -1,97 +1,234 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useMsal } from '@azure/msal-react';
+import { MsalProvider, useMsal } from '@azure/msal-react';
+import { msalInstance } from './auth/msal';
 import { api, usersApi, setupAuthInterceptor } from './services/api';
 import { useStore } from './store';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-// import AssetsList from './pages/AssetsList';
-// import AssetDetail from './pages/AssetDetail';
-// import AssetForm from './pages/AssetForm';
 import AuthButtons from './components/AuthButtons';
+import Dashboard from './pages/Dashboard';
 
-// Create a client
+// Create a query client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000, // 1 minute
-      retry: 1,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
     },
   },
 });
 
-const AuthenticatedApp: React.FC = () => {
-  const { currentUser, setCurrentUser } = useStore();
+// Authentication wrapper component
+const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { instance, accounts } = useMsal();
-  
-  // Acquire token and fetch current user
+  const { currentUser, setCurrentUser } = useStore();
+
+  // Set up authentication and fetch user info
   useEffect(() => {
     if (accounts.length === 0) return;
-    (async () => {
+
+    const setupAuth = async () => {
       try {
+        // Set up auth interceptor
+        setupAuthInterceptor(instance as any);
+
+        // Acquire token and fetch user info
         const apiScope = `api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/access_as_user`;
-        const result = await instance.acquireTokenSilent({ scopes: [apiScope], account: accounts[0] });
+        const result = await instance.acquireTokenSilent({ 
+          scopes: [apiScope], 
+          account: accounts[0] 
+        });
+        
+        // Set auth header
         api.defaults.headers.common['Authorization'] = `Bearer ${result.accessToken}`;
+        
+        // Fetch user info
         const user = await usersApi.getMe();
         setCurrentUser(user);
       } catch (error: any) {
-        if (error.response?.status !== 401) {
-          console.error('Failed to fetch user info:', error);
+        console.error('Failed to setup auth or fetch user info:', error);
+        
+        // If token acquisition fails, try interactive login
+        if (error.name === 'InteractionRequiredAuthError') {
+          try {
+            await instance.acquireTokenRedirect({ 
+              scopes: [`api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/access_as_user`] 
+            });
+          } catch (interactiveError) {
+            console.error('Interactive login failed:', interactiveError);
+          }
         }
       }
-    })();
+    };
+
+    setupAuth();
   }, [instance, accounts, setCurrentUser]);
-  
-  // Wait for currentUser to load before rendering routes
-  if (!currentUser) {
-    return <div className="flex items-center justify-center h-full">Loading user...</div>;
-  }
-  
-  return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="assets" element={<div className="p-8">Assets List - Coming Soon</div>} />
-        <Route path="assets/new" element={<div className="p-8">Add Asset - Coming Soon</div>} />
-        <Route path="assets/:id" element={<div className="p-8">Asset Detail - Coming Soon</div>} />
-        <Route path="assets/:id/edit" element={<div className="p-8">Edit Asset - Coming Soon</div>} />
-        <Route path="reports" element={<div className="p-8">Reports - Coming Soon</div>} />
-        <Route path="settings" element={<div className="p-8">Settings - Coming Soon</div>} />
-      </Route>
-    </Routes>
-  );
+
+  return <>{children}</>;
 };
 
-const App: React.FC = () => {
-  const { instance, accounts } = useMsal();
+// Protected Route component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { accounts } = useMsal();
+  const { currentUser } = useStore();
   
-  // Setup auth interceptor when instance is available
-  useEffect(() => {
-    if (instance) {
-      setupAuthInterceptor(instance as any);
-    }
-  }, [instance]);
-  
-  // If not authenticated, show login page
+  // If not authenticated with MSAL, show login
   if (accounts.length === 0) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50 p-6 dark:bg-gray-900">
-        <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400">AssetOrbit</h1>
-        <p className="text-gray-600 dark:text-gray-400">Please sign in to continue</p>
-        <AuthButtons />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gradient-to-br from-slate-50 via-slate-100/50 to-brand-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-navy-950 p-6">
+        <div className="text-center">
+          <div className="relative mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-brand-500 to-navy-600 rounded-2xl shadow-elevation-3 mx-auto" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl mx-auto w-16 h-16" />
+          </div>
+          <h1 className="text-4xl font-bold text-gradient-brand mb-2">AssetOrbit</h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-8">Enterprise Asset Management</p>
+          <AuthButtons />
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated but currentUser not loaded yet, show loading
+  if (!currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100/50 to-brand-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-navy-950">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-gradient-to-r from-brand-500 to-navy-600 rounded-full animate-pulse mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Loading your profile...</p>
+        </div>
       </div>
     );
   }
   
+  return <>{children}</>;
+};
+
+// Theme wrapper component
+const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { theme } = useStore();
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+    }
+  }, [theme]);
+
+  return <>{children}</>;
+};
+
+// Placeholder components for routes that don't exist yet
+const AssetsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Assets</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Asset management interface coming soon...</p>
+  </div>
+);
+
+const AddAssetPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Add Asset</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Add asset form coming soon...</p>
+  </div>
+);
+
+const ReportsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Reports</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Reports and analytics coming soon...</p>
+  </div>
+);
+
+const SettingsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Application settings coming soon...</p>
+  </div>
+);
+
+const UsersPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Users</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">User management coming soon...</p>
+  </div>
+);
+
+const DepartmentsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Departments</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Department management coming soon...</p>
+  </div>
+);
+
+const LocationsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Locations</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Location management coming soon...</p>
+  </div>
+);
+
+const VendorsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Vendors</h1>
+    <p className="text-slate-600 dark:text-slate-400 mt-2">Vendor management coming soon...</p>
+  </div>
+);
+
+const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthenticatedApp />
-      </BrowserRouter>
-      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
-    </QueryClientProvider>
+    <MsalProvider instance={msalInstance}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeWrapper>
+          <AuthWrapper>
+            <Router>
+              <Routes>
+                {/* Protected routes with layout */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Layout />
+                    </ProtectedRoute>
+                  }
+                >
+                  {/* Dashboard */}
+                  <Route index element={<Dashboard />} />
+                  
+                  {/* Assets */}
+                  <Route path="assets" element={<AssetsPage />} />
+                  <Route path="assets/new" element={<AddAssetPage />} />
+                  <Route path="assets/bulk" element={<AddAssetPage />} />
+                  <Route path="assets/export" element={<AssetsPage />} />
+                  
+                  {/* Management */}
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="departments" element={<DepartmentsPage />} />
+                  <Route path="locations" element={<LocationsPage />} />
+                  <Route path="vendors" element={<VendorsPage />} />
+                  
+                  {/* Reports */}
+                  <Route path="reports" element={<ReportsPage />} />
+                  <Route path="reports/analytics" element={<ReportsPage />} />
+                  <Route path="reports/activity" element={<ReportsPage />} />
+                  <Route path="reports/custom" element={<ReportsPage />} />
+                  
+                  {/* Settings */}
+                  <Route path="settings" element={<SettingsPage />} />
+                  
+                  {/* Catch all - redirect to dashboard */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </Router>
+          </AuthWrapper>
+        </ThemeWrapper>
+      </QueryClientProvider>
+    </MsalProvider>
   );
 };
 

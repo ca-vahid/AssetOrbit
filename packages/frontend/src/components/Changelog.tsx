@@ -19,6 +19,36 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.10',
+    date: 'July 1, 2025',
+    changes: {
+      features: [
+        'Enterprise-grade hybrid layout with glass morphism effects',
+        'Collapsible sidebar with role-based navigation and tooltips',
+        'Top navigation bar with search, status indicators, notifications, and theme toggle',
+        'Bottom status bar displaying live system metrics and user info',
+        'Dashboard connected to real API data with mock data toggle for demos',
+        'Animated stats cards, asset breakdown chart, recent activity, and quick actions',
+        'Responsive dark mode with persistence and smooth transitions',
+        'Routing for assets, management, reports, and settings pages',
+      ],
+      improvements: [
+        'Refined Tailwind CSS design tokens and blue color palette',
+        'Enhanced micro-interactions using Framer Motion',
+        'Integrated React Query for data fetching and caching',
+        'Streamlined MSAL authentication flow and API interceptor setup',
+        'Adjusted layout spacing to prevent header overlap',
+        'Created robust loading and empty states for API-driven components',
+        'Updated application version badge to v0.10',
+      ],
+      bugFixes: [
+        'Fixed header covering content and adjusted main container margins',
+        'Resolved module resolution errors by renaming layout directory',
+        'Corrected import paths for TopNavigation, Sidebar, and StatusBar',
+      ],
+    },
+  },
+  {
     version: 'v0.08',
     date: 'June 30, 2025',
     changes: {
