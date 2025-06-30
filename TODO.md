@@ -11,10 +11,10 @@
 
 ### Azure Infrastructure
 - [ ] Create Azure App Service for web hosting
-- [ ] Set up Azure SQL Database
-- [ ] Configure Azure AD app registration
-- [ ] Set up connection strings and environment variables
-- [ ] Configure CORS and security headers
+- [x] Create Azure SQL Database
+- [x] Configure Azure AD app registration
+- [x] Set up connection strings and environment variables
+- [x] Configure CORS and security headers
 
 ### Database Design
 - [ ] Design extensible schema with assets table and subtypes
@@ -27,10 +27,10 @@
 
 ### Core API Setup
 - [x] Set up Express/Fastify server with TypeScript
-- [ ] Configure Azure AD authentication middleware
+- [x] Configure Azure AD authentication middleware
 - [ ] Implement role-based authorization
 - [ ] Set up API documentation (Swagger/OpenAPI)
-- [ ] Configure error handling and logging
+- [x] Configure error handling and logging
 
 ### Asset API Endpoints
 - [ ] GET /api/assets (with pagination, filtering, sorting)
@@ -60,8 +60,8 @@
 - [ ] Set up React Query for API calls
 
 ### Authentication Flow
-- [ ] Implement MSAL for Azure AD authentication
-- [ ] Create login/logout flow
+- [x] Implement MSAL for Azure AD authentication
+- [x] Create login/logout flow
 - [ ] Set up auth context and hooks
 - [ ] Implement route guards for protected pages
 - [ ] Add user info to header

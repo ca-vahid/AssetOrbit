@@ -77,4 +77,20 @@ packages/
 
 - See `PRD.md` for product requirements
 - See `TECH.md` for detailed technical specifications
-- See `TODO.md` for the implementation roadmap 
+- See `TODO.md` for the implementation roadmap
+
+## Authentication
+
+The app uses Azure Active Directory (v2.0) tokens.
+- Front-end obtains tokens via MSAL (popup flow)
+- Back-end validates JWTs with `passport-azure-ad` BearerStrategy
+- Protected API sample: `GET /api/protected`
+
+## Deployment Options
+
+| Pattern | Summary |
+|---------|---------|
+| **Single App Service** | Build frontend, copy `packages/frontend/dist` into `packages/backend/public`, deploy the backend folder. SPA & API share the same host. |
+| **Static Web App + App Service** | Deploy React build to Azure Static Web Apps (global CDN) and Express API to a separate App Service. Add the Static Web Apps URL to `CORS_ORIGIN` on the API. |
+
+A sample GitHub Action for the single-app pattern lives in `.github/workflows/azure-webapp.yml` (create and add a publish-profile secret named `AZUREAPPSERVICE_PUBLISHPROFILE`). 
