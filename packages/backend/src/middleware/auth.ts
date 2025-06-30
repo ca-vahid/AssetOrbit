@@ -2,6 +2,7 @@ import passport from 'passport';
 import { BearerStrategy, ITokenPayload } from 'passport-azure-ad';
 import config from '../config';
 import logger from '../utils/logger';
+import { Request, Response, NextFunction } from 'express';
 
 const strategy = new BearerStrategy(
   {
@@ -26,7 +27,25 @@ const strategy = new BearerStrategy(
 
 passport.use(strategy);
 
+// The BearerStrategy from passport-azure-ad registers with the name "oauth-bearer"
 export const authenticateJwt = passport.authenticate('oauth-bearer', { session: false });
+
+// Role-based authorization middleware
+export const requireRole = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    
+    next();
+  };
+};
 
 export function initAuth(app: import('express').Express) {
   app.use(passport.initialize());

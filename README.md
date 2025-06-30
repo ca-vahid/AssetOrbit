@@ -48,12 +48,23 @@ After the first install, Husky hooks are set up automatically via the `prepare` 
 
 ## Environment Variables
 
-Copy `.env.example` files to `.env` inside each package and adjust values for your environment.
+Copy `.env.example` files to `.env` inside each package and adjust values. For **local overrides** use `.env.local` – values in this file take precedence over `.env` and should **never** be committed.
 
-```bash
-cp packages/backend/.env.example packages/backend/.env
-cp packages/frontend/.env.example packages/frontend/.env
+### Azure SQL connection string (Prisma)
+Prisma expects a JDBC-style SQL Server URL, **not** the ADO.NET string shown in the Azure Portal. Example:
+
 ```
+DATABASE_URL="sqlserver://assetorbit-sqlsrv.database.windows.net:1433;database=AssetOrbitDB;user=bgcadmin;password={P@55w0rd with spaces; and symbols};encrypt=true;trustServerCertificate=false"
+```
+
+Guidelines:
+1. Start with `sqlserver://`.
+2. Separate options with semicolons `;`.
+3. Wrap the **entire password in curly braces `{}`** if it contains special characters (`: ; @ / = [ ] { } ( ) space`).
+4. Keep the whole URL on one line and inside quotes.
+5. `encrypt=true` and `trustServerCertificate=false` are required for Azure SQL.
+
+The backend automatically loads both `.env` and `.env.local` via `dotenv`, with `.env.local` overriding, so you can keep production values in `.env` and local secrets in `.env.local`.
 
 ## Folder Structure (simplified)
 

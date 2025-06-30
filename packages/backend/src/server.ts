@@ -5,8 +5,14 @@ import helmet from 'helmet';
 import config from './config';
 import type { Request, Response } from 'express';
 import logger from './utils/logger';
+import { connectDatabase } from './services/database';
 
 import healthRouter from './routes/health';
+import assetsRouter from './routes/assets';
+import usersRouter from './routes/users';
+import departmentsRouter from './routes/departments';
+import locationsRouter from './routes/locations';
+import vendorsRouter from './routes/vendors';
 import { initAuth, authenticateJwt } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -37,7 +43,13 @@ app.use(
 
 initAuth(app);
 
+// API Routes
 app.use('/api/health', healthRouter);
+app.use('/api/assets', assetsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/departments', departmentsRouter);
+app.use('/api/locations', locationsRouter);
+app.use('/api/vendors', vendorsRouter);
 
 // Protected route example
 app.get('/api/protected', authenticateJwt, (req: Request, res: Response) => {
@@ -49,9 +61,57 @@ app.get('/', (_req: Request, res: Response) => {
   res.send('AssetOrbit API');
 });
 
-app.listen(port, () => {
-  logger.info(`Backend running on http://localhost:${port}`);
+// Error handling middleware (must be before server startup)
+app.use(errorHandler);
+
+// Start server with database connection
+async function startServer() {
+  try {
+    logger.info('Starting AssetOrbit backend server...');
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`Port: ${port}`);
+    logger.info(`CORS Origins: ${config.corsOrigins.join(', ')}`);
+    
+    // Connect to database first
+    await connectDatabase();
+    
+    // Start Express server
+    const server = app.listen(port, () => {
+      logger.info(`Backend running on http://localhost:${port}`);
+    });
+
+    // Handle server errors
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${port} is already in use`);
+      } else {
+        logger.error('Server error:', error);
+      }
+      process.exit(1);
+    });
+
+  } catch (error: any) {
+    logger.error('Failed to start server:');
+    logger.error('Error:', error);
+    
+    if (error.message) {
+      logger.error('Error message:', error.message);
+    }
+    
+    process.exit(1);
+  }
+}
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
-// Error handling middleware (must be last)
-app.use(errorHandler); 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+startServer(); 

@@ -17,30 +17,36 @@
 - [x] Configure CORS and security headers
 
 ### Database Design
-- [ ] Design extensible schema with assets table and subtypes
-- [ ] Create SQL migrations for initial schema
-- [ ] Add audit fields (created_by, updated_by, timestamps)
-- [ ] Set up Prisma/TypeORM with Azure SQL
-- [ ] Seed database with test data
+- [x] Design extensible schema with assets table and subtypes
+- [x] Create SQL migrations for initial schema
+- [x] Add audit fields (created_by, updated_by, timestamps)
+- [x] Set up Prisma/TypeORM with Azure SQL
+- [x] Seed database with test data
 
 ## Phase 2: Backend API Development (Days 4-7)
 
 ### Core API Setup
 - [x] Set up Express/Fastify server with TypeScript
 - [x] Configure Azure AD authentication middleware
-- [ ] Implement role-based authorization
+- [x] Implement role-based authorization
 - [ ] Set up API documentation (Swagger/OpenAPI)
 - [x] Configure error handling and logging
 
 ### Asset API Endpoints
-- [ ] GET /api/assets (with pagination, filtering, sorting)
-- [ ] GET /api/assets/:id
-- [ ] POST /api/assets (create single)
-- [ ] PUT /api/assets/:id (update)
-- [ ] PATCH /api/assets/:id (partial update)
-- [ ] DELETE /api/assets/:id
-- [ ] POST /api/assets/bulk (bulk operations)
+- [x] GET /api/assets (with pagination, filtering, sorting)
+- [x] GET /api/assets/:id
+- [x] POST /api/assets (create single)
+- [x] PUT /api/assets/:id (update)
+- [x] PATCH /api/assets/:id (partial update)
+- [x] DELETE /api/assets/:id
+- [x] POST /api/assets/bulk (bulk operations)
 - [ ] GET /api/assets/export (CSV/Excel export)
+
+### Supporting API Endpoints
+- [x] Users API (GET /api/users, GET /api/users/me, role management)
+- [x] Departments API (CRUD operations)
+- [x] Locations API (CRUD operations)
+- [x] Vendors API (CRUD operations)
 
 ### File Processing
 - [ ] POST /api/upload endpoint
@@ -154,6 +160,8 @@
 - [ ] Add empty states with helpful messages
 - [ ] Create keyboard shortcuts for power users
 - [ ] Polish transitions and animations
+- [x] Add app version badge  to header
+- [x] Create changelog modal for version details
 
 ### Dark Mode
 - [ ] Implement dark mode color scheme

@@ -2,8 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
 
 export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Error occurred', {
-    error: err.message,
+  logger.error(`Error occurred: ${err.message}`, {
     stack: err.stack,
     path: req.path,
     method: req.method,

@@ -1,0 +1,183 @@
+import React, { Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+
+interface ChangelogEntry {
+  version: string;
+  date: string;
+  changes: {
+    features?: string[];
+    improvements?: string[];
+    bugFixes?: string[];
+  };
+}
+
+interface ChangelogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const changelog: ChangelogEntry[] = [
+  {
+    version: 'v0.08',
+    date: 'June 30, 2025',
+    changes: {
+      features: [
+        'Complete database schema with Azure SQL Server integration',
+        'Full-featured REST API with authentication and authorization',
+        'Asset management dashboard with real-time statistics',
+        'Azure Active Directory SSO integration',
+        'Role-based access control (Read, Write, Admin)',
+        'Auto-provisioning of users from Azure AD tokens',
+        'Comprehensive asset tracking with audit trails',
+        'Export functionality for CSV and Excel formats',
+      ],
+      improvements: [
+        'Responsive dark mode support throughout the application',
+        'Real-time data updates with React Query',
+        'Optimized database queries with proper indexing',
+        'Enhanced error handling and logging',
+        'Improved authentication flow with token management',
+        'Modern UI with Tailwind CSS and Heroicons',
+      ],
+      bugFixes: [
+        'Fixed Azure SQL connection string format for Prisma',
+        'Resolved authentication strategy naming conflicts',
+        'Fixed user lookup and auto-creation logic',
+        'Corrected API interceptor token attachment timing',
+        'Resolved database connection pooling issues',
+      ],
+    },
+  },
+];
+
+const Changelog: React.FC<ChangelogProps> = ({ isOpen, onClose }) => {
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                <div className="flex items-center justify-between mb-6">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-2xl font-bold leading-6 text-gray-900 dark:text-white"
+                  >
+                    What's New in AssetOrbit
+                  </Dialog.Title>
+                  <button
+                    type="button"
+                    className="rounded-md bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onClick={onClose}
+                  >
+                    <span className="sr-only">Close</span>
+                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {changelog.map((entry) => (
+                    <div key={entry.version} className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-6 last:border-b-0">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="inline-flex items-center rounded-full bg-primary-100 dark:bg-primary-900 px-3 py-1 text-sm font-medium text-primary-800 dark:text-primary-200">
+                          {entry.version}
+                        </span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {entry.date}
+                        </span>
+                      </div>
+
+                      {entry.changes.features && entry.changes.features.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            New Features
+                          </h4>
+                          <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300 ml-4">
+                            {entry.changes.features.map((feature, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-green-500 mt-1">•</span>
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {entry.changes.improvements && entry.changes.improvements.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-lg font-semibold text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            Improvements
+                          </h4>
+                          <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300 ml-4">
+                            {entry.changes.improvements.map((improvement, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-blue-500 mt-1">•</span>
+                                {improvement}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {entry.changes.bugFixes && entry.changes.bugFixes.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-lg font-semibold text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                            Bug Fixes
+                          </h4>
+                          <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300 ml-4">
+                            {entry.changes.bugFixes.map((fix, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-orange-500 mt-1">•</span>
+                                {fix}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    className="inline-flex justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onClick={onClose}
+                  >
+                    Close
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
+export default Changelog; 
