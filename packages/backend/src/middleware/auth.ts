@@ -3,6 +3,7 @@ import { BearerStrategy, ITokenPayload } from 'passport-azure-ad';
 import config from '../config';
 import logger from '../utils/logger';
 import { Request, Response, NextFunction } from 'express';
+import prisma from '../services/database';
 
 const strategy = new BearerStrategy(
   {
@@ -12,16 +13,61 @@ const strategy = new BearerStrategy(
     validateIssuer: false,
     loggingLevel: 'warn',
   },
-  (token: ITokenPayload, done: (err: any, user?: any) => void) => {
-    // You can perform additional checks or user look-up here
+  async (token: ITokenPayload, done: (err: any, user?: any) => void) => {
+    try {
+      // Look up user in database to get their role
+      const azureAdId = token.oid;
+      const email = token.preferred_username || (token as any).upn || (token as any).unique_name || (token as any).email;
+      
+      let dbUser = null;
+      
+      // Try to find user by Azure AD ID first
+      if (azureAdId) {
+        dbUser = await prisma.user.findUnique({ where: { azureAdId } });
+      }
+      
+      // Fallback to email lookup
+      if (!dbUser && email) {
+        dbUser = await prisma.user.findUnique({ where: { email } });
+      }
+      
+      // Auto-provision user if not found
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: {
+            azureAdId: azureAdId || `temp-${Date.now()}`,
+            email: email || `${azureAdId}@example.com`,
+            displayName: token.name || email || 'Unknown User',
+            givenName: (token as any).given_name,
+            surname: (token as any).family_name,
+            role: 'READ', // Default role
+            department: (token as any).department,
+            officeLocation: (token as any).office_location,
+          },
+        });
+      }
+      
+      // Attach both token and database user info to request
+      const userWithRole = {
+        ...token,
+        dbUser,
+        role: dbUser.role,
+        userId: dbUser.id,
+      };
+      
     logger.info('JWT token validated successfully', {
       oid: token.oid,
       name: token.name,
-      email: token.preferred_username,
-      audience: token.aud,
-      scope: token.scp,
-    });
-    return done(null, token);
+        email: email,
+        role: dbUser.role,
+        userId: dbUser.id,
+      });
+      
+      return done(null, userWithRole);
+    } catch (error) {
+      logger.error('Error during token validation:', error);
+      return done(error, null);
+    }
   },
 );
 

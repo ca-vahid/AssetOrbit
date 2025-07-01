@@ -43,6 +43,15 @@ async function logActivity(
   }
 }
 
+// Helper function to extract user ID from request
+function getUserId(user: any): string {
+  const userId = user.userId || user.dbUser?.id;
+  if (!userId) {
+    throw new Error('User ID not found');
+  }
+  return userId;
+}
+
 // GET /api/assets - Get all assets with pagination, filtering, and sorting
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -122,6 +131,11 @@ router.get('/', async (req: Request, res: Response) => {
           department: true,
           location: true,
           vendor: true,
+          customFieldValues: {
+            include: {
+              field: true,
+            },
+          },
           tickets: {
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -141,6 +155,10 @@ router.get('/', async (req: Request, res: Response) => {
     const assetsWithParsedSpecs = assets.map((asset) => ({
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
+      customFields: asset.customFieldValues.reduce((obj: any, cfv: any) => {
+        obj[cfv.fieldId] = cfv.value;
+        return obj;
+      }, {}),
     }));
 
     res.json({
@@ -170,6 +188,11 @@ router.get('/:id', async (req: Request, res: Response) => {
         department: true,
         location: true,
         vendor: true,
+        customFieldValues: {
+          include: {
+            field: true,
+          },
+        },
         createdBy: {
           select: {
             id: true,
@@ -209,10 +232,16 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Asset not found' });
     }
 
-    // Parse specifications and activity changes
+    // Build customFields object from value rows
+    const customFields = asset.customFieldValues.reduce((obj: any, cfv: any) => {
+      obj[cfv.fieldId] = cfv.value;
+      return obj;
+    }, {} as Record<string, any>);
+
     const assetWithParsedData = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
+      customFields,
       activities: asset.activities.map((activity) => ({
         ...activity,
         changes: activity.changes ? JSON.parse(activity.changes) : null,
@@ -230,6 +259,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    
+    let userId: string;
+    try {
+      userId = getUserId(user);
+    } catch (error) {
+      return res.status(401).json({ error: 'User ID not found' });
+    }
+    
     const {
       assetTag,
       assetType,
@@ -249,6 +286,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       warrantyEndDate,
       warrantyNotes,
       notes,
+      customFields,
     } = req.body;
 
     // Validate required fields
@@ -288,6 +326,25 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       }
     }
 
+    // Validate custom field IDs
+    const customFieldIds = Object.keys(customFields || {});
+    if (customFieldIds.length) {
+      const existingDefs = await prisma.customField.findMany({
+        where: { id: { in: customFieldIds }, isActive: true },
+        select: { id: true },
+      });
+      const existingIds = new Set(existingDefs.map((d) => d.id));
+      const missingIds = customFieldIds.filter((id) => !existingIds.has(id));
+      if (missingIds.length) {
+        return res.status(400).json({ error: `Invalid custom field IDs: ${missingIds.join(', ')}` });
+      }
+    }
+
+    const customFieldData = Object.entries(customFields || {}).map(([fieldId, value]: [string, any]) => ({
+      fieldId,
+      value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+    }));
+
     // Create asset
     const asset = await prisma.asset.create({
       data: {
@@ -309,13 +366,19 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         warrantyEndDate: warrantyEndDate ? new Date(warrantyEndDate) : null,
         warrantyNotes,
         notes,
-        createdById: user.id,
+        createdById: userId,
+        customFieldValues: {
+          create: customFieldData,
+        },
       },
       include: {
         assignedTo: true,
         department: true,
         location: true,
         vendor: true,
+        customFieldValues: {
+          include: { field: true },
+        },
         createdBy: {
           select: {
             id: true,
@@ -328,7 +391,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
 
     // Log activity
     await logActivity(
-      user.id,
+      userId,
       ACTIVITY_ACTIONS.CREATE,
       ENTITY_TYPES.ASSET,
       asset.id,
@@ -336,15 +399,27 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       { action: 'Asset created' }
     );
 
-    // Parse specifications for response
+    // Parse specifications & custom field values for response
     const assetWithParsedSpecs = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
+      customFields: asset.customFieldValues.reduce((obj: any, cfv: any) => {
+        obj[cfv.fieldId] = cfv.value;
+        return obj;
+      }, {}),
     };
 
     res.status(201).json(assetWithParsedSpecs);
   } catch (error) {
     logger.error('Error creating asset:', error);
+    logger.error('Database error:', error);
+    
+    // Log more specific error details
+    if (error instanceof Error) {
+      logger.error('Error message:', error.message);
+      logger.error('Error stack:', error.stack);
+    }
+    
     res.status(500).json({ error: 'Failed to create asset' });
   }
 });
@@ -353,6 +428,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
 router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userId = getUserId(user);
     const { id } = req.params;
     const updates = req.body;
 
@@ -364,6 +440,11 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     if (!existingAsset) {
       return res.status(404).json({ error: 'Asset not found' });
     }
+
+    // Fetch previous custom field values for change tracking
+    const prevCustomFieldValues = await prisma.customFieldValue.findMany({
+      where: { assetId: id },
+    });
 
     // Validate enums if provided
     if (updates.assetType && !isValidAssetType(updates.assetType)) {
@@ -395,10 +476,27 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       }
     }
 
+    // Extract customFields from updates if present
+    const customFieldsUpdates = updates.customFields || {};
+    delete updates.customFields;
+
+    const updateCustomFieldIds = Object.keys(customFieldsUpdates);
+    if (updateCustomFieldIds.length) {
+      const defs = await prisma.customField.findMany({
+        where: { id: { in: updateCustomFieldIds }, isActive: true },
+        select: { id: true },
+      });
+      const existingSet = new Set(defs.map((d) => d.id));
+      const missing = updateCustomFieldIds.filter((id) => !existingSet.has(id));
+      if (missing.length) {
+        return res.status(400).json({ error: `Invalid custom field IDs: ${missing.join(', ')}` });
+      }
+    }
+
     // Prepare update data
     const updateData: any = {
       ...updates,
-      updatedById: user.id,
+      updatedById: userId,
     };
 
     // Handle special fields
@@ -419,7 +517,7 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     }
 
     // Update asset
-    const updatedAsset = await prisma.asset.update({
+    const updateAssetPromise = prisma.asset.update({
       where: { id },
       data: updateData,
       include: {
@@ -427,6 +525,9 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
         department: true,
         location: true,
         vendor: true,
+        customFieldValues: {
+          include: { field: true },
+        },
         updatedBy: {
           select: {
             id: true,
@@ -436,6 +537,32 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
         },
       },
     });
+
+    // Prepare upserts for custom field values
+    const upsertPromises = Object.entries(customFieldsUpdates).map(([fieldId, value]: [string, any]) => {
+      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      return prisma.customFieldValue.upsert({
+        where: {
+          assetId_fieldId: {
+            assetId: id,
+            fieldId,
+          },
+        },
+        update: {
+          value: stringValue,
+        },
+        create: {
+          assetId: id,
+          fieldId,
+          value: stringValue,
+        },
+      });
+    });
+
+    const [updatedAsset] = await prisma.$transaction([
+      updateAssetPromise,
+      ...upsertPromises,
+    ]);
 
     // Build changes object for activity log
     const changes: any = {};
@@ -448,9 +575,28 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       }
     });
 
+    // Custom field changes
+    const prevCFMap = prevCustomFieldValues.reduce((obj: any, cfv: any) => {
+      obj[cfv.fieldId] = cfv.value;
+      return obj;
+    }, {} as Record<string, any>);
+
+    let customFieldChangeCount = 0;
+    Object.entries(customFieldsUpdates).forEach(([fieldId, newVal]) => {
+      const prevVal = prevCFMap[fieldId];
+      if (prevVal !== newVal) {
+        changes[`customField:${fieldId}`] = { from: prevVal, to: newVal };
+        customFieldChangeCount += 1;
+      }
+    });
+
+    if (customFieldChangeCount > 0) {
+      changes.description = `${customFieldChangeCount} custom field(s) updated`;
+    }
+
     // Log activity
     await logActivity(
-      user.id,
+      userId,
       ACTIVITY_ACTIONS.UPDATE,
       ENTITY_TYPES.ASSET,
       id,
@@ -458,10 +604,14 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       changes
     );
 
-    // Parse specifications for response
+    // Parse specifications & custom field values for response
     const assetWithParsedSpecs = {
       ...updatedAsset,
       specifications: updatedAsset.specifications ? JSON.parse(updatedAsset.specifications) : null,
+      customFields: updatedAsset.customFieldValues.reduce((obj: any, cfv: any) => {
+        obj[cfv.fieldId] = cfv.value;
+        return obj;
+      }, {}),
     };
 
     res.json(assetWithParsedSpecs);
@@ -473,9 +623,9 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
 
 // PATCH /api/assets/:id - Partial update (requires WRITE role)
 router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
-  // Reuse PUT logic for partial updates
   try {
     const user = (req as any).user;
+    const userId = getUserId(user);
     const { id } = req.params;
     const updates = req.body;
 
@@ -487,6 +637,11 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
     if (!existingAsset) {
       return res.status(404).json({ error: 'Asset not found' });
     }
+
+    // Fetch previous custom field values for change tracking
+    const prevCustomFieldValues = await prisma.customFieldValue.findMany({
+      where: { assetId: id },
+    });
 
     // Validate enums if provided
     if (updates.assetType && !isValidAssetType(updates.assetType)) {
@@ -518,10 +673,27 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
       }
     }
 
+    // Extract customFields from updates if present
+    const customFieldsUpdates = updates.customFields || {};
+    delete updates.customFields;
+
+    const updateCustomFieldIds = Object.keys(customFieldsUpdates);
+    if (updateCustomFieldIds.length) {
+      const defs = await prisma.customField.findMany({
+        where: { id: { in: updateCustomFieldIds }, isActive: true },
+        select: { id: true },
+      });
+      const existingSet = new Set(defs.map((d) => d.id));
+      const missing = updateCustomFieldIds.filter((id) => !existingSet.has(id));
+      if (missing.length) {
+        return res.status(400).json({ error: `Invalid custom field IDs: ${missing.join(', ')}` });
+      }
+    }
+
     // Prepare update data
     const updateData: any = {
       ...updates,
-      updatedById: user.id,
+      updatedById: userId,
     };
 
     // Handle special fields
@@ -542,7 +714,7 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
     }
 
     // Update asset
-    const updatedAsset = await prisma.asset.update({
+    const updateAssetPromise = prisma.asset.update({
       where: { id },
       data: updateData,
       include: {
@@ -550,6 +722,9 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         department: true,
         location: true,
         vendor: true,
+        customFieldValues: {
+          include: { field: true },
+        },
         updatedBy: {
           select: {
             id: true,
@@ -559,6 +734,32 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         },
       },
     });
+
+    // Prepare upserts for custom field values
+    const upsertPromises = Object.entries(customFieldsUpdates).map(([fieldId, value]: [string, any]) => {
+      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      return prisma.customFieldValue.upsert({
+        where: {
+          assetId_fieldId: {
+            assetId: id,
+            fieldId,
+          },
+        },
+        update: {
+          value: stringValue,
+        },
+        create: {
+          assetId: id,
+          fieldId,
+          value: stringValue,
+        },
+      });
+    });
+
+    const [updatedAsset] = await prisma.$transaction([
+      updateAssetPromise,
+      ...upsertPromises,
+    ]);
 
     // Build changes object for activity log
     const changes: any = {};
@@ -571,9 +772,28 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
       }
     });
 
+    // Custom field changes
+    const prevCFMap = prevCustomFieldValues.reduce((obj: any, cfv: any) => {
+      obj[cfv.fieldId] = cfv.value;
+      return obj;
+    }, {} as Record<string, any>);
+
+    let customFieldChangeCount = 0;
+    Object.entries(customFieldsUpdates).forEach(([fieldId, newVal]) => {
+      const prevVal = prevCFMap[fieldId];
+      if (prevVal !== newVal) {
+        changes[`customField:${fieldId}`] = { from: prevVal, to: newVal };
+        customFieldChangeCount += 1;
+      }
+    });
+
+    if (customFieldChangeCount > 0) {
+      changes.description = `${customFieldChangeCount} custom field(s) updated`;
+    }
+
     // Log activity
     await logActivity(
-      user.id,
+      userId,
       ACTIVITY_ACTIONS.UPDATE,
       ENTITY_TYPES.ASSET,
       id,
@@ -581,10 +801,14 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
       changes
     );
 
-    // Parse specifications for response
+    // Parse specifications & custom field values for response
     const assetWithParsedSpecs = {
       ...updatedAsset,
       specifications: updatedAsset.specifications ? JSON.parse(updatedAsset.specifications) : null,
+      customFields: updatedAsset.customFieldValues.reduce((obj: any, cfv: any) => {
+        obj[cfv.fieldId] = cfv.value;
+        return obj;
+      }, {}),
     };
 
     res.json(assetWithParsedSpecs);
@@ -598,6 +822,7 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
 router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userId = getUserId(user);
     const { id } = req.params;
 
     // Check if asset exists
@@ -616,7 +841,7 @@ router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res:
 
     // Log activity
     await logActivity(
-      user.id,
+      userId,
       ACTIVITY_ACTIONS.DELETE,
       ENTITY_TYPES.ASSET,
       id,
@@ -635,6 +860,7 @@ router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res:
 router.post('/bulk', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userId = getUserId(user);
     const { operation, assetIds, updates } = req.body;
 
     if (!operation || !assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
@@ -660,7 +886,7 @@ router.post('/bulk', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         // Prepare update data
         const bulkUpdateData: any = {
           ...updates,
-          updatedById: user.id,
+          updatedById: userId,
         };
 
         // Execute bulk update
@@ -673,7 +899,7 @@ router.post('/bulk', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         await Promise.all(
           assetIds.map((assetId) =>
             logActivity(
-              user.id,
+              userId,
               ACTIVITY_ACTIONS.BULK_UPDATE,
               ENTITY_TYPES.ASSET,
               assetId,
@@ -701,7 +927,7 @@ router.post('/bulk', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
 
         // Log activity
         await logActivity(
-          user.id,
+          userId,
           ACTIVITY_ACTIONS.DELETE,
           ENTITY_TYPES.ASSET,
           'bulk',
@@ -730,6 +956,7 @@ router.get('/export', async (req: Request, res: Response) => {
   try {
     const { format = 'csv', ...filters } = req.query;
     const user = (req as any).user;
+    const userId = getUserId(user);
 
     // Build where clause using same logic as the main GET route
     const where: Prisma.AssetWhereInput = {};
@@ -783,7 +1010,7 @@ router.get('/export', async (req: Request, res: Response) => {
 
     // Log export activity
     await logActivity(
-      user.id,
+      userId,
       ACTIVITY_ACTIONS.EXPORT,
       ENTITY_TYPES.ASSET,
       'export',

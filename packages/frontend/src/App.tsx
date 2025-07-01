@@ -8,6 +8,10 @@ import { useStore } from './store';
 import Layout from './components/Layout';
 import AuthButtons from './components/AuthButtons';
 import Dashboard from './pages/Dashboard';
+import CustomFields from './pages/CustomFields';
+import AddAsset from './pages/AddAsset';
+import AssetList from './pages/AssetList';
+import EditAsset from './pages/EditAsset';
 
 // Create a query client for React Query
 const queryClient = new QueryClient({
@@ -123,20 +127,6 @@ const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 // Placeholder components for routes that don't exist yet
-const AssetsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Assets</h1>
-    <p className="text-slate-600 dark:text-slate-400 mt-2">Asset management interface coming soon...</p>
-  </div>
-);
-
-const AddAssetPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Add Asset</h1>
-    <p className="text-slate-600 dark:text-slate-400 mt-2">Add asset form coming soon...</p>
-  </div>
-);
-
 const ReportsPage = () => (
   <div className="p-6">
     <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Reports</h1>
@@ -200,10 +190,10 @@ const App: React.FC = () => {
                   <Route index element={<Dashboard />} />
                   
                   {/* Assets */}
-                  <Route path="assets" element={<AssetsPage />} />
-                  <Route path="assets/new" element={<AddAssetPage />} />
-                  <Route path="assets/bulk" element={<AddAssetPage />} />
-                  <Route path="assets/export" element={<AssetsPage />} />
+                  <Route path="assets" element={<AssetList />} />
+                  <Route path="assets/new" element={<AddAsset />} />
+                  <Route path="assets/:id/edit" element={<EditAsset />} />
+                  <Route path="assets/bulk" element={<AddAsset />} />
                   
                   {/* Management */}
                   <Route path="users" element={<UsersPage />} />
@@ -219,6 +209,7 @@ const App: React.FC = () => {
                   
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />
+                  <Route path="settings/custom-fields" element={<CustomFields />} />
                   
                   {/* Catch all - redirect to dashboard */}
                   <Route path="*" element={<Navigate to="/" replace />} />

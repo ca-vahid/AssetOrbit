@@ -88,8 +88,18 @@ router.get('/me', async (req: Request, res: Response) => {
   try {
     const token = (req as any).user as any;
 
+    // Temporary debug logging
+    console.log('=== /ME TOKEN DEBUG ===');
+    console.log('oid:', token.oid);
+    console.log('preferred_username:', token.preferred_username);
+    console.log('email:', token.email);
+    console.log('upn:', token.upn);
+    console.log('unique_name:', token.unique_name);
+    console.log('name:', token.name);
+    console.log('========================');
+
     const azureAdId = token.oid as string | undefined;
-    const email = token.preferred_username as string | undefined;
+    const email = token.preferred_username || token.upn || token.unique_name || token.email;
 
     if (!azureAdId && !email) {
       return res.status(400).json({ error: 'Invalid token payload' });
@@ -139,6 +149,38 @@ router.get('/me', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error(`Error fetching current user: ${error instanceof Error ? error.message : error}`);
     res.status(500).json({ error: 'Failed to fetch user info' });
+  }
+});
+
+// GET /api/users/debug-token - Debug token contents
+router.get('/debug-token', async (req: Request, res: Response) => {
+  try {
+    const token = (req as any).user as any;
+    
+    console.log('=== TOKEN DEBUG ===');
+    console.log('Full token:', JSON.stringify(token, null, 2));
+    console.log('oid (Azure AD ID):', token.oid);
+    console.log('preferred_username:', token.preferred_username);
+    console.log('email:', token.email);
+    console.log('upn:', token.upn);
+    console.log('unique_name:', token.unique_name);
+    console.log('name:', token.name);
+    console.log('===================');
+    
+    res.json({
+      azureAdId: token.oid,
+      possibleEmails: {
+        preferred_username: token.preferred_username,
+        email: token.email,
+        upn: token.upn,
+        unique_name: token.unique_name,
+      },
+      displayName: token.name,
+      fullToken: token,
+    });
+  } catch (error) {
+    logger.error('Error in debug-token:', error);
+    res.status(500).json({ error: 'Debug failed' });
   }
 });
 

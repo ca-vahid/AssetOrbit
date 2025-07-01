@@ -19,6 +19,31 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.2',
+    date: 'July 1, 2025',
+    changes: {
+      features: [
+        'End-to-end dynamic custom fields (schema, CRUD API, admin UI)',
+        'Dynamic asset Add/Edit forms that render custom fields with validation',
+        'Asset Detail modal with inline editing, Additional Attributes section, and activity timeline',
+        'Activities API endpoint and React Query integration',
+        'Role-management CLI utilities (promote, delete, fix email) and token debug helper',
+      ],
+      improvements: [
+        'Seed script now inserts initial custom-field definitions',
+        'Sidebar permission casing fix (ADMIN)',
+        'Activity logs now capture custom-field changes with meaningful descriptions',
+        'Better error logging and user-ID handling in backend',
+        'Updated application version badge to v0.2',
+      ],
+      bugFixes: [
+        'Fixed missing customFields object in single-asset API responses',
+        'Resolved infinite re-render in EditAsset when custom fields were undefined',
+        'Corrected activity log change serialization showing empty {}',
+      ],
+    },
+  },
+  {
     version: 'v0.10',
     date: 'July 1, 2025',
     changes: {

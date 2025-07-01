@@ -40,6 +40,22 @@ export const ASSET_CONDITIONS = {
 
 export type AssetCondition = typeof ASSET_CONDITIONS[keyof typeof ASSET_CONDITIONS];
 
+// Custom Field Types
+export const CUSTOM_FIELD_TYPES = {
+  STRING: 'STRING',
+  NUMBER: 'NUMBER',
+  SINGLE_SELECT: 'SINGLE_SELECT',
+  MULTI_SELECT: 'MULTI_SELECT',
+  DATE: 'DATE',
+  BOOLEAN: 'BOOLEAN',
+} as const;
+
+export type CustomFieldType = typeof CUSTOM_FIELD_TYPES[keyof typeof CUSTOM_FIELD_TYPES];
+
+export const isValidCustomFieldType = (type: string): type is CustomFieldType => {
+  return Object.values(CUSTOM_FIELD_TYPES).includes(type as CustomFieldType);
+};
+
 // Activity Log Actions
 export const ACTIVITY_ACTIONS = {
   CREATE: 'CREATE',
@@ -62,6 +78,7 @@ export const ENTITY_TYPES = {
   DEPARTMENT: 'DEPARTMENT',
   LOCATION: 'LOCATION',
   VENDOR: 'VENDOR',
+  CUSTOM_FIELD: 'CUSTOM_FIELD',
 } as const;
 
 export type EntityType = typeof ENTITY_TYPES[keyof typeof ENTITY_TYPES];

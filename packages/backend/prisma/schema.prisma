@@ -137,6 +137,8 @@ model Asset {
   tickets           AssetTicket[]
   activities        ActivityLog[]
   attachments       Attachment[]
+  // Dynamic custom fields
+  customFieldValues CustomFieldValue[]
   
   @@index([assetType, status])
   @@index([serialNumber])
@@ -197,4 +199,40 @@ model Attachment {
   uploadedAt  DateTime @default(now())
   
   @@index([assetId])
+}
+
+// Custom Field Definitions for dynamic asset attributes
+model CustomField {
+  id          String   @id @default(uuid())
+  name        String
+  fieldType   String   // STRING, NUMBER, SINGLE_SELECT, MULTI_SELECT, DATE, BOOLEAN
+  isRequired  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  options     String?  @db.NVarChar(2000) // JSON array for select options
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  values      CustomFieldValue[]
+
+  @@unique([name])
+}
+
+// Junction table storing per-asset custom field values
+model CustomFieldValue {
+  id        String   @id @default(uuid())
+  assetId   String
+  fieldId   String
+  // Store value as string or JSON; interpret based on field definition
+  value     String?  @db.NVarChar(4000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  asset     Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  field     CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([assetId, fieldId])
+  @@index([assetId])
+  @@index([fieldId])
 }

@@ -47,6 +47,8 @@
 - [x] Departments API (CRUD operations)
 - [x] Locations API (CRUD operations)
 - [x] Vendors API (CRUD operations)
+- [x] Custom Fields API (CRUD operations)
+- [x] Activities API (GET /api/activities/:entityType/:entityId)
 
 ### File Processing
 - [ ] POST /api/upload endpoint
@@ -61,9 +63,9 @@
 ### React App Setup
 - [x] Create React app with Vite and TypeScript
 - [x] Configure Tailwind CSS and design tokens
-- [ ] Set up React Router for navigation
-- [ ] Configure state management (Redux Toolkit/Zustand)
-- [ ] Set up React Query for API calls
+- [x] Set up React Router for navigation
+- [x] Configure state management (Redux Toolkit/Zustand)
+- [x] Set up React Query for API calls
 
 ### Authentication Flow
 - [x] Implement MSAL for Azure AD authentication
@@ -73,11 +75,12 @@
 - [ ] Add user info to header
 
 ### Layout & Navigation
-- [ ] Create main layout component with header/nav
-- [ ] Implement navigation menu with role-based items
-- [ ] Add dark mode toggle and persistence
-- [ ] Create loading and error boundary components
+- [x] Create main layout component with header/nav
+- [x] Implement navigation menu with role-based items
+- [x] Add dark mode toggle and persistence
+- [x] Create loading and error boundary components
 - [ ] Set up notification system (toast)
+- [x] Settings section with Custom Fields admin page
 
 ## Phase 4: Core Features - Asset List (Days 12-16)
 
@@ -109,13 +112,30 @@
 ## Phase 5: Asset Management Forms (Days 17-20)
 
 ### Add/Edit Asset Form
-- [ ] Create multi-section form layout
-- [ ] Implement all form fields with validation
-- [ ] Add field-level validation and error messages
-- [ ] Create user lookup with autocomplete
-- [ ] Implement conditional fields based on asset type
-- [ ] Add form state management with React Hook Form
-- [ ] Create save draft functionality
+- [x] Create multi-section form layout
+- [x] Implement all form fields with validation
+- [x] Add field-level validation and error messages
+- [x] Create user lookup with autocomplete
+- [x] Implement conditional fields based on asset type
+- [x] Add form state management with React Hook Form
+- [x] Create save draft functionality
+- [x] Dynamic custom fields rendering
+- [x] Custom field validation and submission
+
+### Asset Detail View
+- [x] Create modal/slide-out panel
+- [x] Display complete asset information
+- [x] Add activity history timeline
+- [x] Show custom fields in "Additional Attributes" section
+- [x] Implement inline editing for authorized users
+- [x] Activity logging integration
+
+### Asset List Interface
+- [x] Create asset list with basic table
+- [x] Add clickable rows to open detail modal
+- [x] Implement search functionality
+- [x] Add pagination controls
+- [x] Quick view and edit actions
 
 ### Bulk Upload
 - [ ] Create file upload component with drag-drop

@@ -17,7 +17,8 @@ import {
   Activity,
   FileText,
   Upload,
-  Download
+  Download,
+  Sliders
 } from 'lucide-react';
 import { useStore } from '../../store';
 import clsx from 'clsx';
@@ -81,7 +82,10 @@ const navigation: NavigationItem[] = [
     name: 'Settings', 
     href: '/settings', 
     icon: Settings, 
-    requiresAdmin: true 
+    requiresAdmin: true,
+    children: [
+      { name: 'Custom Fields', href: '/settings/custom-fields', icon: Sliders, requiresAdmin: true },
+    ]
   },
 ];
 
@@ -96,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
 
   const hasPermission = (item: NavigationItem) => {
     if (item.requiresWrite && currentUser?.role === 'READ') return false;
-    if (item.requiresAdmin && currentUser?.role !== 'admin') return false;
+    if (item.requiresAdmin && currentUser?.role !== 'ADMIN') return false;
     return true;
   };
 
@@ -269,7 +273,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
                 className="text-center"
               >
                 <div className="text-xs text-slate-400 dark:text-slate-500">
-                  AssetOrbit v0.10
+                  AssetOrbit v0.2
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   Enterprise Edition

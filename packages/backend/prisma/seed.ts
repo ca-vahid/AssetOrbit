@@ -15,7 +15,8 @@ async function main() {
   await prisma.activityLog.deleteMany();
   await prisma.attachment.deleteMany();
   await prisma.assetTicket.deleteMany();
-  await prisma.asset.deleteMany();
+  await prisma.customFieldValue.deleteMany();
+  await prisma.customField.deleteMany();
   await prisma.vendor.deleteMany();
   await prisma.location.deleteMany();
   await prisma.department.deleteMany();
@@ -179,6 +180,70 @@ async function main() {
   ]);
 
   const adminUser = users[0];
+
+  // Create Custom Field Definitions
+  const customFields = await Promise.all([
+    prisma.customField.create({
+      data: {
+        name: 'Processor',
+        fieldType: 'SINGLE_SELECT',
+        options: JSON.stringify([
+          'Intel Core i5',
+          'Intel Core i7',
+          'Intel Core i9',
+          'AMD Ryzen 5',
+          'AMD Ryzen 7',
+          'AMD Ryzen 9',
+          'Apple M1',
+          'Apple M1 Pro',
+          'Apple M1 Max',
+          'Apple M1 Ultra',
+          'Apple M2',
+          'Apple M2 Pro',
+          'Apple M2 Max',
+          'Apple M2 Ultra',
+        ]),
+      },
+    }),
+    prisma.customField.create({
+      data: {
+        name: 'Memory (RAM)',
+        fieldType: 'NUMBER',
+      },
+    }),
+    prisma.customField.create({
+      data: {
+        name: 'Hard Drive Space',
+        fieldType: 'NUMBER',
+      },
+    }),
+    prisma.customField.create({
+      data: {
+        name: 'Video Card (GPU)',
+        fieldType: 'STRING',
+      },
+    }),
+    prisma.customField.create({
+      data: {
+        name: 'Classification',
+        fieldType: 'SINGLE_SELECT',
+        options: JSON.stringify([
+          'High-end',
+          'Senior',
+          'GIS',
+          'CAD',
+          'Regular',
+          'Field Laptop',
+        ]),
+      },
+    }),
+    prisma.customField.create({
+      data: {
+        name: 'Track About Number',
+        fieldType: 'STRING',
+      },
+    }),
+  ]);
 
   // Create sample laptop specifications
   const laptopSpecs = [

@@ -13,6 +13,8 @@ import usersRouter from './routes/users';
 import departmentsRouter from './routes/departments';
 import locationsRouter from './routes/locations';
 import vendorsRouter from './routes/vendors';
+import customFieldsRouter from './routes/customFields';
+import activitiesRouter from './routes/activities';
 import { initAuth, authenticateJwt } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -50,6 +52,8 @@ app.use('/api/users', usersRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/locations', locationsRouter);
 app.use('/api/vendors', vendorsRouter);
+app.use('/api/custom-fields', customFieldsRouter);
+app.use('/api/activities', activitiesRouter);
 
 // Protected route example
 app.get('/api/protected', authenticateJwt, (req: Request, res: Response) => {

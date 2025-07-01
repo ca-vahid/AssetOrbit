@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { PublicClientApplication } from '@azure/msal-browser';
+import type { CustomField, Activity } from '@ats/shared';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
@@ -99,6 +100,7 @@ export interface Asset {
     tickets: number;
     attachments: number;
   };
+  customFields?: Record<string, string>;
 }
 
 export interface User {
@@ -195,4 +197,15 @@ export const vendorsApi = {
   getById: (id: string) => api.get<Vendor>(`/vendors/${id}`).then(res => res.data),
   create: (data: any) => api.post<Vendor>('/vendors', data).then(res => res.data),
   update: (id: string, data: any) => api.put<Vendor>(`/vendors/${id}`, data).then(res => res.data),
+};
+
+export const customFieldsApi = {
+  getAll: () => api.get<CustomField[]>('/custom-fields').then(res => res.data),
+  create: (data: any) => api.post<CustomField>('/custom-fields', data).then(res => res.data),
+  update: (id: string, data: any) => api.put<CustomField>(`/custom-fields/${id}`, data).then(res => res.data),
+};
+
+export const activitiesApi = {
+  getByEntity: (entityType: string, entityId: string) => 
+    api.get<Activity[]>(`/activities/${entityType}/${entityId}`).then(res => res.data),
 }; 
