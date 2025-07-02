@@ -83,6 +83,175 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/users/technicians - Get all technicians (IT users with roles)
+router.get('/technicians', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const {
+      search,
+      role,
+      department,
+      isActive = 'true',
+      limit = '50',
+    } = req.query;
+
+    // Build where clause for technicians (users with system access)
+    const where: any = {
+      role: { in: [USER_ROLES.READ, USER_ROLES.WRITE, USER_ROLES.ADMIN] }
+    };
+
+    if (search) {
+      const searchStr = search as string;
+      where.OR = [
+        { displayName: { contains: searchStr } },
+        { email: { contains: searchStr } },
+        { department: { contains: searchStr } },
+      ];
+    }
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (department) {
+      where.department = department;
+    }
+
+    if (isActive === 'true') {
+      where.isActive = true;
+    } else if (isActive === 'false') {
+      where.isActive = false;
+    }
+
+    const technicians = await prisma.user.findMany({
+      where,
+      take: parseInt(limit as string),
+      select: {
+        id: true,
+        azureAdId: true,
+        email: true,
+        displayName: true,
+        givenName: true,
+        surname: true,
+        jobTitle: true,
+        department: true,
+        officeLocation: true,
+        role: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true,
+        _count: {
+          select: {
+            assignedAssets: true,
+            createdAssets: true,
+            activities: true,
+          },
+        },
+      },
+      orderBy: [
+        { isActive: 'desc' },
+        { role: 'desc' }, // ADMIN first, then WRITE, then READ
+        { displayName: 'asc' },
+      ],
+    });
+
+    res.json(technicians);
+  } catch (error) {
+    logger.error(`Error fetching technicians: ${error instanceof Error ? error.message : error}`);
+    res.status(500).json({ error: 'Failed to fetch technicians' });
+  }
+});
+
+// GET /api/users/staff-with-assets - Get staff members who have assigned assets
+router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const {
+      search,
+      department,
+      limit = '50',
+      page = '1',
+    } = req.query;
+
+    const limitNum = parseInt(limit as string);
+    const pageNum = parseInt(page as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause for assets to find staff with assigned assets
+    const assetWhere: any = {
+      assignedToAadId: { not: null },
+    };
+
+    if (search) {
+      // We'll need to search in the asset's assignedTo relationship or by assignedToAadId
+      // For now, let's search by department in the asset
+      if (department) {
+        assetWhere.department = { name: { contains: department as string } };
+      }
+    }
+
+    // Get distinct Azure AD IDs of staff who have assets assigned
+    const assetsWithStaff = await prisma.asset.findMany({
+      where: assetWhere,
+      select: {
+        assignedToAadId: true,
+      },
+      distinct: ['assignedToAadId'],
+    });
+
+    const staffAadIds = assetsWithStaff
+      .map(asset => asset.assignedToAadId)
+      .filter(Boolean) as string[];
+
+    if (staffAadIds.length === 0) {
+      return res.json({
+        data: [],
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: 0,
+          totalPages: 0,
+        },
+      });
+    }
+
+    // Get asset counts for each staff member
+    const assetCounts = await prisma.asset.groupBy({
+      by: ['assignedToAadId'],
+      where: {
+        assignedToAadId: { in: staffAadIds },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const assetCountMap = new Map(
+      assetCounts.map(count => [count.assignedToAadId, count._count.id])
+    );
+
+    // For pagination, we need to slice the staffAadIds array
+    const paginatedStaffAadIds = staffAadIds.slice(skip, skip + limitNum);
+
+    // Return the Azure AD IDs with asset counts (frontend will fetch full details from Graph API)
+    const staffWithAssets = paginatedStaffAadIds.map(aadId => ({
+      azureAdId: aadId,
+      assetCount: assetCountMap.get(aadId) || 0,
+    }));
+
+    res.json({
+      data: staffWithAssets,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: staffAadIds.length,
+        totalPages: Math.ceil(staffAadIds.length / limitNum),
+      },
+    });
+  } catch (error) {
+    logger.error(`Error fetching staff with assets: ${error instanceof Error ? error.message : error}`);
+    res.status(500).json({ error: 'Failed to fetch staff with assets' });
+  }
+});
+
 // GET /api/users/me - Get current user info
 router.get('/me', async (req: Request, res: Response) => {
   try {
@@ -189,10 +358,23 @@ router.put('/:id/role', requireRole([USER_ROLES.ADMIN]), async (req: Request, re
   try {
     const { id } = req.params;
     const { role } = req.body;
+    const currentUser = (req as any).user;
 
     if (!role || !Object.values(USER_ROLES).includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
+
+    // Get the user being updated for audit log
+    const userBeingUpdated = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, displayName: true, role: true },
+    });
+
+    if (!userBeingUpdated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldRole = userBeingUpdated.role;
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -205,10 +387,179 @@ router.put('/:id/role', requireRole([USER_ROLES.ADMIN]), async (req: Request, re
       },
     });
 
+    // Log the role change activity
+    await prisma.activityLog.create({
+      data: {
+        userId: currentUser.userId,
+        action: 'ROLE_UPDATED',
+        entityType: 'USER',
+        entityId: id,
+        changes: JSON.stringify({
+          oldRole,
+          newRole: role,
+          updatedUser: {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            displayName: updatedUser.displayName,
+          },
+        }),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
+    logger.info(`User role updated: ${updatedUser.email} from ${oldRole} to ${role} by ${currentUser.email}`);
+
     res.json(updatedUser);
   } catch (error) {
     logger.error('Error updating user role:', error);
     res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// PUT /api/users/bulk-role-update - Bulk update user roles (requires ADMIN)
+router.put('/bulk-role-update', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const { userIds, role } = req.body;
+    const currentUser = (req as any).user;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'userIds array is required' });
+    }
+
+    if (!role || !Object.values(USER_ROLES).includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Get the users being updated for audit log
+    const usersBeingUpdated = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true, displayName: true, role: true },
+    });
+
+    if (usersBeingUpdated.length === 0) {
+      return res.status(404).json({ error: 'No users found' });
+    }
+
+    // Update all users
+    const updateResult = await prisma.user.updateMany({
+      where: { id: { in: userIds } },
+      data: { role },
+    });
+
+    // Log each role change
+    const activityLogs = usersBeingUpdated.map(user => ({
+      userId: currentUser.userId,
+      action: 'ROLE_UPDATED_BULK',
+      entityType: 'USER',
+      entityId: user.id,
+      changes: JSON.stringify({
+        oldRole: user.role,
+        newRole: role,
+        updatedUser: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+        },
+        bulkOperation: true,
+      }),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    }));
+
+    await prisma.activityLog.createMany({
+      data: activityLogs,
+    });
+
+    logger.info(`Bulk role update: ${updateResult.count} users updated to ${role} by ${currentUser.email}`);
+
+    res.json({
+      updated: updateResult.count,
+      users: usersBeingUpdated.map(user => ({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        oldRole: user.role,
+        newRole: role,
+      })),
+    });
+  } catch (error) {
+    logger.error('Error in bulk role update:', error);
+    res.status(500).json({ error: 'Failed to update user roles' });
+  }
+});
+
+// DELETE /api/users/:id - Delete user (requires ADMIN)
+router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const currentUser = (req as any).user;
+
+    // Get the user being deleted for audit log
+    const userToDelete = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, displayName: true, role: true },
+    });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent deletion of the current user
+    if (userToDelete.id === currentUser.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Check if user has assigned assets
+    const assignedAssetsCount = await prisma.asset.count({
+      where: { assignedToId: id },
+    });
+
+    if (assignedAssetsCount > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete user with ${assignedAssetsCount} assigned assets. Please reassign assets first.` 
+      });
+    }
+
+    // Soft delete by setting isActive to false instead of hard delete
+    const deletedUser = await prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+      },
+    });
+
+    // Log the deletion activity
+    await prisma.activityLog.create({
+      data: {
+        userId: currentUser.userId,
+        action: 'USER_DELETED',
+        entityType: 'USER',
+        entityId: id,
+        changes: JSON.stringify({
+          deletedUser: {
+            id: deletedUser.id,
+            email: deletedUser.email,
+            displayName: deletedUser.displayName,
+            role: deletedUser.role,
+          },
+          deletedBy: currentUser.email,
+        }),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
+    logger.info(`User deleted: ${deletedUser.email} by ${currentUser.email}`);
+
+    res.json({ message: 'User deleted successfully', user: deletedUser });
+  } catch (error) {
+    logger.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 

@@ -51,24 +51,22 @@ model Department {
   assets      Asset[]
 }
 
-// Location model
+// Location model - supports both Azure AD sourced and manual locations
 model Location {
   id          String   @id @default(uuid())
-  name        String   @unique
-  building    String?
-  floor       String?
-  room        String?
-  address     String?
-  city        String?
-  state       String?
-  country     String?
-  postalCode  String?
+  city        String
+  province    String   // "state" from Azure AD
+  country     String   @default("Canada")
+  source      String   @default("AZURE_AD") // AZURE_AD or MANUAL
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
   assets      Asset[]
+
+  @@unique([city, province, country])
+  @@index([isActive])
 }
 
 // Vendor model
@@ -108,6 +106,7 @@ model Asset {
   // Assignment & Location
   assignedToId      String?
   assignedTo        User?         @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  assignedToAadId   String?       // Azure AD ID for staff members (non-IT users)
   departmentId      String?
   department        Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   locationId        String?
@@ -139,10 +138,13 @@ model Asset {
   attachments       Attachment[]
   // Dynamic custom fields
   customFieldValues CustomFieldValue[]
+  // New many-to-many relation to workload categories
+  workloadCategories AssetWorkloadCategory[]
   
   @@index([assetType, status])
   @@index([serialNumber])
   @@index([assignedToId])
+  @@index([assignedToAadId])
   @@index([departmentId])
   @@index([locationId])
 }
@@ -235,4 +237,32 @@ model CustomFieldValue {
   @@unique([assetId, fieldId])
   @@index([assetId])
   @@index([fieldId])
+}
+
+// WorkloadCategory model
+model WorkloadCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  assetLinks  AssetWorkloadCategory[]
+}
+
+// Junction table linking Assets to Workload Categories (many-to-many)
+model AssetWorkloadCategory {
+  assetId     String
+  categoryId  String
+  assignedAt  DateTime @default(now())
+
+  // Relations
+  asset       Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  category    WorkloadCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([assetId, categoryId])
+  @@index([categoryId])
+  @@index([assetId])
 }

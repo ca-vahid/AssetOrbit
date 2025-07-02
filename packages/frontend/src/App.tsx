@@ -12,6 +12,10 @@ import CustomFields from './pages/CustomFields';
 import AddAsset from './pages/AddAsset';
 import AssetList from './pages/AssetList';
 import EditAsset from './pages/EditAsset';
+import Technicians from './pages/Technicians';
+import Staff from './pages/Staff';
+import WorkloadCategories from './pages/WorkloadCategories';
+import Locations from './pages/Locations';
 
 // Create a query client for React Query
 const queryClient = new QueryClient({
@@ -27,12 +31,30 @@ const queryClient = new QueryClient({
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { instance, accounts } = useMsal();
   const { currentUser, setCurrentUser } = useStore();
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   // Set up authentication and fetch user info
   useEffect(() => {
-    if (accounts.length === 0) return;
+    // If there is no signed-in account => nothing to do
+    if (accounts.length === 0) {
+      setCurrentUser(null);
+      setAuthError(null);
+      return;
+    }
+
+    // Already have a current user => no need to refetch
+    if (currentUser) {
+      return;
+    }
+
+    // Prevent multiple simultaneous auth attempts
+    if (isLoading) return;
 
     const setupAuth = async () => {
+      setIsLoading(true);
+      setAuthError(null);
+      
       try {
         // Set up auth interceptor
         setupAuthInterceptor(instance as any);
@@ -53,21 +75,61 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       } catch (error: any) {
         console.error('Failed to setup auth or fetch user info:', error);
         
-        // If token acquisition fails, try interactive login
+        // Handle different types of authentication errors
         if (error.name === 'InteractionRequiredAuthError') {
-          try {
-            await instance.acquireTokenRedirect({ 
-              scopes: [`api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/access_as_user`] 
-            });
-          } catch (interactiveError) {
-            console.error('Interactive login failed:', interactiveError);
-          }
+          setAuthError('Please sign in again to continue.');
+        } else if (error.name === 'BrowserAuthError' && error.errorMessage?.includes('timeout')) {
+          setAuthError('Authentication timed out. Please try refreshing the page.');
+        } else if (error.response?.status === 401) {
+          setAuthError('Your session has expired. Please sign in again.');
+        } else {
+          setAuthError('Authentication failed. Please try again.');
         }
+        
+        // Don't automatically redirect - let user choose
+        setCurrentUser(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     setupAuth();
-  }, [instance, accounts, setCurrentUser]);
+  }, [instance, accounts.length, currentUser]); // Depend on accounts length and currentUser
+
+  // Show auth error state
+  if (authError && accounts.length > 0) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gradient-to-br from-slate-50 via-slate-100/50 to-brand-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-navy-950 p-6">
+        <div className="text-center max-w-md">
+          <div className="relative mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl shadow-elevation-3 mx-auto" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl mx-auto w-16 h-16" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Authentication Error</h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">{authError}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setAuthError(null);
+                window.location.reload();
+              }}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                instance.logoutRedirect();
+              }}
+              className="w-full px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+            >
+              Sign Out & Sign In Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 };
@@ -155,12 +217,7 @@ const DepartmentsPage = () => (
   </div>
 );
 
-const LocationsPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Locations</h1>
-    <p className="text-slate-600 dark:text-slate-400 mt-2">Location management coming soon...</p>
-  </div>
-);
+
 
 const VendorsPage = () => (
   <div className="p-6">
@@ -196,9 +253,12 @@ const App: React.FC = () => {
                   <Route path="assets/bulk" element={<AddAsset />} />
                   
                   {/* Management */}
+                  <Route path="management/technicians" element={<Technicians />} />
+                  <Route path="management/staff" element={<Staff />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="departments" element={<DepartmentsPage />} />
-                  <Route path="locations" element={<LocationsPage />} />
+                  <Route path="workload-categories" element={<WorkloadCategories />} />
+                  <Route path="locations" element={<Locations />} />
                   <Route path="vendors" element={<VendorsPage />} />
                   
                   {/* Reports */}

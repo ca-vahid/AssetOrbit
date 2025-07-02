@@ -130,10 +130,22 @@ const AssetList: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {asset.assignedTo?.displayName || '—'}
+                      {asset.assignedToStaff ? (
+                        <div>
+                          <div className="text-slate-900 dark:text-slate-100">{asset.assignedToStaff.displayName}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">Staff</div>
+                        </div>
+                      ) : asset.assignedTo ? (
+                        <div>
+                          <div className="text-slate-900 dark:text-slate-100">{asset.assignedTo.displayName}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">IT Tech</div>
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {asset.location?.name || '—'}
+                      {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button

@@ -12,7 +12,8 @@ export interface Asset {
   status: 'available' | 'assigned' | 'spare' | 'retired';
   condition: 'new' | 'good' | 'fair' | 'poor';
   assignedTo?: string;
-  department?: string;
+  department?: string; // legacy
+  workloadCategories?: string[]; // IDs of workload categories
   location?: string;
   purchaseDate?: string; // ISO string
   purchasePrice?: number;

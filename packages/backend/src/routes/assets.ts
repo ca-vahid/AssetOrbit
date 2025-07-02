@@ -12,6 +12,7 @@ import {
   USER_ROLES
 } from '../constants';
 import { Prisma } from '../generated/prisma';
+import { graphService } from '../services/graphService';
 
 const router = Router();
 
@@ -50,6 +51,31 @@ function getUserId(user: any): string {
     throw new Error('User ID not found');
   }
   return userId;
+}
+
+// Helper function to enrich assets with staff information from Azure AD
+async function enrichAssetsWithStaffInfo(assets: any[]): Promise<any[]> {
+  const enrichedAssets = await Promise.all(
+    assets.map(async (asset) => {
+      if (asset.assignedToAadId) {
+        try {
+          const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
+          return {
+            ...asset,
+            assignedToStaff: staffMember,
+          };
+        } catch (error) {
+          logger.warn(`Failed to get staff info for ${asset.assignedToAadId}:`, error);
+          return {
+            ...asset,
+            assignedToStaff: null,
+          };
+        }
+      }
+      return asset;
+    })
+  );
+  return enrichedAssets;
 }
 
 // GET /api/assets - Get all assets with pagination, filtering, and sorting
@@ -146,6 +172,12 @@ router.get('/', async (req: Request, res: Response) => {
               attachments: true,
             },
           },
+          // @ts-ignore workloadCategories relation
+          workloadCategories: {
+            include: {
+              category: true,
+            },
+          },
         },
       }),
       prisma.asset.count({ where }),
@@ -155,14 +187,17 @@ router.get('/', async (req: Request, res: Response) => {
     const assetsWithParsedSpecs = assets.map((asset) => ({
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
-      customFields: asset.customFieldValues.reduce((obj: any, cfv: any) => {
+      customFields: (asset as any).customFieldValues.reduce((obj: any, cfv: any) => {
         obj[cfv.fieldId] = cfv.value;
         return obj;
       }, {}),
     }));
 
+    // Enrich with staff information from Azure AD
+    const enrichedAssets = await enrichAssetsWithStaffInfo(assetsWithParsedSpecs);
+
     res.json({
-      data: assetsWithParsedSpecs,
+      data: enrichedAssets,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -225,6 +260,12 @@ router.get('/:id', async (req: Request, res: Response) => {
         attachments: {
           orderBy: { uploadedAt: 'desc' },
         },
+        // @ts-ignore workloadCategories relation
+        workloadCategories: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
 
@@ -233,20 +274,33 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 
     // Build customFields object from value rows
-    const customFields = asset.customFieldValues.reduce((obj: any, cfv: any) => {
+    const customFields = (asset as any).customFieldValues.reduce((obj: any, cfv: any) => {
       obj[cfv.fieldId] = cfv.value;
       return obj;
     }, {} as Record<string, any>);
 
-    const assetWithParsedData = {
+    let assetWithParsedData: any = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
       customFields,
-      activities: asset.activities.map((activity) => ({
+      // @ts-ignore workloadCategories relation
+      workloadCategories: (asset as any).workloadCategories.map((link: any) => link.category),
+      activities: (asset as any).activities.map((activity: any) => ({
         ...activity,
         changes: activity.changes ? JSON.parse(activity.changes) : null,
       })),
     };
+
+    // Enrich with staff information if assigned to Azure AD user
+    if (asset.assignedToAadId) {
+      try {
+        const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
+        assetWithParsedData.assignedToStaff = staffMember;
+      } catch (error) {
+        logger.warn(`Failed to get staff info for ${asset.assignedToAadId}:`, error);
+        assetWithParsedData.assignedToStaff = null;
+      }
+    }
 
     res.json(assetWithParsedData);
   } catch (error) {
@@ -277,6 +331,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       serialNumber,
       specifications,
       assignedToId,
+      assignedToAadId,
       departmentId,
       locationId,
       purchaseDate,
@@ -287,6 +342,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       warrantyNotes,
       notes,
       customFields,
+      categoryIds,
     } = req.body;
 
     // Validate required fields
@@ -357,6 +413,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         serialNumber,
         specifications: specifications ? JSON.stringify(specifications) : null,
         assignedToId,
+        assignedToAadId,
         departmentId,
         locationId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
@@ -370,14 +427,25 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         customFieldValues: {
           create: customFieldData,
         },
+        // @ts-ignore - workloadCategories relation will exist after prisma generate
+        workloadCategories: categoryIds && Array.isArray(categoryIds)
+          ? {
+              createMany: {
+                data: categoryIds.map((cid: string) => ({ categoryId: cid })),
+              },
+            }
+          : undefined,
       },
       include: {
         assignedTo: true,
         department: true,
         location: true,
         vendor: true,
-        customFieldValues: {
-          include: { field: true },
+        // @ts-ignore include workloadCategories relation
+        workloadCategories: {
+          include: {
+            category: true,
+          },
         },
         createdBy: {
           select: {
@@ -403,10 +471,12 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
     const assetWithParsedSpecs = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
-      customFields: asset.customFieldValues.reduce((obj: any, cfv: any) => {
+      customFields: (asset as any).customFieldValues.reduce((obj: any, cfv: any) => {
         obj[cfv.fieldId] = cfv.value;
         return obj;
       }, {}),
+      // @ts-ignore workloadCategories will be generated
+      workloadCategories: (asset as any).workloadCategories.map((link: any) => link.category),
     };
 
     res.status(201).json(assetWithParsedSpecs);
@@ -480,6 +550,10 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     const customFieldsUpdates = updates.customFields || {};
     delete updates.customFields;
 
+    // Extract categoryIds from updates if present
+    const categoryIds = updates.categoryIds;
+    delete updates.categoryIds;
+
     const updateCustomFieldIds = Object.keys(customFieldsUpdates);
     if (updateCustomFieldIds.length) {
       const defs = await prisma.customField.findMany({
@@ -528,6 +602,12 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
         customFieldValues: {
           include: { field: true },
         },
+        // @ts-ignore workloadCategories relation
+        workloadCategories: {
+          include: {
+            category: true,
+          },
+        },
         updatedBy: {
           select: {
             id: true,
@@ -559,9 +639,33 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       });
     });
 
+    // Handle workload category updates if provided
+    const categoryPromises = [];
+    if (categoryIds !== undefined && Array.isArray(categoryIds)) {
+      // Delete existing category links
+      categoryPromises.push(
+        prisma.assetWorkloadCategory.deleteMany({
+          where: { assetId: id },
+        })
+      );
+      
+      // Create new category links
+      if (categoryIds.length > 0) {
+        categoryPromises.push(
+          prisma.assetWorkloadCategory.createMany({
+            data: categoryIds.map((categoryId: string) => ({
+              assetId: id,
+              categoryId,
+            })),
+          })
+        );
+      }
+    }
+
     const [updatedAsset] = await prisma.$transaction([
       updateAssetPromise,
       ...upsertPromises,
+      ...categoryPromises,
     ]);
 
     // Build changes object for activity log
@@ -612,6 +716,8 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
         obj[cfv.fieldId] = cfv.value;
         return obj;
       }, {}),
+      // @ts-ignore workloadCategories relation
+      workloadCategories: (updatedAsset as any).workloadCategories?.map((link: any) => link.category) || [],
     };
 
     res.json(assetWithParsedSpecs);
@@ -724,6 +830,12 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         vendor: true,
         customFieldValues: {
           include: { field: true },
+        },
+        // @ts-ignore workloadCategories relation
+        workloadCategories: {
+          include: {
+            category: true,
+          },
         },
         updatedBy: {
           select: {

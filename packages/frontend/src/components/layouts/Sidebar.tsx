@@ -18,7 +18,9 @@ import {
   FileText,
   Upload,
   Download,
-  Sliders
+  Sliders,
+  UserCheck,
+  UserCog
 } from 'lucide-react';
 import { useStore } from '../../store';
 import clsx from 'clsx';
@@ -62,8 +64,9 @@ const navigation: NavigationItem[] = [
     href: '/management', 
     icon: Building,
     children: [
-      { name: 'Users', href: '/users', icon: Users, requiresAdmin: true },
-      { name: 'Departments', href: '/departments', icon: Building, requiresAdmin: true },
+      { name: 'Technicians', href: '/management/technicians', icon: UserCog, requiresAdmin: true },
+      { name: 'Staff', href: '/management/staff', icon: UserCheck, requiresAdmin: true },
+      { name: 'Workload Categories', href: '/workload-categories', icon: Building, requiresAdmin: true },
       { name: 'Locations', href: '/locations', icon: MapPin, requiresAdmin: true },
       { name: 'Vendors', href: '/vendors', icon: Package, requiresAdmin: true },
     ]
@@ -273,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
                 className="text-center"
               >
                 <div className="text-xs text-slate-400 dark:text-slate-500">
-                  AssetOrbit v0.2
+                  AssetOrbit v0.4
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   Enterprise Edition

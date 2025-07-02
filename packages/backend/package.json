@@ -20,6 +20,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@azure/identity": "^4.10.1",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
     "csv-writer": "^1.6.0",

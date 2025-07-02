@@ -19,6 +19,63 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.4',
+    date: 'July 1, 2025',
+    changes: {
+      features: [
+        'Created shared AssetForm component for Add and Edit asset pages',
+        'Implemented modern workload category selector with checkbox interface',
+        'Enhanced form styling with gradient cards and improved UX',
+        'Added consistent modern styling across all asset forms',
+        'Integrated staff search with proper state management',
+        'Implemented DRY principle for maintainable asset forms',
+        'Added flexible props system for form customization',
+        'Enhanced TypeScript support with shared interfaces',
+      ],
+      improvements: [
+        'Eliminated code duplication - reduced AddAsset from 540 to 70 lines (87% reduction)',
+        'Simplified EditAsset from 830 to 150 lines (82% reduction)',
+        'Single source of truth for asset form logic',
+        'Consistent UI/UX across Add and Edit operations',
+        'Better form state management and validation',
+        'Improved workload category selection experience',
+        'Enhanced form layout with sectioned cards',
+        'Better accessibility and keyboard navigation',
+        'Updated application version badge to v0.4',
+      ],
+      bugFixes: [
+        'Fixed dropdown values resetting to defaults in Add Asset page',
+        'Resolved form state conflicts between Add and Edit modes',
+        'Fixed workload category multi-select functionality',
+        'Corrected staff assignment state management',
+        'Fixed form validation and error handling',
+      ],
+    },
+  },
+  {
+    version: 'v0.3',
+    date: 'July 1, 2025',
+    changes: {
+      features: [
+        'Full Users Management section with separate Technicians & Staff pages',
+        'Role dropdowns with inline editing and bulk role update dialog',
+        'Delete user flow with asset reassignment guard and soft-delete',
+        'Profile photos pulled from Entra ID via Microsoft Graph',
+        'Department filter, advanced search, and pagination for staff list',
+      ],
+      improvements: [
+        'Staff cards redesigned with responsive layout, truncation fixes, and real photos',
+        'Staff Details modal two-column facelift with richer data and animations',
+        'Improved logging, caching, and debug endpoints for Graph integration',
+        'Updated application version badge to v0.3',
+      ],
+      bugFixes: [
+        'Resolved text overflow in staff cards',
+        'Prevented duplicate Graph photo requests in dev mode',
+      ],
+    },
+  },
+  {
     version: 'v0.2',
     date: 'July 1, 2025',
     changes: {

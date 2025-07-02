@@ -45,7 +45,7 @@
 ### Supporting API Endpoints
 - [x] Users API (GET /api/users, GET /api/users/me, role management)
 - [x] Departments API (CRUD operations)
-- [x] Locations API (CRUD operations)
+- [x] Locations API (CRUD operations with Azure AD integration)
 - [x] Vendors API (CRUD operations)
 - [x] Custom Fields API (CRUD operations)
 - [x] Activities API (GET /api/activities/:entityType/:entityId)
@@ -229,3 +229,153 @@
 - [ ] Document decisions and changes
 - [ ] Address bugs as they arise
 - [ ] Plan for future enhancements
+
+## Recent Updates (2025-07-01)
+
+### Users Management
+- [x] Added separate Technicians and Staff pages with modern UI, pagination, filtering, and Azure AD integration.
+- [x] Implemented role drop-downs, bulk role update dialog, and dropdown action menu (view details, view assets, activity log, update role, delete user).
+- [x] Added backend endpoints:
+  - `GET /api/users/technicians`
+  - `GET /api/users/staff-with-assets` (paginated)
+  - `PUT /api/users/bulk-role-update`
+  - `DELETE /api/users/:id` (soft delete with asset check)
+- [x] Added comprehensive audit logging and RBAC checks for all new endpoints.
+
+### Staff Profile Photos
+- [x] Integrated Microsoft Graph to fetch staff profile photos from Entra ID.
+- [x] Created GraphService helpers with caching, error handling, and metadata retrieval.
+- [x] Added new backend routes:
+  - `GET /api/staff/:aadId/photo` (image)
+  - `GET /api/staff/:aadId/photo/metadata`
+  - `POST /api/staff/clear-photo-cache`
+  - `GET /api/staff/:aadId/photo/test` (debug)
+  - `GET /api/staff/debug/permissions` (debug)
+- [x] Implemented `useProfilePhoto` hook and `ProfilePicture` component with graceful fallback to initials.
+- [x] Updated Staff cards & modal to display real photos when available.
+- [x] Added improved logging & permission diagnostics.
+
+### UI / UX Enhancements
+- [x] Staff cards: truncation fixes, responsive max-width, improved spacing.
+- [x] Details modal facelift with two-column layout and richer data.
+- [x] Added department filter dropdown, refined search, and loading states.
+
+### Asset Detail Modal & Form Enhancements (Latest Updates)
+- [x] **Profile Pictures Integration**: Added real profile pictures to asset owner cards in Asset Detail Modal using existing Microsoft Graph integration
+  - [x] Implemented `useProfilePhoto` hook and `ProfilePicture` component from Staff section
+  - [x] Added graceful fallback to gradient avatars with initials for users without photos
+  - [x] Integrated with existing `/api/staff/:aadId/photo` endpoint with proper caching
+
+- [x] **Enhanced Visual Design**: Complete redesign of Asset Detail Modal assignment section
+  - [x] Gradient backgrounds (`blue → indigo → purple`) with hover effects and glass morphism
+  - [x] Animated icons with scale-on-hover transitions (300ms duration consistency)
+  - [x] Enhanced user cards with larger profile pictures (md size: 56x56px)
+  - [x] Status indicators (green "online" dots) and improved typography with color gradients
+  - [x] Workload categories with animated badges, hover effects, and staggered animations
+
+- [x] **EditAsset Form Complete Overhaul**: Modern, professional form design with enhanced UX
+  - [x] **Custom Workload Category Selector**: Replaced awkward Ctrl+click multi-select with intuitive dropdown interface
+    - [x] Checkbox-based selection with visual feedback
+    - [x] Purple badges with remove buttons for selected categories
+    - [x] Smart display ("X categories selected" when multiple chosen)
+    - [x] Category descriptions shown in dropdown with smooth animations
+  - [x] **Modern Card Layout**: Converted sections to gradient cards with rounded corners and shadows
+  - [x] **Themed Icons**: Added colored icon containers for each section (Package, User, DollarSign, FileText, Settings)
+  - [x] **Enhanced Form Controls**: Upgraded styling with `rounded-xl`, increased padding, icons inside inputs
+  - [x] **Assignment Section Improvements**: Modern toggle button design replacing radio buttons
+
+- [x] **Critical Bug Fix - Staff Assignment in Edit Form**: Resolved issue where existing staff assignments weren't displaying in edit form
+  - [x] **Root Cause**: `StaffSearch` component was receiving wrong value prop (`selectedStaff?.id` instead of `asset?.assignedToAadId`)
+  - [x] **API Fix**: Updated to use `staffApi.getById(aadId)` instead of search endpoint for fetching existing staff by Azure AD ID
+  - [x] **Form Integration**: Fixed React Hook Form integration with proper `setValue` and dirty state management
+  - [x] **Cross-Assignment Clearing**: Enhanced logic to clear opposite assignment types when switching between IT and Staff
+  - [x] **Error Handling**: Added proper error handling for missing staff members with graceful fallback
+
+### Technical Improvements
+- [x] **Form State Management**: Enhanced React Hook Form integration with proper dirty state tracking
+- [x] **Performance Optimizations**: Efficient photo loading with proper cleanup and smooth animations
+- [x] **TypeScript Compliance**: All changes implemented with full type safety and successful builds
+- [x] **API Integration**: Leveraged existing Microsoft Graph Service and staff endpoints with proper caching
+
+## Recent Updates (2025-07-01) - Locations Management
+
+### Azure AD Location Integration
+- [x] **Database Schema Update**: Modified Location model to support city/province/country structure from Azure AD
+  - [x] Updated Prisma schema with `city`, `province`, `country`, `source`, and `isActive` fields
+  - [x] Added unique constraint on `(city, province, country)` combination
+  - [x] Added source tracking (`AZURE_AD` vs `MANUAL`) for location origins
+
+- [x] **Microsoft Graph Integration**: Enhanced GraphService to fetch distinct locations from Azure AD
+  - [x] Added `getDistinctLocations()` method to extract unique city/state/country combinations from all users
+  - [x] Implemented pagination handling for large user bases
+  - [x] Added proper error handling and logging for location sync operations
+
+- [x] **Backend API Implementation**: Complete locations API with Azure AD sync capabilities
+  - [x] `GET /api/locations` - Get active locations with filtering
+  - [x] `GET /api/locations/all` - Admin-only access to all locations including inactive
+  - [x] `POST /api/locations` - Create manual locations (admin only)
+  - [x] `PUT /api/locations/:id` - Update location details (admin only)
+  - [x] `PATCH /api/locations/:id/toggle` - Toggle active/inactive status (admin only)
+  - [x] `POST /api/locations/sync` - Sync locations from Azure AD (admin only)
+  - [x] `GET /api/locations/provinces` - Get distinct provinces for dropdowns
+  - [x] `GET /api/locations/countries` - Get distinct countries for dropdowns
+
+- [x] **Sync Scripts**: Automated location synchronization from Azure AD
+  - [x] Created `sync-locations.ts` script for one-time and scheduled syncing
+  - [x] Added `add-sample-locations.ts` for testing with Canadian cities
+  - [x] Implemented duplicate detection and conflict resolution
+  - [x] Added comprehensive logging and progress reporting
+
+### Frontend Locations Management
+- [x] **Modern Locations Page**: Complete admin interface for location management
+  - [x] Responsive table with city, province, country, source, and asset count columns
+  - [x] Advanced filtering by search term, country, and province
+  - [x] Toggle to show/hide inactive locations
+  - [x] Real-time stats cards showing total, active, Azure AD, and manual locations
+  - [x] Admin controls for sync, add, edit, and toggle operations
+
+- [x] **API Integration**: Full frontend integration with locations backend
+  - [x] Updated `locationsApi` with all new endpoints
+  - [x] Added React Query integration for caching and real-time updates
+  - [x] Implemented proper error handling and loading states
+  - [x] Added mutation handling for sync, toggle, create, and update operations
+
+- [x] **Navigation Integration**: Added Locations to the application navigation
+  - [x] Updated sidebar navigation with proper admin role restrictions
+  - [x] Added route configuration in App component
+  - [x] Integrated with existing RBAC system
+
+### Canada-First Design
+- [x] **Canadian Focus**: Designed with Canadian operations in mind
+  - [x] Default country set to "Canada" with optional override
+  - [x] Hide country column in UI when all locations are Canadian
+  - [x] Province/state terminology adapted for Canadian context
+  - [x] Sample data includes major Canadian cities across provinces
+
+### Technical Implementation
+- [x] **Type Safety**: Full TypeScript integration throughout the stack
+- [x] **Error Handling**: Comprehensive error handling for Azure AD API failures
+- [x] **Performance**: Efficient caching and pagination for large datasets
+- [x] **Security**: All admin operations properly protected with RBAC
+- [x] **Scalability**: Designed to handle thousands of locations and users
+
+## Recent Updates (2025-07-01) – v0.4
+
+### Shared Asset Form Refactor
+- [x] Create shared `AssetForm` component used by both Add and Edit pages
+- [x] Remove legacy form code from `AddAsset.tsx` (87% reduction)
+- [x] Simplify `EditAsset.tsx` to leverage shared component (82% reduction)
+- [x] Implement modern workload-category selector with checkbox UI
+- [x] Fix dropdown reset bug on Add Asset page
+- [x] Update version badge to **v0.4** in TopNavigation & Sidebar
+- [x] Add v0.4 entry to in-app Changelog modal
+- [x] Update root `package.json` version to **0.4.0**
+- [x] Enhance README with key features & recent updates
+
+### Next Steps (post-v0.4)
+- [ ] Add unit tests for shared `AssetForm` component
+- [ ] Create Storybook stories for asset form variants
+- [ ] Investigate code-splitting to reduce initial JS bundle (<800 KB gzip)
+- [ ] Add optimistic UI updates for asset mutations
+
+---

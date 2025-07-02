@@ -15,6 +15,8 @@ import locationsRouter from './routes/locations';
 import vendorsRouter from './routes/vendors';
 import customFieldsRouter from './routes/customFields';
 import activitiesRouter from './routes/activities';
+import staffRouter from './routes/staff';
+import workloadCategoriesRouter from './routes/workloadCategories';
 import { initAuth, authenticateJwt } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -54,6 +56,8 @@ app.use('/api/locations', locationsRouter);
 app.use('/api/vendors', vendorsRouter);
 app.use('/api/custom-fields', customFieldsRouter);
 app.use('/api/activities', activitiesRouter);
+app.use('/api/staff', staffRouter);
+app.use('/api/workload-categories', workloadCategoriesRouter);
 
 // Protected route example
 app.get('/api/protected', authenticateJwt, (req: Request, res: Response) => {
