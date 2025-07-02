@@ -64,14 +64,18 @@ router.get('/', async (req: Request, res: Response) => {
         role: true,
         isActive: true,
         lastLoginAt: true,
+        createdAt: true,
         _count: {
           select: {
             assignedAssets: true,
+            createdAssets: true,
+            activities: true,
           },
         },
       },
       orderBy: [
         { isActive: 'desc' },
+        { role: 'desc' }, // ADMIN first, then WRITE, then READ
         { displayName: 'asc' },
       ],
     });
@@ -296,6 +300,16 @@ router.get('/me', async (req: Request, res: Response) => {
           role: USER_ROLES.READ,
           department: token.department ?? undefined,
           officeLocation: token.office_location ?? undefined,
+          lastLoginAt: new Date(),
+        },
+      });
+    } else {
+      // Update last login time for existing users
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          isActive: true, // Reactivate if previously soft-deleted
         },
       });
     }

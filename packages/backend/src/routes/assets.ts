@@ -91,6 +91,10 @@ router.get('/', async (req: Request, res: Response) => {
       departmentId,
       locationId,
       assignedToId,
+      assignedToAadId,
+      assignedTo, // Generic parameter that can be either ID or AAD ID
+      dateFrom,
+      dateTo,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.query;
@@ -111,6 +115,16 @@ router.get('/', async (req: Request, res: Response) => {
         { model: { contains: searchStr } },
         { serialNumber: { contains: searchStr } },
         { notes: { contains: searchStr } },
+        // Search within custom field values
+        {
+          customFieldValues: {
+            some: {
+              value: {
+                contains: searchStr,
+              },
+            },
+          },
+        },
       ];
     }
 
@@ -130,8 +144,59 @@ router.get('/', async (req: Request, res: Response) => {
     if (locationId) {
       where.locationId = locationId as string;
     }
+    
+    // Handle assignment filters - support both legacy and new parameters
     if (assignedToId) {
       where.assignedToId = assignedToId as string;
+    }
+    if (assignedToAadId) {
+      where.assignedToAadId = assignedToAadId as string;
+    }
+    // Generic assignedTo parameter - try to detect if it's a UUID (AAD ID) or internal ID
+    if (assignedTo) {
+      const assignedToStr = assignedTo as string;
+      // Check if it looks like a UUID (Azure AD ID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(assignedToStr)) {
+        where.assignedToAadId = assignedToStr;
+      } else {
+        where.assignedToId = assignedToStr;
+      }
+    }
+
+    // Date range filters
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) {
+        where.createdAt.gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        where.createdAt.lte = new Date(dateTo as string);
+      }
+    }
+
+    // Custom field exact match filters: cf_<fieldId>=value
+    const cfFilters: Prisma.AssetWhereInput[] = [];
+    Object.entries(req.query).forEach(([key, val]) => {
+      if (key.startsWith('cf_') && val) {
+        const fieldId = key.slice(3);
+        cfFilters.push({
+          customFieldValues: {
+            some: {
+              fieldId,
+              value: String(val),
+            },
+          },
+        });
+      }
+    });
+    if (cfFilters.length) {
+      if (!where.AND) {
+        // @ts-ignore
+        where.AND = [];
+      }
+      // @ts-ignore push into where.AND array
+      (where.AND as any[]).push(...cfFilters);
     }
 
     // Build orderBy
@@ -187,10 +252,10 @@ router.get('/', async (req: Request, res: Response) => {
     const assetsWithParsedSpecs = assets.map((asset) => ({
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
-      customFields: (asset as any).customFieldValues.reduce((obj: any, cfv: any) => {
+      customFields: (asset as any).customFieldValues?.reduce((obj: any, cfv: any) => {
         obj[cfv.fieldId] = cfv.value;
         return obj;
-      }, {}),
+      }, {}) || {},
     }));
 
     // Enrich with staff information from Azure AD
@@ -314,10 +379,22 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
   try {
     const user = (req as any).user;
     
+    // Debug logging
+    logger.info({
+      user: {
+        userId: user.userId,
+        dbUser: user.dbUser ? { id: user.dbUser.id, email: user.dbUser.email } : null,
+        oid: user.oid,
+      },
+    }, 'User object');
+    logger.info({ requestBody: req.body }, 'Request body');
+    
     let userId: string;
     try {
       userId = getUserId(user);
+      logger.info('Extracted userId:', userId);
     } catch (error) {
+      logger.error('Failed to extract userId:', error);
       return res.status(401).json({ error: 'User ID not found' });
     }
     
@@ -374,7 +451,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
 
     // Check if serial number already exists
     if (serialNumber) {
-      const existingSerial = await prisma.asset.findUnique({
+      const existingSerial = await prisma.asset.findFirst({
         where: { serialNumber },
       });
       if (existingSerial) {
@@ -382,24 +459,39 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
       }
     }
 
-    // Validate custom field IDs
-    const customFieldIds = Object.keys(customFields || {});
-    if (customFieldIds.length) {
+    // Validate custom field IDs and filter out empty values - IMPROVED FILTERING
+    logger.info({ customFieldsRaw: customFields }, 'Raw customFields');
+    
+    const nonEmptyCustomFields = Object.fromEntries(
+      Object.entries(customFields || {}).filter(([_, value]) => {
+        // More strict filtering - exclude empty strings, null, undefined, and whitespace-only strings
+        return value !== '' && value != null && value !== undefined && 
+               (typeof value !== 'string' || value.trim() !== '');
+      })
+    );
+    
+    logger.info({ customFieldsFiltered: nonEmptyCustomFields }, 'Filtered customFields');
+    
+    const nonEmptyCustomFieldIds = Object.keys(nonEmptyCustomFields);
+    
+    if (nonEmptyCustomFieldIds.length) {
       const existingDefs = await prisma.customField.findMany({
-        where: { id: { in: customFieldIds }, isActive: true },
+        where: { id: { in: nonEmptyCustomFieldIds }, isActive: true },
         select: { id: true },
       });
       const existingIds = new Set(existingDefs.map((d) => d.id));
-      const missingIds = customFieldIds.filter((id) => !existingIds.has(id));
+      const missingIds = nonEmptyCustomFieldIds.filter((id) => !existingIds.has(id));
       if (missingIds.length) {
         return res.status(400).json({ error: `Invalid custom field IDs: ${missingIds.join(', ')}` });
       }
     }
 
-    const customFieldData = Object.entries(customFields || {}).map(([fieldId, value]: [string, any]) => ({
+    const customFieldData = Object.entries(nonEmptyCustomFields).map(([fieldId, value]: [string, any]) => ({
       fieldId,
       value: typeof value === 'object' ? JSON.stringify(value) : String(value),
     }));
+    
+    logger.info({ customFieldData }, 'Custom field data to create');
 
     // Create asset
     const asset = await prisma.asset.create({
@@ -427,8 +519,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         customFieldValues: {
           create: customFieldData,
         },
-        // @ts-ignore - workloadCategories relation will exist after prisma generate
-        workloadCategories: categoryIds && Array.isArray(categoryIds)
+        workloadCategories: categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0
           ? {
               createMany: {
                 data: categoryIds.map((cid: string) => ({ categoryId: cid })),
@@ -471,23 +562,34 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
     const assetWithParsedSpecs = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
-      customFields: (asset as any).customFieldValues.reduce((obj: any, cfv: any) => {
+      customFields: (asset as any).customFieldValues?.reduce((obj: any, cfv: any) => {
         obj[cfv.fieldId] = cfv.value;
         return obj;
-      }, {}),
+      }, {}) || {},
       // @ts-ignore workloadCategories will be generated
       workloadCategories: (asset as any).workloadCategories.map((link: any) => link.category),
     };
 
     res.status(201).json(assetWithParsedSpecs);
   } catch (error) {
-    logger.error('Error creating asset:', error);
-    logger.error('Database error:', error);
+    logger.error({ err: error }, 'Error creating asset');
     
     // Log more specific error details
     if (error instanceof Error) {
-      logger.error('Error message:', error.message);
-      logger.error('Error stack:', error.stack);
+      logger.error({ name: error.name, message: error.message, stack: error.stack }, 'Error details');
+    } else {
+      logger.error('Non-Error object thrown:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    }
+    
+    // Log Prisma-specific errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      logger.error({ prismaCode: (error as any).code }, 'Prisma error code');
+      if ((error as any).meta) {
+        logger.error('Prisma error meta:', JSON.stringify((error as any).meta, null, 2));
+      }
+      if ((error as any).clientVersion) {
+        logger.error('Prisma client version:', (error as any).clientVersion);
+      }
     }
     
     res.status(500).json({ error: 'Failed to create asset' });
@@ -538,7 +640,7 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     }
 
     if (updates.serialNumber && updates.serialNumber !== existingAsset.serialNumber) {
-      const duplicateSerial = await prisma.asset.findUnique({
+      const duplicateSerial = await prisma.asset.findFirst({
         where: { serialNumber: updates.serialNumber },
       });
       if (duplicateSerial) {
@@ -546,15 +648,18 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       }
     }
 
-    // Extract customFields from updates if present
+    // Extract customFields from updates if present and filter out empty values
     const customFieldsUpdates = updates.customFields || {};
+    const nonEmptyCustomFieldsUpdates = Object.fromEntries(
+      Object.entries(customFieldsUpdates).filter(([_, value]) => value !== '' && value != null)
+    );
     delete updates.customFields;
 
     // Extract categoryIds from updates if present
     const categoryIds = updates.categoryIds;
     delete updates.categoryIds;
 
-    const updateCustomFieldIds = Object.keys(customFieldsUpdates);
+    const updateCustomFieldIds = Object.keys(nonEmptyCustomFieldsUpdates);
     if (updateCustomFieldIds.length) {
       const defs = await prisma.customField.findMany({
         where: { id: { in: updateCustomFieldIds }, isActive: true },
@@ -619,7 +724,7 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     });
 
     // Prepare upserts for custom field values
-    const upsertPromises = Object.entries(customFieldsUpdates).map(([fieldId, value]: [string, any]) => {
+    const upsertPromises = Object.entries(nonEmptyCustomFieldsUpdates).map(([fieldId, value]: [string, any]) => {
       const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
       return prisma.customFieldValue.upsert({
         where: {
@@ -771,7 +876,7 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
     }
 
     if (updates.serialNumber && updates.serialNumber !== existingAsset.serialNumber) {
-      const duplicateSerial = await prisma.asset.findUnique({
+      const duplicateSerial = await prisma.asset.findFirst({
         where: { serialNumber: updates.serialNumber },
       });
       if (duplicateSerial) {
@@ -779,11 +884,14 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
       }
     }
 
-    // Extract customFields from updates if present
+    // Extract customFields from updates if present and filter out empty values
     const customFieldsUpdates = updates.customFields || {};
+    const nonEmptyCustomFieldsUpdates = Object.fromEntries(
+      Object.entries(customFieldsUpdates).filter(([_, value]) => value !== '' && value != null)
+    );
     delete updates.customFields;
 
-    const updateCustomFieldIds = Object.keys(customFieldsUpdates);
+    const updateCustomFieldIds = Object.keys(nonEmptyCustomFieldsUpdates);
     if (updateCustomFieldIds.length) {
       const defs = await prisma.customField.findMany({
         where: { id: { in: updateCustomFieldIds }, isActive: true },
@@ -848,7 +956,7 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
     });
 
     // Prepare upserts for custom field values
-    const upsertPromises = Object.entries(customFieldsUpdates).map(([fieldId, value]: [string, any]) => {
+    const upsertPromises = Object.entries(nonEmptyCustomFieldsUpdates).map(([fieldId, value]: [string, any]) => {
       const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
       return prisma.customFieldValue.upsert({
         where: {
@@ -1081,6 +1189,16 @@ router.get('/export', async (req: Request, res: Response) => {
         { model: { contains: searchStr } },
         { serialNumber: { contains: searchStr } },
         { notes: { contains: searchStr } },
+        // Search within custom field values
+        {
+          customFieldValues: {
+            some: {
+              value: {
+                contains: searchStr,
+              },
+            },
+          },
+        },
       ];
     }
 
@@ -1171,7 +1289,7 @@ router.get('/export', async (req: Request, res: Response) => {
           serialNumber: asset.serialNumber || '',
           assignedTo: asset.assignedTo ? `${asset.assignedTo.displayName} (${asset.assignedTo.email})` : '',
           department: asset.department?.name || '',
-          location: asset.location?.name || '',
+          location: asset.location ? `${asset.location.city}, ${asset.location.province}` : '',
           vendor: asset.vendor?.name || '',
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
           purchasePrice: asset.purchasePrice ? asset.purchasePrice.toString() : '',
@@ -1230,7 +1348,7 @@ router.get('/export', async (req: Request, res: Response) => {
         serialNumber: asset.serialNumber || '',
         assignedTo: asset.assignedTo ? `${asset.assignedTo.displayName} (${asset.assignedTo.email})` : '',
         department: asset.department?.name || '',
-        location: asset.location?.name || '',
+        location: asset.location ? `${asset.location.city}, ${asset.location.province}` : '',
         vendor: asset.vendor?.name || '',
         purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
         purchasePrice: asset.purchasePrice ? asset.purchasePrice.toString() : '',

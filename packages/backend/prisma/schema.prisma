@@ -98,7 +98,7 @@ model Asset {
   // Basic Information
   make              String
   model             String
-  serialNumber      String?       @unique
+  serialNumber      String?
   
   // Specifications (stored as JSON string)
   specifications    String?       @db.NVarChar(4000)
