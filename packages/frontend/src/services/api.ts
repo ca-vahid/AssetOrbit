@@ -285,6 +285,7 @@ export const customFieldsApi = {
   getAll: () => api.get<CustomField[]>('/custom-fields').then(res => res.data),
   create: (data: any) => api.post<CustomField>('/custom-fields', data).then(res => res.data),
   update: (id: string, data: any) => api.put<CustomField>(`/custom-fields/${id}`, data).then(res => res.data),
+  delete: (id: string) => api.delete(`/custom-fields/${id}`).then(res => res.data),
 };
 
 export const activitiesApi = {

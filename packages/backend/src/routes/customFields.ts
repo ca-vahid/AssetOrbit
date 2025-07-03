@@ -147,4 +147,31 @@ router.put('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Re
   }
 });
 
+// New: DELETE /api/custom-fields/:id - soft delete (deactivate) (ADMIN only)
+router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId || (req as any).user?.dbUser?.id;
+    const { id } = req.params;
+
+    // Check if field exists
+    const field = await prisma.customField.findUnique({ where: { id } });
+    if (!field) {
+      return res.status(404).json({ error: 'Custom field not found' });
+    }
+
+    // Soft delete by setting isActive = false
+    const updated = await prisma.customField.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    await logActivity(userId, ACTIVITY_ACTIONS.DELETE, id, { action: 'CustomField deactivated' });
+
+    res.json({ message: 'Custom field deleted', id });
+  } catch (error) {
+    logger.error('Error deleting custom field:', error);
+    res.status(500).json({ error: 'Failed to delete custom field' });
+  }
+});
+
 export default router; 

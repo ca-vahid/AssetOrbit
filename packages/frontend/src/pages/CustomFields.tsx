@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { customFieldsApi } from '../services/api';
+import { useStore } from '../store';
 import type { CustomField } from '@ats/shared';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -29,6 +30,10 @@ const CustomFields: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
 
+  // Get current user
+  const currentUser = useStore(state => state.currentUser);
+  const isAdmin = currentUser?.role === 'ADMIN';
+
   const {
     register,
     handleSubmit,
@@ -54,6 +59,19 @@ const CustomFields: React.FC = () => {
       console.error('Error loading custom fields:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (field: CustomField) => {
+    const confirmed = window.confirm(`Are you sure you want to delete the custom field "${field.name}"?\nThis will deactivate the field for all future assets, but existing data will be kept.`);
+    if (!confirmed) return;
+
+    try {
+      await customFieldsApi.delete(field.id);
+      await loadCustomFields();
+    } catch (err) {
+      console.error('Error deleting custom field:', err);
+      setError('Failed to delete custom field');
     }
   };
 
@@ -214,6 +232,14 @@ const CustomFields: React.FC = () => {
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(field)}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

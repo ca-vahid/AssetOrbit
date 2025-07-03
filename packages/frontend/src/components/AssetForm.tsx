@@ -326,6 +326,72 @@ const AssetForm: React.FC<AssetFormProps> = ({
           </div>
         );
 
+      // New case for MULTI_SELECT custom fields
+      case 'MULTI_SELECT':
+        const multiOptions = field.options || [];
+        return (
+          <div key={field.id}>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              {field.name} {isRequired && <span className="text-red-500">*</span>}
+            </label>
+            <Controller
+              name={fieldName}
+              control={control}
+              defaultValue={[]}
+              rules={{
+                validate: (val: any) =>
+                  isRequired && (!val || val.length === 0)
+                    ? `${field.name} is required`
+                    : true,
+              }}
+              render={({ field: { value, onChange } }) => {
+                // Ensure value is an array
+                const selected: string[] = Array.isArray(value)
+                  ? value
+                  : typeof value === 'string'
+                  ? (() => {
+                      try {
+                        return JSON.parse(value);
+                      } catch {
+                        return [];
+                      }
+                    })()
+                  : [];
+
+                const toggleOption = (option: string, checked: boolean) => {
+                  if (checked) {
+                    onChange([...selected, option]);
+                  } else {
+                    onChange(selected.filter((v) => v !== option));
+                  }
+                };
+
+                return (
+                  <div className="flex flex-col gap-2">
+                    {multiOptions.map((option) => {
+                      const isChecked = selected.includes(option);
+                      return (
+                        <label key={option} className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 text-brand-600 border-slate-300 rounded focus:ring-brand-500 transition-colors"
+                            checked={isChecked}
+                            onChange={(e) => toggleOption(option, e.target.checked)}
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">{option}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              }}
+            />
+            {errors[fieldName] && (
+              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+            )}
+          </div>
+        );
+
       case 'DATE':
         return (
           <div key={field.id}>
