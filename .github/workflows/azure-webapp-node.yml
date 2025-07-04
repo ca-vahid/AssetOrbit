@@ -40,10 +40,9 @@ jobs:
           mkdir -p deploy
           cp -r packages/backend/dist deploy/
           cp packages/backend/package.json deploy/
-          # Use root package-lock.json since backend doesn't have its own
-          cp package-lock.json deploy/
           cd deploy
-          npm ci --omit=dev
+          # Install only production dependencies directly
+          npm install express cors morgan helmet dotenv @prisma/client @azure/identity @microsoft/microsoft-graph-client csv-writer exceljs passport passport-azure-ad pino pino-pretty prisma --production
 
       # Log in to Azure using federated credentials
       - name: Azure Login
