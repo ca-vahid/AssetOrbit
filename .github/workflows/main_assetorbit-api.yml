@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r packages/backend/dist deploy/
-          cp -r packages/backend/src/generated deploy/
+          cp -r packages/backend/generated deploy/
           cp packages/backend/package.json deploy/
           cd deploy
           # Install only production dependencies directly
