@@ -47,10 +47,13 @@ jobs:
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           npm prune --production
 
-      - name: Copy package files
+      - name: Copy and prepare package files
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           cp package*.json dist/
+          # Remove "type": "module" for CommonJS compatibility
+          cd dist
+          node -e "const p=require('./package.json'); delete p.type; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
 
       - name: Zip artifact for deployment
         run: |
