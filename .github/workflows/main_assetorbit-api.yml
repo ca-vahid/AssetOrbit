@@ -104,4 +104,5 @@ jobs:
         with:
           app-name: 'assetorbit-api'
           slot-name: 'Production'
-          package: . 
+          package: .
+          clean: true 
