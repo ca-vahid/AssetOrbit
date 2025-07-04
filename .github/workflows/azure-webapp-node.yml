@@ -40,7 +40,8 @@ jobs:
           mkdir -p deploy
           cp -r packages/backend/dist deploy/
           cp packages/backend/package.json deploy/
-          cp packages/backend/package-lock.json deploy/
+          # Use root package-lock.json since backend doesn't have its own
+          cp package-lock.json deploy/
           cd deploy
           npm ci --omit=dev
 
