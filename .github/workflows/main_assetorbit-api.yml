@@ -50,6 +50,7 @@ jobs:
       - name: Copy package files
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+          cp -R node_modules dist/
           cp package*.json dist/
           node - <<'EOF'
           const fs = require('fs');
