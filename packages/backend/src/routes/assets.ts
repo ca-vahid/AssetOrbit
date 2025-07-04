@@ -11,7 +11,7 @@ import {
   ENTITY_TYPES,
   USER_ROLES
 } from '../constants/index.js';
-import { Prisma } from '../generated/prisma';
+import { Prisma } from '../generated/prisma/index.js';
 import { graphService } from '../services/graphService';
 
 const router = Router();
