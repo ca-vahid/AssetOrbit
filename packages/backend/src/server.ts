@@ -79,9 +79,12 @@ async function startServer() {
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`Port: ${port}`);
     logger.info(`CORS Origins: ${config.corsOrigins.join(', ')}`);
+    logger.info(`Database URL configured: ${process.env.DATABASE_URL ? 'Yes' : 'No'}`);
     
     // Connect to database first
+    logger.info('Attempting database connection...');
     await connectDatabase();
+    logger.info('Database connection successful!');
     
     // Start Express server
     const server = app.listen(port, () => {
@@ -100,10 +103,32 @@ async function startServer() {
 
   } catch (error: any) {
     logger.error('Failed to start server:');
+    logger.error('Error type:', typeof error);
     logger.error('Error:', error);
     
     if (error.message) {
       logger.error('Error message:', error.message);
+    }
+    
+    if (error.code) {
+      logger.error('Error code:', error.code);
+    }
+    
+    if (error.stack) {
+      logger.error('Stack trace:', error.stack);
+    }
+    
+    // Log specific database connection errors
+    if (error.message?.includes('ENOTFOUND')) {
+      logger.error('DNS resolution failed - check server name');
+    } else if (error.message?.includes('ECONNREFUSED')) {
+      logger.error('Connection refused - check server is running and port is correct');
+    } else if (error.message?.includes('timeout')) {
+      logger.error('Connection timeout - possible firewall/network issue');
+    } else if (error.message?.includes('Login failed')) {
+      logger.error('Authentication failed - check username/password');
+    } else if (error.message?.includes('Cannot open server')) {
+      logger.error('Cannot reach server - check firewall rules and IP whitelist');
     }
     
     process.exit(1);
