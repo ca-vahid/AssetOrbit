@@ -51,6 +51,14 @@ jobs:
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           cp package*.json dist/
+          node - <<'EOF'
+          const fs = require('fs');
+          const pkgPath = './dist/package.json';
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.scripts = pkg.scripts || {};
+          pkg.scripts.start = 'node server.js';
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+          EOF
 
       - name: Create constants.js wrapper
         run: |
