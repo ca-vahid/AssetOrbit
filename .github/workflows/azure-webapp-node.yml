@@ -34,11 +34,18 @@ jobs:
       - name: Build backend workspace
         run: npm run build --workspace @ats/backend
 
+      # Generate Prisma client
+      - name: Generate Prisma client
+        run: |
+          cd packages/backend
+          npx prisma generate
+
       # Create deployment package with backend code and dependencies
       - name: Create deployment package
         run: |
           mkdir -p deploy
           cp -r packages/backend/dist deploy/
+          cp -r packages/backend/src/generated deploy/
           cp packages/backend/package.json deploy/
           cd deploy
           # Install only production dependencies directly
