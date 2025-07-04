@@ -41,7 +41,7 @@ jobs:
           # Copy necessary files to deployment directory
           mkdir -p deploy
           cp -r dist/* deploy/
-          cp package*.json deploy/
+          cp package.json package-lock.json deploy/
           cp -r prisma deploy/
           
           # Install production dependencies in deploy folder
