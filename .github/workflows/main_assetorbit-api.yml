@@ -41,17 +41,17 @@ jobs:
           # Copy necessary files to deployment directory
           mkdir -p deploy
           cp -r dist/* deploy/
-          cp package.json deploy/
+          cp package.json package-lock.json deploy/
           cp -r prisma deploy/
           
           # Install production dependencies in deploy folder
           cd deploy
-          npm install --omit=dev --ignore-scripts
+          npm ci --omit=dev --ignore-scripts
           
           # Generate Prisma client in deploy folder
           npx prisma generate
           
-          # Remove package-lock.json if it was created (not needed for runtime)
+          # Remove package-lock.json as it's not needed for runtime
           rm -f package-lock.json
 
       - name: Zip artifact for deployment
@@ -86,9 +86,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A228BD82482B46E4BF47BB41B32528F9 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3FB316A6408240F5B79F326BBB00DCDD }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F12703DB9BE043F8988F14043FFDDF35 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D5F2C5C5F6CE4F5D9C3BA8F9E5AF9C5C }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B9B7E8C0E7C6439BBFB96F2F0E93B6C2 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E96B96F2B8F44CEFB7C1B5B6C2E93B6C }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
