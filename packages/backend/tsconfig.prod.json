@@ -3,9 +3,7 @@
   "compilerOptions": {
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "strict": false,
-    "module": "commonjs",
-    "moduleResolution": "node"
+    "strict": false
   },
   "exclude": ["src/scripts/**/*"]
 } 

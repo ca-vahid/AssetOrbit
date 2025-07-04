@@ -47,20 +47,10 @@ jobs:
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           npm prune --production
 
-      - name: Copy and prepare package files
+      - name: Copy package files
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           cp package*.json dist/
-          # Remove "type": "module" for CommonJS compatibility
-          cd dist
-          node -e "const p=require('./package.json'); delete p.type; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
-
-      - name: Create constants stub for ESM resolution
-        run: |
-          cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/dist
-          if [ -f constants/index.js ]; then
-            cp constants/index.js constants.js
-          fi
 
       - name: Zip artifact for deployment
         run: |
