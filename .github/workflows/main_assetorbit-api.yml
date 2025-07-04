@@ -31,7 +31,12 @@ jobs:
         working-directory: ./packages/backend
         run: |
           npm ci --ignore-scripts
-          npm run build --if-present
+          
+          # Generate Prisma client
+          npx prisma generate
+          
+          # Build TypeScript with production config
+          npx tsc -p tsconfig.prod.json
           
           # Copy necessary files to deployment directory
           mkdir -p deploy
@@ -42,6 +47,9 @@ jobs:
           # Install production dependencies in deploy folder
           cd deploy
           npm ci --omit=dev --ignore-scripts
+          
+          # Generate Prisma client in deploy folder
+          npx prisma generate
           
           # Remove package-lock.json as it's not needed for runtime
           rm -f package-lock.json
