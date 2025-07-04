@@ -57,6 +57,7 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
           pkg.scripts = pkg.scripts || {};
           pkg.scripts.start = 'node server.js';
+          pkg.type = 'commonjs';
           fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
           EOF
 
