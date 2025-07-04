@@ -50,7 +50,8 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r packages/backend/dist deploy/
-          cp -r packages/backend/src/generated deploy/
+          mkdir -p deploy/dist/generated
+          cp -r packages/backend/src/generated/prisma deploy/dist/generated/
           cp packages/backend/package.json deploy/
           cd deploy
           # Install only production dependencies directly
