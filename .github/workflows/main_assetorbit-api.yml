@@ -52,10 +52,11 @@ jobs:
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           cp package*.json dist/
 
-      - name: Create constants.js re-export for ESM resolution
+      - name: Create constants.js wrapper
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/dist
           echo "export * from './constants/index.js';" > constants.js
+          ls -l constants.js
 
       - name: Zip artifact for deployment
         run: |
