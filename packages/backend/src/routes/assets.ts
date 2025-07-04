@@ -10,7 +10,7 @@ import {
   ACTIVITY_ACTIONS,
   ENTITY_TYPES,
   USER_ROLES
-} from '../constants';
+} from '../constants/index.js';
 import { Prisma } from '../generated/prisma';
 import { graphService } from '../services/graphService';
 
