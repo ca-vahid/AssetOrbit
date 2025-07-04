@@ -41,6 +41,7 @@ jobs:
           # Copy necessary files to deployment directory
           mkdir -p deploy
           cp -r dist/* deploy/
+          cp -r src/generated deploy/
           cp package.json deploy/
           cp -r prisma deploy/
           
