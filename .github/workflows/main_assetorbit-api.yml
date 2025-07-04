@@ -44,8 +44,17 @@ jobs:
           cp package.json deploy/
           cp -r prisma deploy/
           
-          # Install production dependencies in deploy folder
+          # Update package.json start script to point to correct location
           cd deploy
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.scripts.start = 'node server.js';
+            pkg.type = 'commonjs';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+          
+          # Install production dependencies in deploy folder
           npm install --omit=dev --ignore-scripts
           
           # Generate Prisma client in deploy folder
