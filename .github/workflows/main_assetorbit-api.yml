@@ -55,7 +55,7 @@ jobs:
       - name: Zip artifact for deployment
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/dist
-          zip -r ../../release.zip .
+          zip -r ${{ github.workspace }}/release.zip .
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
