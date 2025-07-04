@@ -1,11 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./",
-    "moduleResolution": "node",
-    "module": "ESNext"
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["ES2020"],
+    "types": ["node"],
+    "module": "CommonJS"
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../shared" }
+  ]
 } 

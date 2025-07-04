@@ -60,23 +60,38 @@ async function main() {
   const locations = await Promise.all([
     prisma.location.create({
       data: {
+        name: 'HQ - Floor 1',
+        building: 'Headquarters',
+        floor: '1',
+        address: '123 Main St',
         city: 'Seattle',
-        province: 'WA',
+        state: 'WA',
         country: 'USA',
+        postalCode: '98101',
       },
     }),
     prisma.location.create({
       data: {
-        city: 'Vancouver',
-        province: 'BC',
-        country: 'Canada',
+        name: 'HQ - Floor 2',
+        building: 'Headquarters',
+        floor: '2',
+        address: '123 Main St',
+        city: 'Seattle',
+        state: 'WA',
+        country: 'USA',
+        postalCode: '98101',
       },
     }),
     prisma.location.create({
       data: {
-        city: 'Toronto',
-        province: 'ON',
-        country: 'Canada',
+        name: 'Storage Room',
+        building: 'Warehouse',
+        room: 'SR-101',
+        address: '456 Storage Blvd',
+        city: 'Seattle',
+        state: 'WA',
+        country: 'USA',
+        postalCode: '98102',
       },
     }),
   ]);

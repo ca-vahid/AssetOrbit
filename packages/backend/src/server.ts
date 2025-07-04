@@ -2,23 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
-import config from './config/index.js';
+import config from './config';
 import type { Request, Response } from 'express';
-import logger from './utils/logger.js';
-import { connectDatabase } from './services/database.js';
+import logger from './utils/logger';
+import { connectDatabase } from './services/database';
 
-import healthRouter from './routes/health.js';
-import assetsRouter from './routes/assets.js';
-import usersRouter from './routes/users.js';
-import departmentsRouter from './routes/departments.js';
-import locationsRouter from './routes/locations.js';
-import vendorsRouter from './routes/vendors.js';
-import customFieldsRouter from './routes/customFields.js';
-import activitiesRouter from './routes/activities.js';
-import staffRouter from './routes/staff.js';
-import workloadCategoriesRouter from './routes/workloadCategories.js';
-import { initAuth, authenticateJwt } from './middleware/auth.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import healthRouter from './routes/health';
+import assetsRouter from './routes/assets';
+import usersRouter from './routes/users';
+import departmentsRouter from './routes/departments';
+import locationsRouter from './routes/locations';
+import vendorsRouter from './routes/vendors';
+import customFieldsRouter from './routes/customFields';
+import activitiesRouter from './routes/activities';
+import staffRouter from './routes/staff';
+import workloadCategoriesRouter from './routes/workloadCategories';
+import { initAuth, authenticateJwt } from './middleware/auth';
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 const port = config.port;
@@ -79,12 +79,9 @@ async function startServer() {
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`Port: ${port}`);
     logger.info(`CORS Origins: ${config.corsOrigins.join(', ')}`);
-    logger.info(`Database URL configured: ${process.env.DATABASE_URL ? 'Yes' : 'No'}`);
     
     // Connect to database first
-    logger.info('Attempting database connection...');
     await connectDatabase();
-    logger.info('Database connection successful!');
     
     // Start Express server
     const server = app.listen(port, () => {
@@ -103,32 +100,10 @@ async function startServer() {
 
   } catch (error: any) {
     logger.error('Failed to start server:');
-    logger.error('Error type:', typeof error);
     logger.error('Error:', error);
     
     if (error.message) {
       logger.error('Error message:', error.message);
-    }
-    
-    if (error.code) {
-      logger.error('Error code:', error.code);
-    }
-    
-    if (error.stack) {
-      logger.error('Stack trace:', error.stack);
-    }
-    
-    // Log specific database connection errors
-    if (error.message?.includes('ENOTFOUND')) {
-      logger.error('DNS resolution failed - check server name');
-    } else if (error.message?.includes('ECONNREFUSED')) {
-      logger.error('Connection refused - check server is running and port is correct');
-    } else if (error.message?.includes('timeout')) {
-      logger.error('Connection timeout - possible firewall/network issue');
-    } else if (error.message?.includes('Login failed')) {
-      logger.error('Authentication failed - check username/password');
-    } else if (error.message?.includes('Cannot open server')) {
-      logger.error('Cannot reach server - check firewall rules and IP whitelist');
     }
     
     process.exit(1);

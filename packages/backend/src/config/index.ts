@@ -10,7 +10,7 @@ dotenv.config({ path: '.env.local', override: true });
  * Extend this file as new environment variables are introduced.
  */
 const config = {
-  port: Number(process.env.PORT ?? 8080),
+  port: Number(process.env.PORT ?? 4000),
   corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
   databaseUrl: process.env.DATABASE_URL ?? '',
   azure: {
