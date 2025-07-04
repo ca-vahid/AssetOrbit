@@ -41,17 +41,17 @@ jobs:
           # Copy necessary files to deployment directory
           mkdir -p deploy
           cp -r dist/* deploy/
-          cp package.json package-lock.json deploy/
+          cp package.json deploy/
           cp -r prisma deploy/
           
           # Install production dependencies in deploy folder
           cd deploy
-          npm ci --omit=dev --ignore-scripts
+          npm install --omit=dev --ignore-scripts
           
           # Generate Prisma client in deploy folder
           npx prisma generate
           
-          # Remove package-lock.json as it's not needed for runtime
+          # Remove package-lock.json if it was created (not needed for runtime)
           rm -f package-lock.json
 
       - name: Zip artifact for deployment
