@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-          npm ci
+          npm ci --ignore-scripts
 
       - name: Build backend
         run: |
