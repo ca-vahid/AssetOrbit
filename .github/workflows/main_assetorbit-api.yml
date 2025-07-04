@@ -58,6 +58,11 @@ jobs:
           echo "export * from './constants/index.js';" > constants.js
           ls -l constants.js
 
+      - name: Check for constants.js imports
+        run: |
+          cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/dist
+          grep -R "../constants.js" -n || echo "No constants.js import found"
+
       - name: Zip artifact for deployment
         run: |
           cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/dist
