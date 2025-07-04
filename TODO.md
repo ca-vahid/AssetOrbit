@@ -95,13 +95,13 @@
 - [ ] Create density toggle (compact/normal/comfortable)
 
 ### Search & Filtering
-- [ ] Create search bar component with debouncing
-- [ ] Implement global search across all fields
-- [ ] Create filter panel with dropdowns
+- [x] Create search bar component with debouncing
+- [x] Implement global search across all fields
+- [x] Create filter panel with dropdowns
 - [ ] Add date range picker for date filters
-- [ ] Implement filter badges/chips
-- [ ] Add clear all filters functionality
-- [ ] Persist filter state in URL params
+- [x] Implement filter badges/chips
+- [x] Add clear all filters functionality
+- [x] Persist filter state in URL params
 
 ### Quick Actions
 - [ ] Add action buttons per row (edit, status, history)
@@ -230,134 +230,32 @@
 - [ ] Address bugs as they arise
 - [ ] Plan for future enhancements
 
-## Recent Updates (2025-07-01)
+## Recent Updates (2025-07-02) – v0.5
 
-### Users Management
-- [x] Added separate Technicians and Staff pages with modern UI, pagination, filtering, and Azure AD integration.
-- [x] Implemented role drop-downs, bulk role update dialog, and dropdown action menu (view details, view assets, activity log, update role, delete user).
-- [x] Added backend endpoints:
-  - `GET /api/users/technicians`
-  - `GET /api/users/staff-with-assets` (paginated)
-  - `PUT /api/users/bulk-role-update`
-  - `DELETE /api/users/:id` (soft delete with asset check)
-- [x] Added comprehensive audit logging and RBAC checks for all new endpoints.
+### User Management Enhancements
+- Converted Technicians page into **Users** page displaying **all** local DB users, regardless of role or activity state.
+- Added automatic re-activation of soft-deleted users when they sign back in via SSO.
+- Implemented last-login timestamp tracking; column now shows date & time.
+- Introduced stats cards (Total Users / Admins / Write / Read) at top of page.
+- Sidebar & TopNavigation version badge updated to **v0.5**.
 
-### Staff Profile Photos
-- [x] Integrated Microsoft Graph to fetch staff profile photos from Entra ID.
-- [x] Created GraphService helpers with caching, error handling, and metadata retrieval.
-- [x] Added new backend routes:
-  - `GET /api/staff/:aadId/photo` (image)
-  - `GET /api/staff/:aadId/photo/metadata`
-  - `POST /api/staff/clear-photo-cache`
-  - `GET /api/staff/:aadId/photo/test` (debug)
-  - `GET /api/staff/debug/permissions` (debug)
-- [x] Implemented `useProfilePhoto` hook and `ProfilePicture` component with graceful fallback to initials.
-- [x] Updated Staff cards & modal to display real photos when available.
-- [x] Added improved logging & permission diagnostics.
+### Asset Filtering & Search
+- Backend `GET /api/assets` now parses `cf_<fieldId>=value` query params for **exact-match custom-field filtering**.
+- Global search additionally scans custom-field values.
+- Filter modal dynamically loads active Custom Fields and renders:
+  - Yes/No dropdown for Boolean fields.
+  - Text input for String fields.
+- Boolean values transmitted as `true/false`; UI shows **Yes / No**.
+- Active filter chips show custom-field labels and clear buttons.
 
-### UI / UX Enhancements
-- [x] Staff cards: truncation fixes, responsive max-width, improved spacing.
-- [x] Details modal facelift with two-column layout and richer data.
-- [x] Added department filter dropdown, refined search, and loading states.
+### UX / UI Improvements
+- Modern Radix-based confirmation modal for asset deletion (spinner, dark-mode).
+- Fixed Radix Select crash caused by empty value sentinel.
 
-### Asset Detail Modal & Form Enhancements (Latest Updates)
-- [x] **Profile Pictures Integration**: Added real profile pictures to asset owner cards in Asset Detail Modal using existing Microsoft Graph integration
-  - [x] Implemented `useProfilePhoto` hook and `ProfilePicture` component from Staff section
-  - [x] Added graceful fallback to gradient avatars with initials for users without photos
-  - [x] Integrated with existing `/api/staff/:aadId/photo` endpoint with proper caching
-
-- [x] **Enhanced Visual Design**: Complete redesign of Asset Detail Modal assignment section
-  - [x] Gradient backgrounds (`blue → indigo → purple`) with hover effects and glass morphism
-  - [x] Animated icons with scale-on-hover transitions (300ms duration consistency)
-  - [x] Enhanced user cards with larger profile pictures (md size: 56x56px)
-  - [x] Status indicators (green "online" dots) and improved typography with color gradients
-  - [x] Workload categories with animated badges, hover effects, and staggered animations
-
-- [x] **EditAsset Form Complete Overhaul**: Modern, professional form design with enhanced UX
-  - [x] **Custom Workload Category Selector**: Replaced awkward Ctrl+click multi-select with intuitive dropdown interface
-    - [x] Checkbox-based selection with visual feedback
-    - [x] Purple badges with remove buttons for selected categories
-    - [x] Smart display ("X categories selected" when multiple chosen)
-    - [x] Category descriptions shown in dropdown with smooth animations
-  - [x] **Modern Card Layout**: Converted sections to gradient cards with rounded corners and shadows
-  - [x] **Themed Icons**: Added colored icon containers for each section (Package, User, DollarSign, FileText, Settings)
-  - [x] **Enhanced Form Controls**: Upgraded styling with `rounded-xl`, increased padding, icons inside inputs
-  - [x] **Assignment Section Improvements**: Modern toggle button design replacing radio buttons
-
-- [x] **Critical Bug Fix - Staff Assignment in Edit Form**: Resolved issue where existing staff assignments weren't displaying in edit form
-  - [x] **Root Cause**: `StaffSearch` component was receiving wrong value prop (`selectedStaff?.id` instead of `asset?.assignedToAadId`)
-  - [x] **API Fix**: Updated to use `staffApi.getById(aadId)` instead of search endpoint for fetching existing staff by Azure AD ID
-  - [x] **Form Integration**: Fixed React Hook Form integration with proper `setValue` and dirty state management
-  - [x] **Cross-Assignment Clearing**: Enhanced logic to clear opposite assignment types when switching between IT and Staff
-  - [x] **Error Handling**: Added proper error handling for missing staff members with graceful fallback
-
-### Technical Improvements
-- [x] **Form State Management**: Enhanced React Hook Form integration with proper dirty state tracking
-- [x] **Performance Optimizations**: Efficient photo loading with proper cleanup and smooth animations
-- [x] **TypeScript Compliance**: All changes implemented with full type safety and successful builds
-- [x] **API Integration**: Leveraged existing Microsoft Graph Service and staff endpoints with proper caching
-
-## Recent Updates (2025-07-01) - Locations Management
-
-### Azure AD Location Integration
-- [x] **Database Schema Update**: Modified Location model to support city/province/country structure from Azure AD
-  - [x] Updated Prisma schema with `city`, `province`, `country`, `source`, and `isActive` fields
-  - [x] Added unique constraint on `(city, province, country)` combination
-  - [x] Added source tracking (`AZURE_AD` vs `MANUAL`) for location origins
-
-- [x] **Microsoft Graph Integration**: Enhanced GraphService to fetch distinct locations from Azure AD
-  - [x] Added `getDistinctLocations()` method to extract unique city/state/country combinations from all users
-  - [x] Implemented pagination handling for large user bases
-  - [x] Added proper error handling and logging for location sync operations
-
-- [x] **Backend API Implementation**: Complete locations API with Azure AD sync capabilities
-  - [x] `GET /api/locations` - Get active locations with filtering
-  - [x] `GET /api/locations/all` - Admin-only access to all locations including inactive
-  - [x] `POST /api/locations` - Create manual locations (admin only)
-  - [x] `PUT /api/locations/:id` - Update location details (admin only)
-  - [x] `PATCH /api/locations/:id/toggle` - Toggle active/inactive status (admin only)
-  - [x] `POST /api/locations/sync` - Sync locations from Azure AD (admin only)
-  - [x] `GET /api/locations/provinces` - Get distinct provinces for dropdowns
-  - [x] `GET /api/locations/countries` - Get distinct countries for dropdowns
-
-- [x] **Sync Scripts**: Automated location synchronization from Azure AD
-  - [x] Created `sync-locations.ts` script for one-time and scheduled syncing
-  - [x] Added `add-sample-locations.ts` for testing with Canadian cities
-  - [x] Implemented duplicate detection and conflict resolution
-  - [x] Added comprehensive logging and progress reporting
-
-### Frontend Locations Management
-- [x] **Modern Locations Page**: Complete admin interface for location management
-  - [x] Responsive table with city, province, country, source, and asset count columns
-  - [x] Advanced filtering by search term, country, and province
-  - [x] Toggle to show/hide inactive locations
-  - [x] Real-time stats cards showing total, active, Azure AD, and manual locations
-  - [x] Admin controls for sync, add, edit, and toggle operations
-
-- [x] **API Integration**: Full frontend integration with locations backend
-  - [x] Updated `locationsApi` with all new endpoints
-  - [x] Added React Query integration for caching and real-time updates
-  - [x] Implemented proper error handling and loading states
-  - [x] Added mutation handling for sync, toggle, create, and update operations
-
-- [x] **Navigation Integration**: Added Locations to the application navigation
-  - [x] Updated sidebar navigation with proper admin role restrictions
-  - [x] Added route configuration in App component
-  - [x] Integrated with existing RBAC system
-
-### Canada-First Design
-- [x] **Canadian Focus**: Designed with Canadian operations in mind
-  - [x] Default country set to "Canada" with optional override
-  - [x] Hide country column in UI when all locations are Canadian
-  - [x] Province/state terminology adapted for Canadian context
-  - [x] Sample data includes major Canadian cities across provinces
-
-### Technical Implementation
-- [x] **Type Safety**: Full TypeScript integration throughout the stack
-- [x] **Error Handling**: Comprehensive error handling for Azure AD API failures
-- [x] **Performance**: Efficient caching and pagination for large datasets
-- [x] **Security**: All admin operations properly protected with RBAC
-- [x] **Scalability**: Designed to handle thousands of locations and users
+### Bug Fixes / Technical
+- Removed unique constraint on `serialNumber`; added index instead.
+- Fixed 500 error on asset create when `customFields` contained empty strings.
+- Added detailed error logging for Prisma operations.
 
 ## Recent Updates (2025-07-01) – v0.4
 
@@ -377,5 +275,75 @@
 - [ ] Create Storybook stories for asset form variants
 - [ ] Investigate code-splitting to reduce initial JS bundle (<800 KB gzip)
 - [ ] Add optimistic UI updates for asset mutations
+
+## Recent Updates (2025-01-01) - Search & Filtering Implementation
+
+### Backend API Extensions
+- [x] **Enhanced GET /api/assets endpoint**: Added support for `assignedToAadId`, `assignedTo` (auto-detection of UUID vs ID), and additional filter parameters
+- [x] **Smart Assignment Filtering**: Implemented UUID detection to automatically route `assignedTo` parameter to either `assignedToId` or `assignedToAadId`
+- [x] **Date Range Filtering**: Added `dateFrom` and `dateTo` parameters for filtering assets by creation date
+- [x] **Export Functionality**: Fixed location display in CSV/Excel exports to use `city, province` format
+- [x] **Comprehensive Filter Support**: Status, condition, asset type, department, location, and date range filters
+
+### Frontend Search & Filtering
+- [x] **URL Parameter Integration**: Complete URL search param synchronization with debounced search and filter state
+- [x] **AssetFilterPanel Component**: Modern modal-based filter interface with Radix UI components
+  - [x] Status, condition, and asset type dropdowns with predefined values
+  - [x] Department and location dropdowns populated from API
+  - [x] Date range inputs for creation date filtering
+  - [x] Apply/Cancel/Clear All functionality with local state management
+- [x] **Enhanced Filter Chips**: Color-coded filter badges with individual remove buttons and improved labels
+- [x] **Debounced Search**: 300ms debounce on search input for optimal performance
+- [x] **Deep-Link Support**: Staff → Assets navigation now works correctly with `assignedTo` parameter
+
+### UX Improvements
+- [x] **Filter Count Badge**: Visual indicator on filter button showing active filter count
+- [x] **Smart Filter Labels**: Contextual display names for filter values (e.g., "From: 2024-01-01", "Status: Available")
+- [x] **Color-Coded Chips**: Different colors for different filter types (blue for assignment, green for status, etc.)
+- [x] **Persistent State**: Filters and search terms persist in URL for shareable links
+- [x] **Page Reset**: Automatically reset to page 1 when filters change
+
+### Technical Implementation
+- [x] **TypeScript Integration**: Full type safety with shared `AssetFilters` interface
+- [x] **React Query Optimization**: Proper cache invalidation and query key management
+- [x] **Performance**: Efficient UUID regex detection and debounced API calls
+- [x] **Error Handling**: Graceful fallbacks for missing data and API errors
+
+### Next Steps
+- [ ] Add TanStack Table for advanced sorting and column management
+- [ ] Implement bulk operations with selected rows
+- [ ] Add export functionality with current filters applied
+- [ ] Create quick action buttons for common status changes
+
+---
+
+## Recent Updates (2025-07-03) – v0.7
+
+### Enhanced Asset Form UX
+- **Complete redesign** of Add/Edit Asset form with improved user experience:
+  - **Smart Dropdowns**: Autocomplete for Make, Model, RAM, CPU, Storage with common options
+  - **Collapsible Sections**: Organized into expandable sections with completion indicators
+  - **Auto-Assignment Logic**: Status automatically updates to "Assigned" when staff is selected
+  - **Auto-Location Matching**: Location auto-fills based on staff member's office location
+  - **Clone Asset Feature**: One-click duplication with automatic clearing of unique fields
+  - **Sticky Submit Bar**: Always-visible save/cancel buttons with change indicator
+  - **Progress Tracking**: Visual completion percentage for each section
+- **New Specifications Section**: Dedicated section for hardware specs (CPU, RAM, Storage, OS)
+- **Improved Layout**: Reduced scrolling with better field organization and smart defaults
+- **Enhanced Validation**: Real-time feedback with contextual error messages
+
+### Technical Improvements
+- Added individual specification fields (processor, ram, storage, operatingSystem) to form
+- Specifications stored as JSON in backend while providing structured UI input
+- Enhanced form state management with automatic field population and smart defaults
+- Improved form submission with proper data transformation for backend compatibility
+
+### Previous Updates (2025-07-03) – v0.6
+- Fixed rendering of **Multi Select** custom fields in Asset form (Frontend).
+- Added support for **Multi Select** values (array of options) in asset create/update APIs (Backend).
+- Implemented admin-only DELETE endpoint `/api/custom-fields/:id` that performs soft-deletion.
+- UI: Custom Fields management page now shows a trash icon for admins with confirmation prompt.
+- Shared API client extended with `customFieldsApi.delete` helper.
+- Activity log now records `DELETE` action for custom-field deactivations.
 
 ---

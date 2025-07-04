@@ -64,7 +64,7 @@ const navigation: NavigationItem[] = [
     href: '/management', 
     icon: Building,
     children: [
-      { name: 'Technicians', href: '/management/technicians', icon: UserCog, requiresAdmin: true },
+      { name: 'Users', href: '/management/technicians', icon: UserCog, requiresAdmin: true },
       { name: 'Staff', href: '/management/staff', icon: UserCheck, requiresAdmin: true },
       { name: 'Workload Categories', href: '/workload-categories', icon: Building, requiresAdmin: true },
       { name: 'Locations', href: '/locations', icon: MapPin, requiresAdmin: true },
@@ -276,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
                 className="text-center"
               >
                 <div className="text-xs text-slate-400 dark:text-slate-500">
-                  AssetOrbit v0.4
+                  AssetOrbit v0.5
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   Enterprise Edition

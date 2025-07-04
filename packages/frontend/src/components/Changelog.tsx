@@ -161,6 +161,28 @@ const changelog: ChangelogEntry[] = [
       ],
     },
   },
+  {
+    version: 'v0.5',
+    date: 'July 2, 2025',
+    changes: {
+      features: [
+        'Universal Users page: lists all local DB users with role management',
+        'Stats cards showing total users and counts by role',
+        'Dynamic custom-field filtering in Assets list (GPU Yes/No, Ticket text, etc.)',
+      ],
+      improvements: [
+        'Last-login timestamp tracked and displayed; deleted users auto-reactivate on login',
+        'Modern confirmation modal for asset deletion with spinner & dark-mode support',
+        'Filter chips now show custom-field labels and Yes/No values',
+        'Backend GET /assets supports cf_<fieldId>=value query filtering',
+      ],
+      bugFixes: [
+        'Fixed Radix Select crash on empty value',
+        'Serial-number uniqueness migrated to non-unique index',
+        'Resolved 500 error on asset create when customFields empty',
+      ],
+    },
+  },
 ];
 
 const Changelog: React.FC<ChangelogProps> = ({ isOpen, onClose }) => {

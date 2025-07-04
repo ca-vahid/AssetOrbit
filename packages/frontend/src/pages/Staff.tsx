@@ -28,6 +28,7 @@ import * as Select from '@radix-ui/react-select';
 import { usersApi, staffApi } from '../services/api';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
+import { useDebounce } from '../hooks/useDebounce';
 import clsx from 'clsx';
 
 interface StaffWithAssets {
@@ -183,10 +184,18 @@ const Staff: React.FC = () => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [enrichedStaff, setEnrichedStaff] = useState<EnrichedStaffMember[]>([]);
 
+  // Add debouncing to search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Reset page when search query or department filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchQuery, departmentFilter]);
+
   const { data: staffData, isLoading, error, refetch } = useQuery({
-    queryKey: ['staff-with-assets', { search: searchQuery, page, department: departmentFilter }],
+    queryKey: ['staff-with-assets', { search: debouncedSearchQuery, page, department: departmentFilter }],
     queryFn: () => usersApi.getStaffWithAssets({ 
-      search: searchQuery || undefined,
+      search: debouncedSearchQuery || undefined,
       page,
       limit: 50,
       department: departmentFilter !== 'all' ? departmentFilter : undefined,

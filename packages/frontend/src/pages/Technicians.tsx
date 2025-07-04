@@ -92,8 +92,8 @@ const Technicians: React.FC = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: technicians, isLoading, error, refetch } = useQuery({
-    queryKey: ['technicians', { search: searchQuery, role: selectedRole }],
-    queryFn: () => usersApi.getTechnicians({ 
+    queryKey: ['users', { search: searchQuery, role: selectedRole }],
+    queryFn: () => usersApi.getAll({ 
       search: searchQuery || undefined,
       role: selectedRole === 'all' ? undefined : selectedRole,
       limit: 50
@@ -109,7 +109,7 @@ const Technicians: React.FC = () => {
   const updateRoleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: string }) => usersApi.updateRole(id, role),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 
@@ -117,7 +117,7 @@ const Technicians: React.FC = () => {
     mutationFn: ({ userIds, role }: { userIds: string[]; role: string }) => 
       usersApi.bulkUpdateRoles(userIds, role),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelectedUsers([]);
       setBulkRoleDialogOpen(false);
       setBulkRole('');
@@ -127,7 +127,7 @@ const Technicians: React.FC = () => {
   const deleteUserMutation = useMutation({
     mutationFn: (userId: string) => usersApi.deleteUser(userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       setDeleteUserDialogOpen(false);
       setSelectedTechnician(null);
       setDeleteError(null);
@@ -233,10 +233,10 @@ const Technicians: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Technicians
+              Users
             </h1>
             <p className="text-slate-600 dark:text-slate-400">
-              Manage IT technician permissions and access levels
+              Manage user permissions and access levels
             </p>
           </div>
         </div>
@@ -250,6 +250,75 @@ const Technicians: React.FC = () => {
         </button>
       </div>
 
+      {/* Stats Cards */}
+      {technicians && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {technicians.length}
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Total Users
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Crown className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {technicians.filter(t => t.role === 'ADMIN').length}
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Administrators
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {technicians.filter(t => t.role === 'WRITE').length}
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Read + Write
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {technicians.filter(t => t.role === 'READ').length}
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Read Only
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters and Search */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -258,7 +327,7 @@ const Technicians: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search technicians..."
+              placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -295,7 +364,7 @@ const Technicians: React.FC = () => {
           <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
             <div className="flex items-center justify-between">
               <span className="text-sm text-purple-700 dark:text-purple-300">
-                {selectedUsers.length} technician{selectedUsers.length > 1 ? 's' : ''} selected
+                {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''} selected
               </span>
               <button
                 onClick={() => setBulkRoleDialogOpen(true)}
@@ -313,11 +382,11 @@ const Technicians: React.FC = () => {
         {isLoading ? (
           <div className="p-8 text-center">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full animate-pulse mx-auto mb-4" />
-            <p className="text-slate-600 dark:text-slate-400">Loading technicians...</p>
+            <p className="text-slate-600 dark:text-slate-400">Loading users...</p>
           </div>
         ) : error ? (
           <div className="p-8 text-center">
-            <div className="text-red-500 mb-2">Error loading technicians</div>
+            <div className="text-red-500 mb-2">Error loading users</div>
             <button 
               onClick={() => refetch()}
               className="text-purple-600 hover:text-purple-700"
@@ -339,7 +408,7 @@ const Technicians: React.FC = () => {
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Technician
+                    User
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300">
                     Role
@@ -443,7 +512,7 @@ const Technicians: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                         {technician.lastLoginAt 
-                          ? new Date(technician.lastLoginAt).toLocaleDateString()
+                          ? new Date(technician.lastLoginAt).toLocaleString()
                           : 'Never'
                         }
                       </td>
@@ -509,7 +578,7 @@ const Technicians: React.FC = () => {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-md z-50">
             <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              Update Roles for {selectedUsers.length} Technician{selectedUsers.length > 1 ? 's' : ''}
+              Update Roles for {selectedUsers.length} User{selectedUsers.length > 1 ? 's' : ''}
             </Dialog.Title>
             
             <div className="space-y-4">
@@ -614,7 +683,7 @@ const Technicians: React.FC = () => {
           <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-lg z-50 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Technician Details
+                User Details
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
@@ -637,7 +706,7 @@ const Technicians: React.FC = () => {
                       {selectedTechnician.displayName}
                     </h3>
                     <p className="text-slate-600 dark:text-slate-400">
-                      {selectedTechnician.jobTitle || 'IT Technician'}
+                      {selectedTechnician.jobTitle || 'User'}
                     </p>
                     <div className={clsx(
                       "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mt-1",
@@ -757,7 +826,7 @@ const Technicians: React.FC = () => {
             {activitiesLoading ? (
               <div className="p-8 text-center">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full animate-pulse mx-auto mb-4" />
-                <p className="text-slate-600 dark:text-slate-400">Loading activities...</p>
+                <p className="text-slate-600 dark:text-slate-400">Loading user activities...</p>
               </div>
             ) : activities && activities.length > 0 ? (
               <div className="space-y-3">
@@ -790,7 +859,7 @@ const Technicians: React.FC = () => {
             ) : (
               <div className="p-8 text-center">
                 <Activity className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-600 dark:text-slate-400">No activities found for this technician</p>
+                <p className="text-slate-600 dark:text-slate-400">No activities found for this user</p>
               </div>
             )}
           </Dialog.Content>
@@ -955,7 +1024,7 @@ const Technicians: React.FC = () => {
                          Confirm Deletion
                        </h4>
                        <p className="text-sm text-amber-700 dark:text-amber-300">
-                         Are you sure you want to delete this technician? This action cannot be undone.
+                         Are you sure you want to delete this user? This action cannot be undone.
                        </p>
                      </div>
                    </div>

@@ -184,14 +184,6 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
       assignedToAadId: { not: null },
     };
 
-    if (search) {
-      // We'll need to search in the asset's assignedTo relationship or by assignedToAadId
-      // For now, let's search by department in the asset
-      if (department) {
-        assetWhere.department = { name: { contains: department as string } };
-      }
-    }
-
     // Get distinct Azure AD IDs of staff who have assets assigned
     const assetsWithStaff = await prisma.asset.findMany({
       where: assetWhere,
@@ -232,10 +224,65 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
       assetCounts.map(count => [count.assignedToAadId, count._count.id])
     );
 
-    // For pagination, we need to slice the staffAadIds array
-    const paginatedStaffAadIds = staffAadIds.slice(skip, skip + limitNum);
+    // If we have search or department filters, we need to get staff details to filter
+    let filteredStaffAadIds = staffAadIds;
+    
+    if (search || department) {
+      try {
+        // Import graphService instance to get staff details
+        const { graphService } = await import('../services/graphService');
+        
+        // Get staff details for all staff members to apply filters
+        const staffDetailsPromises = staffAadIds.map(async (aadId) => {
+          try {
+            const staff = await graphService.getStaffMember(aadId);
+            return { aadId, staff };
+          } catch (error) {
+            logger.warn(`Failed to get details for staff ${aadId}:`, error);
+            return { aadId, staff: null };
+          }
+        });
+        
+        const staffDetailsResults = await Promise.all(staffDetailsPromises);
+        
+        // Apply filters
+        filteredStaffAadIds = staffDetailsResults
+          .filter(({ staff }) => {
+            if (!staff) return true; // Keep if we can't get details
+            
+            let matchesSearch = true;
+            let matchesDepartment = true;
+            
+            if (search) {
+              const searchLower = (search as string).toLowerCase();
+              matchesSearch = 
+                staff.displayName?.toLowerCase().includes(searchLower) ||
+                staff.mail?.toLowerCase().includes(searchLower) ||
+                staff.jobTitle?.toLowerCase().includes(searchLower) ||
+                staff.department?.toLowerCase().includes(searchLower) ||
+                false;
+            }
+            
+            if (department) {
+              matchesDepartment = staff.department?.toLowerCase().includes((department as string).toLowerCase()) || false;
+            }
+            
+            return matchesSearch && matchesDepartment;
+          })
+          .map(({ aadId }) => aadId);
+      } catch (error) {
+        logger.error('Error filtering staff with Graph API:', error);
+        // If filtering fails, return original list
+        filteredStaffAadIds = staffAadIds;
+      }
+    }
 
-    // Return the Azure AD IDs with asset counts (frontend will fetch full details from Graph API)
+    // Apply pagination to filtered results
+    const total = filteredStaffAadIds.length;
+    const totalPages = Math.ceil(total / limitNum);
+    const paginatedStaffAadIds = filteredStaffAadIds.slice(skip, skip + limitNum);
+
+    // Return the Azure AD IDs with asset counts
     const staffWithAssets = paginatedStaffAadIds.map(aadId => ({
       azureAdId: aadId,
       assetCount: assetCountMap.get(aadId) || 0,
@@ -246,8 +293,8 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
       pagination: {
         page: pageNum,
         limit: limitNum,
-        total: staffAadIds.length,
-        totalPages: Math.ceil(staffAadIds.length / limitNum),
+        total,
+        totalPages,
       },
     });
   } catch (error) {
