@@ -3,8 +3,10 @@
 
 name: Build and deploy Node.js backend to Azure Web App - assetorbit-api
 
-env:
-  AZURE_WEBAPP_PACKAGE_PATH: 'packages/backend'
+# Prevent overlapping deployments
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -29,13 +31,30 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
 
-      # Install all workspace dependencies once (includes husky, etc.)
+      # Install all workspace dependencies
       - name: Install dependencies (root)
         run: npm ci
 
       # Build only the backend workspace
       - name: Build backend workspace
         run: npm run build --workspace @ats/backend
+
+      # Generate Prisma client
+      - name: Generate Prisma client
+        run: |
+          cd packages/backend
+          npx prisma generate
+
+      # Create deployment package with backend code and dependencies
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r packages/backend/dist deploy/
+          cp -r packages/backend/src/generated deploy/
+          cp packages/backend/package.json deploy/
+          cd deploy
+          # Install only production dependencies directly
+          npm install express cors morgan helmet dotenv @prisma/client @azure/identity @microsoft/microsoft-graph-client csv-writer exceljs passport passport-azure-ad pino pino-pretty prisma --production
 
       # Log in to Azure using federated credentials
       - name: Azure Login
@@ -45,10 +64,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3FB316A6408240F5B79F326BBB00DCDD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_F12703DB9BE043F8988F14043FFDDF35 }}
 
-      # Deploy the backend folder (action zips automatically)
+      # Deploy the deployment package
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'assetorbit-api'
           slot-name: 'Production'
-          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} 
+          package: deploy 
