@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database';
-import { authenticateJwt } from '../middleware/auth';
-import logger from '../utils/logger';
+import prisma from '../services/database.js';
+import { authenticateJwt } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 

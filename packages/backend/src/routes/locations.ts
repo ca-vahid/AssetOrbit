@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import logger from '../utils/logger';
-import { USER_ROLES } from '../constants';
-import { syncLocationsFromAzureAD } from '../scripts/sync-locations';
+import prisma from '../services/database.js';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
+import { USER_ROLES } from '../constants/index.js';
+import { syncLocationsFromAzureAD } from '../scripts/sync-locations.js';
 
 const router = Router();
 

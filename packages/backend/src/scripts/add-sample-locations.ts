@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
-import { PrismaClient } from '../generated/prisma';
-import logger from '../utils/logger';
+import { PrismaClient } from '../generated/prisma/index.js';
+import logger from '../utils/logger.js';
 
 const prisma = new PrismaClient();
 

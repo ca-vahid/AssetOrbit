@@ -1,8 +1,8 @@
 #!/usr/bin/env ts-node
 
-import { PrismaClient } from '../generated/prisma';
-import { graphService } from '../services/graphService';
-import logger from '../utils/logger';
+import { PrismaClient } from '../generated/prisma/index.js';
+import { graphService } from '../services/graphService.js';
+import logger from '../utils/logger.js';
 
 const prisma = new PrismaClient();
 

@@ -1,9 +1,9 @@
 import passport from 'passport';
 import { BearerStrategy, ITokenPayload } from 'passport-azure-ad';
-import config from '../config';
-import logger from '../utils/logger';
+import config from '../config/index.js';
+import logger from '../utils/logger.js';
 import { Request, Response, NextFunction } from 'express';
-import prisma from '../services/database';
+import prisma from '../services/database.js';
 
 const strategy = new BearerStrategy(
   {

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateJwt } from '../middleware/auth';
-import { graphService } from '../services/graphService';
-import logger from '../utils/logger';
+import { authenticateJwt } from '../middleware/auth.js';
+import { graphService } from '../services/graphService.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 

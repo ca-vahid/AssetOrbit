@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import logger from '../utils/logger';
-import { CUSTOM_FIELD_TYPES, isValidCustomFieldType, USER_ROLES, ACTIVITY_ACTIONS, ENTITY_TYPES } from '../constants';
+import prisma from '../services/database.js';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
+import { CUSTOM_FIELD_TYPES, isValidCustomFieldType, USER_ROLES, ACTIVITY_ACTIONS, ENTITY_TYPES } from '../constants/index.js';
 
 const router = Router();
 

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import logger from '../utils/logger';
+import prisma from '../services/database.js';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 import { 
   isValidAssetType, 
   isValidAssetStatus, 
@@ -10,9 +10,9 @@ import {
   ACTIVITY_ACTIONS,
   ENTITY_TYPES,
   USER_ROLES
-} from '../constants';
-import { Prisma } from '../generated/prisma';
-import { graphService } from '../services/graphService';
+} from '../constants/index.js';
+import { Prisma } from '../generated/prisma/index.js';
+import { graphService } from '../services/graphService.js';
 
 const router = Router();
 
