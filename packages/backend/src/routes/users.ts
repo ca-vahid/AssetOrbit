@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import prisma from '../services/database.js';
 import { authenticateJwt, requireRole } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
-import { USER_ROLES } from '../constants.js';
+import { USER_ROLES } from '../constants';
 import crypto from 'crypto';
 
 const router = Router();
