@@ -7,7 +7,6 @@ import { api, usersApi, setupAuthInterceptor } from './services/api';
 import { useStore } from './store';
 import Layout from './components/Layout';
 import AuthButtons from './components/AuthButtons';
-import { DebugInfo } from './components/DebugInfo';
 import Dashboard from './pages/Dashboard';
 import CustomFields from './pages/CustomFields';
 import AddAsset from './pages/AddAsset';
@@ -283,7 +282,6 @@ const App: React.FC = () => {
               </Routes>
             </Router>
           </AuthWrapper>
-          <DebugInfo />
         </ThemeWrapper>
       </QueryClientProvider>
     </MsalProvider>
