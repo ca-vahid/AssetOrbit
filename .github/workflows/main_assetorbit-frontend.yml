@@ -34,6 +34,12 @@ jobs:
       # 3. Install dependencies & build Vite app
       - name: Install and build front-end
         working-directory: packages/frontend
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_AZURE_AD_CLIENT_ID: ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+          VITE_AZURE_AD_TENANT_ID: ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+          VITE_AZURE_AD_AUTHORITY: ${{ secrets.VITE_AZURE_AD_AUTHORITY }}
+          VITE_AZURE_AD_SCOPE: ${{ secrets.VITE_AZURE_AD_SCOPE }}
         run: |
           npm ci --ignore-scripts || npm install --ignore-scripts
           npm run build
