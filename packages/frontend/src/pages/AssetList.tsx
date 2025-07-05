@@ -4,12 +4,34 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { 
   Plus, Search, Eye, X, Trash2, AlertTriangle, 
   Monitor, Users, MapPin, Calendar, MoreHorizontal,
-  Edit, CheckCircle, XCircle, Clock, Settings
+  Edit, CheckCircle, XCircle, Clock, Settings,
+  Laptop, Smartphone, Tablet, Monitor as Desktop
 } from 'lucide-react';
 import { assetsApi, usersApi, customFieldsApi } from '../services/api';
 import AssetDetailModal from '../components/AssetDetailModal';
 import AssetFilterPanel from '../components/AssetFilterPanel';
 import { useDebounce } from '../hooks/useDebounce';
+import ProfilePicture from '../components/ProfilePicture';
+import { useStore } from '../store';
+import * as Tooltip from '@radix-ui/react-tooltip';
+
+// Asset type configurations
+const ASSET_TYPES = {
+  LAPTOP: { label: 'Laptops', icon: Laptop, emoji: '💻' },
+  DESKTOP: { label: 'Desktops', icon: Desktop, emoji: '🖥️' },
+  TABLET: { label: 'Tablets', icon: Tablet, emoji: '📱' },
+  PHONE: { label: 'Phones', icon: Smartphone, emoji: '📱' },
+  OTHER: { label: 'Other', icon: Monitor, emoji: '📦' },
+} as const;
+
+// Status configurations with compact labels
+const STATUS_CONFIG = {
+  AVAILABLE: { label: 'Available', short: 'AVL', color: 'green', dot: '🟢' },
+  ASSIGNED: { label: 'Assigned', short: 'ASN', color: 'blue', dot: '🔵' },
+  SPARE: { label: 'Spare', short: 'SPR', color: 'orange', dot: '🟠' },
+  RETIRED: { label: 'Retired', short: 'RET', color: 'red', dot: '🔴' },
+  MAINTENANCE: { label: 'Maintenance', short: 'MNT', color: 'yellow', dot: '🟡' },
+} as const;
 
 interface AssetFilters {
   assignedTo?: string;
@@ -22,6 +44,47 @@ interface AssetFilters {
   dateTo?: string;
   [key: string]: string | undefined; // dynamic custom-field filters cf_<id>
 }
+
+// Helper functions for asset-specific specifications
+const parseSpecifications = (specifications?: any) => {
+  if (!specifications) return {};
+  if (typeof specifications === 'string') {
+    try {
+      return JSON.parse(specifications);
+    } catch {
+      return {};
+    }
+  }
+  return specifications;
+};
+
+const getAssetSpecColumns = (assetType: string) => {
+  switch (assetType) {
+    case 'LAPTOP':
+    case 'DESKTOP':
+      return [
+        { key: 'processor', label: 'CPU', width: 'w-32' },
+        { key: 'ram', label: 'RAM', width: 'w-20' },
+        { key: 'storage', label: 'Storage', width: 'w-24' },
+        { key: 'operatingSystem', label: 'OS', width: 'w-24' },
+      ];
+    case 'TABLET':
+    case 'PHONE':
+      return [
+        { key: 'operatingSystem', label: 'OS', width: 'w-20' },
+        { key: 'storage', label: 'Capacity', width: 'w-24' },
+        { key: 'imei', label: 'IMEI', width: 'w-32' },
+        { key: 'carrier', label: 'Carrier', width: 'w-24' },
+        { key: 'phoneNumber', label: 'Phone #', width: 'w-28' },
+      ];
+    default:
+      return [];
+  }
+};
+
+const shouldShowSpecColumns = (currentFilter?: string) => {
+  return currentFilter && currentFilter !== 'OTHER';
+};
 
 const AssetList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -179,16 +242,32 @@ const AssetList: React.FC = () => {
     }
   };
 
-  // Calculate statistics
+  // Calculate statistics - smart stats based on current filters
   const stats = useMemo(() => {
-    const total = assets.length;
-    const available = assets.filter(a => a.status === 'AVAILABLE').length;
-    const assigned = assets.filter(a => a.status === 'ASSIGNED').length;
-    const spare = assets.filter(a => a.status === 'SPARE').length;
-    const retired = assets.filter(a => a.status === 'RETIRED').length;
+    const currentTypeFilter = filters.assetType;
+    const filteredAssets = currentTypeFilter 
+      ? assets.filter(a => a.assetType === currentTypeFilter)
+      : assets;
     
-    return { total, available, assigned, spare, retired };
-  }, [assets]);
+    // Asset type counts (for top row)
+    const assetTypeCounts = Object.keys(ASSET_TYPES).reduce((acc, type) => {
+      acc[type] = assets.filter(a => a.assetType === type).length;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Status counts for current filter (for bottom row)
+    const total = filteredAssets.length;
+    const available = filteredAssets.filter(a => a.status === 'AVAILABLE').length;
+    const assigned = filteredAssets.filter(a => a.status === 'ASSIGNED').length;
+    const spare = filteredAssets.filter(a => a.status === 'SPARE').length;
+    const retired = filteredAssets.filter(a => a.status === 'RETIRED').length;
+    
+    return { 
+      assetTypeCounts,
+      statusCounts: { total, available, assigned, spare, retired },
+      currentFilter: currentTypeFilter
+    };
+  }, [assets, filters.assetType]);
 
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -232,64 +311,110 @@ const AssetList: React.FC = () => {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Monitor className="h-6 w-6 text-slate-600 dark:text-slate-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Total Assets</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{pagination?.total || 0}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Available</p>
-              <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.available}</p>
+      {/* Statistics Cards - Two Row Design */}
+      <div className="space-y-4">
+        {/* Asset Type Counts - Top Row */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Monitor className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Total Assets</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{pagination?.total || 0}</p>
+              </div>
             </div>
           </div>
+
+          {Object.entries(ASSET_TYPES).map(([type, config]) => {
+            const IconComponent = config.icon;
+            const count = stats.assetTypeCounts[type] || 0;
+            const isActive = filters.assetType === type;
+            
+            return (
+              <button
+                key={type}
+                onClick={() => updateFilter('assetType', isActive ? undefined : type)}
+                className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border transition-all duration-200 p-4 text-left hover:shadow-md ${
+                  isActive 
+                    ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50 dark:bg-brand-900/20' 
+                    : 'border-slate-200 dark:border-slate-700 hover:border-brand-300'
+                }`}
+              >
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <IconComponent className={`h-5 w-5 ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400'}`} />
+                  </div>
+                  <div className="ml-3">
+                    <p className={`text-xs font-medium ${isActive ? 'text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                      {config.label}
+                    </p>
+                    <p className={`text-lg font-bold ${isActive ? 'text-brand-900 dark:text-brand-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                      {count}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Assigned</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.assigned}</p>
+        {/* Status Counts - Bottom Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Available{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                </p>
+                <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.statusCounts.available}</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Settings className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Spare</p>
-              <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{stats.spare}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Assigned{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                </p>
+                <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.statusCounts.assigned}</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Settings className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Spare{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                </p>
+                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{stats.statusCounts.spare}</p>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Retired</p>
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">{stats.retired}</p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Retired{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                </p>
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">{stats.statusCounts.retired}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -430,7 +555,14 @@ const AssetList: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: '800px' }}>
+            <table 
+              className="w-full" 
+              style={{ 
+                minWidth: shouldShowSpecColumns(filters.assetType) 
+                  ? `${1000 + (getAssetSpecColumns(filters.assetType!).length * 120)}px`
+                  : '800px' 
+              }}
+            >
               <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="w-12 px-4 py-4 text-left">
@@ -450,6 +582,16 @@ const AssetList: React.FC = () => {
                   <th className="px-4 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     Make/Model
                   </th>
+                  
+                  {/* Adaptive Specification Columns */}
+                  {shouldShowSpecColumns(filters.assetType) && 
+                    getAssetSpecColumns(filters.assetType!).map((column) => (
+                      <th key={column.key} className={`hidden lg:table-cell px-3 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider ${column.width}`}>
+                        {column.label}
+                      </th>
+                    ))
+                  }
+                  
                   <th className="px-4 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     Status
                   </th>
@@ -459,7 +601,7 @@ const AssetList: React.FC = () => {
                   <th className="hidden xl:table-cell px-4 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     Location
                   </th>
-                  <th className="w-24 px-4 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="w-32 px-4 py-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -482,32 +624,47 @@ const AssetList: React.FC = () => {
                       />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                          <Monitor className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                          {asset.assetTag}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
-                            {asset.assetTag}
+                        {asset.serialNumber && (
+                          <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                            SN: {asset.serialNumber}
                           </div>
-                          {asset.serialNumber && (
-                            <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                              SN: {asset.serialNumber}
-                            </div>
-                          )}
-                          {/* Show type on small screens */}
-                          <div className="sm:hidden">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 mt-1">
-                              {asset.assetType}
-                            </span>
-                          </div>
+                        )}
+                        {/* Show type on small screens */}
+                        <div className="sm:hidden">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 mt-1">
+                            {asset.assetType}
+                          </span>
                         </div>
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
-                        {asset.assetType}
-                      </span>
+                      <Tooltip.Provider>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger asChild>
+                            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm">
+                              {(() => {
+                                const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
+                                const iconColors = {
+                                  LAPTOP: 'text-blue-600 dark:text-blue-400',
+                                  DESKTOP: 'text-purple-600 dark:text-purple-400', 
+                                  TABLET: 'text-green-600 dark:text-green-400',
+                                  PHONE: 'text-orange-600 dark:text-orange-400',
+                                  OTHER: 'text-slate-600 dark:text-slate-400'
+                                };
+                                const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
+                                return <IconComponent className={`w-5 h-5 ${colorClass}`} />;
+                              })()}
+                            </div>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
+                            {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
+                          </Tooltip.Content>
+                        </Tooltip.Root>
+                      </Tooltip.Provider>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-slate-900 dark:text-slate-100 truncate">
@@ -527,34 +684,73 @@ const AssetList: React.FC = () => {
                         ) : null}
                       </div>
                     </td>
+                    
+                    {/* Adaptive Specification Cells */}
+                    {shouldShowSpecColumns(filters.assetType) && 
+                      getAssetSpecColumns(filters.assetType!).map((column) => {
+                        const specs = parseSpecifications(asset.specifications);
+                        const value = specs[column.key];
+                        
+                        return (
+                          <td key={column.key} className={`hidden lg:table-cell px-3 py-3 whitespace-nowrap ${column.width}`}>
+                            <div className="text-sm text-slate-900 dark:text-slate-100 truncate">
+                              {value || (
+                                <span className="text-slate-400 dark:text-slate-500">—</span>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })
+                    }
+                    
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                        asset.status === 'AVAILABLE' 
-                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
-                          : asset.status === 'ASSIGNED'
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
-                          : asset.status === 'SPARE'
-                          ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800'
-                          : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'
-                      }`}>
-                        {asset.status}
-                      </span>
+                      <div className="flex items-center justify-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium shadow-sm ${
+                          asset.status === 'AVAILABLE' 
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
+                            : asset.status === 'ASSIGNED'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                            : asset.status === 'SPARE'
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700'
+                            : asset.status === 'MAINTENANCE'
+                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full ${
+                            asset.status === 'AVAILABLE' 
+                              ? 'bg-green-500'
+                              : asset.status === 'ASSIGNED'
+                              ? 'bg-blue-500'
+                              : asset.status === 'SPARE'
+                              ? 'bg-orange-500'
+                              : asset.status === 'MAINTENANCE'
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                          }`} />
+                          <span className="hidden sm:inline">
+                            {STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.label || asset.status}
+                          </span>
+                        </span>
+                      </div>
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3 whitespace-nowrap">
                       {asset.assignedToStaff ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center">
-                            <Users className="w-3 h-3 text-brand-600 dark:text-brand-400" />
-                          </div>
+                          <ProfilePicture 
+                            azureAdId={asset.assignedToStaff.id} 
+                            displayName={asset.assignedToStaff.displayName} 
+                            size="xs" 
+                          />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm text-slate-800 dark:text-slate-200 truncate">{asset.assignedToStaff.displayName}</div>
                           </div>
                         </div>
                       ) : asset.assignedTo ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                            <Settings className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                          </div>
+                          <ProfilePicture 
+                            displayName={asset.assignedTo.displayName} 
+                            size="xs" 
+                          />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm text-slate-800 dark:text-slate-200 truncate">{asset.assignedTo.displayName}</div>
                             <div className="text-xs text-slate-500 dark:text-slate-400">IT Tech</div>
@@ -576,14 +772,14 @@ const AssetList: React.FC = () => {
                         <span className="text-slate-400 dark:text-slate-500">—</span>
                       )}
                     </td>
-                    <td className="w-24 px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="w-32 px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedAssetId(asset.id);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md transition-colors"
+                          className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-sm"
                           title="View details"
                         >
                           <Eye className="w-4 h-4" />
@@ -592,7 +788,7 @@ const AssetList: React.FC = () => {
                         {currentUser?.role !== 'READ' && (
                           <Link
                             to={`/assets/${asset.id}/edit`}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-sm"
                             title="Edit asset"
                           >
                             <Edit className="w-4 h-4" />
@@ -605,7 +801,7 @@ const AssetList: React.FC = () => {
                               e.stopPropagation();
                               setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
                             }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-sm"
                             title="Delete asset"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -684,33 +880,40 @@ const AssetList: React.FC = () => {
         )}
 
         {assets.length === 0 && !isLoading && (
-          <div className="text-center py-16">
-            <div className="mx-auto w-24 h-24 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-6">
-              <Monitor className="w-12 h-12 text-slate-400 dark:text-slate-500" />
+          <div className="text-center py-20">
+            <div className="mx-auto w-32 h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-2xl flex items-center justify-center mb-8 shadow-lg border border-slate-200 dark:border-slate-600">
+              <div className="relative">
+                <Monitor className="w-16 h-16 text-slate-400 dark:text-slate-500" />
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                </div>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-              No assets found
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              {Object.keys(filters).length > 0 || search ? 'No matching assets' : 'No assets yet'}
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
+            <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
               {Object.keys(filters).length > 0 || search ? 
-                'No assets match your current filters. Try adjusting your search criteria.' :
-                'Get started by adding your first asset to the system.'
+                'No assets match your current search and filters. Try adjusting your criteria or clearing filters to see all assets.' :
+                'Start building your asset inventory by adding laptops, desktops, tablets, phones, and other devices to track and manage.'
               }
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               {Object.keys(filters).length > 0 || search ? (
                 <button
                   onClick={clearAllFilters}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                 >
+                  <X className="w-4 h-4" />
                   Clear filters
                 </button>
               ) : null}
               <Link
                 to="/assets/new"
-                className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-xl hover:from-brand-700 hover:to-brand-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                Add your first asset
+                <Plus className="w-4 h-4" />
+                {Object.keys(filters).length > 0 || search ? 'Add new asset' : 'Add your first asset'}
               </Link>
             </div>
           </div>

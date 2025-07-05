@@ -330,52 +330,69 @@ CORS_ORIGIN=https://yourdomain.com
 
 ## Frontend Deployment Strategy
 
-Based on lessons learned from backend deployment, here's the recommended approach for the React frontend:
+### Overview
+The React/Vite single-page application is deployed via **Azure Static Web Apps** (SWA).
 
-### 1. Build Strategy
+Key points:
+- Static Web App resource named `assetorbit`
+- Independent workflow `main_assetorbit-frontend.yml`
+- Pre-built assets are uploaded; Oryx build is skipped
+- Environment variables are provided through GitHub Secrets
+
+### GitHub Actions Workflow (`.github/workflows/main_assetorbit-frontend.yml`)
 ```yaml
-# Frontend deployment workflow
-- name: Build React App
-  working-directory: ./packages/frontend
-  run: |
-    npm ci --ignore-scripts
-    npm run build
-    
-    # Create deployment package
-    mkdir -p deploy
-    cp -r dist/* deploy/
-    
-    # Add web.config for SPA routing (if using Windows)
-    echo '<?xml version="1.0" encoding="utf-8"?>
-    <configuration>
-      <system.webServer>
-        <rewrite>
-          <rules>
-            <rule name="React Routes" stopProcessing="true">
-              <match url=".*" />
-              <conditions logicalGrouping="MatchAll">
-                <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-                <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
-              </conditions>
-              <action type="Rewrite" url="/" />
-            </rule>
-          </rules>
-        </rewrite>
-      </system.webServer>
-    </configuration>' > deploy/web.config
+name: Build & Deploy Front-end to Azure Static Web Apps – assetorbit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      VITE_AZURE_AD_CLIENT_ID: ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      VITE_AZURE_AD_TENANT_ID: ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies & build Vite
+        working-directory: packages/frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GRAY_DESERT_0213D731E }}
+          action: upload
+          app_location: packages/frontend/dist
+          skip_app_build: true
 ```
 
-### 2. Deployment Options
-- **Azure Static Web Apps**: Best for SPAs with API integration
-- **Azure App Service**: Good for custom server requirements
-- **Azure Storage + CDN**: Cost-effective for static content
+### Environment Variables
+| Variable | Source | Description |
+| -------- | ------ | ----------- |
+| `VITE_API_BASE_URL` | GitHub Secret | Base URL of backend API |
+| `VITE_AZURE_AD_CLIENT_ID` | GitHub Secret | Azure AD application (SPA) client ID |
+| `VITE_AZURE_AD_TENANT_ID` | GitHub Secret | Azure AD tenant ID |
 
-### 3. Environment Variables
-```bash
-REACT_APP_API_URL=https://assetorbit-api.azurewebsites.net
-REACT_APP_AZURE_CLIENT_ID=your_frontend_client_id
-REACT_APP_AZURE_TENANT_ID=your_tenant_id
-```
+These are supplied at build time and validated at runtime in `src/auth/msal.ts`.
+
+### Additional Notes
+1. The portal-generated SWA workflow was removed to prevent duplicate, Oryx-based builds.
+2. `skip_app_build: true` ensures the action uploads the already-built `dist` folder without running Oryx.
+3. CORS was configured on the backend App Service to include the SWA domain.
 
 ## Troubleshooting Guide
 

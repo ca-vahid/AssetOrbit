@@ -276,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
                 className="text-center"
               >
                 <div className="text-xs text-slate-400 dark:text-slate-500">
-                  AssetOrbit v0.5
+                  AssetOrbit v0.6
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   Enterprise Edition

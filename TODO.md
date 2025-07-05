@@ -10,7 +10,8 @@
 - [x] Create .env files and configuration management
 
 ### Azure Infrastructure
-- [ ] Create Azure App Service for web hosting
+- [x] Create Azure App Service for backend API
+- [x] Create Azure Static Web App for frontend hosting
 - [x] Create Azure SQL Database
 - [x] Configure Azure AD app registration
 - [x] Set up connection strings and environment variables
@@ -209,14 +210,15 @@
 ## Phase 9: Deployment & Launch
 
 ### Deployment Prep
-- [ ] Set up CI/CD pipeline
-- [ ] Configure production environment variables
+- [x] Set up CI/CD pipeline (separate GitHub workflows for backend & frontend)
+- [x] Configure production environment variables (Azure App Service & SWA secrets)
 - [ ] Set up monitoring and alerts
 - [ ] Create backup and restore procedures
 - [ ] Plan data migration from Excel
 
 ### Launch
-- [ ] Deploy to Azure App Service
+- [x] Deploy to Azure App Service (backend API)
+- [x] Deploy to Azure Static Web App (frontend SPA)
 - [ ] Configure custom domain if needed
 - [ ] Run smoke tests in production
 - [ ] Train initial users
@@ -347,3 +349,15 @@
 - Activity log now records `DELETE` action for custom-field deactivations.
 
 ---
+
+## Recent Updates (2025-07-05) – v0.6
+
+### UI Polish & Compact Form
+- Applied global compact styling: reduced font sizes, padding, spacing across AssetForm component.
+- SmartDropdown and selection components optimized for denser layout.
+- WorkloadCategorySelector redesigned with smaller chips and dropdown.
+- Header buttons and version badges resized for consistency.
+
+### Technical
+- Updated version badge in TopNavigation and Sidebar to **v0.6**.
+- Added v0.6 entry to in-app Changelog modal.

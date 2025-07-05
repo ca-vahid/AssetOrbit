@@ -70,11 +70,11 @@ const WorkloadCategorySelector: React.FC<{
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:border-slate-400 dark:hover:border-slate-500"
+        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:border-slate-400 dark:hover:border-slate-500"
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Tag className="w-4 h-4 text-purple-500 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <Tag className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
             <div className="flex-1 text-left">
               {selectedCategories.length === 0 ? (
                 <span className="text-slate-500 dark:text-slate-400">Select workload categories...</span>
@@ -85,19 +85,19 @@ const WorkloadCategorySelector: React.FC<{
               )}
             </div>
           </div>
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {/* Selected Categories Preview */}
       {selectedCategories.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {selectedCategories.map((category) => (
             <span
               key={category.id}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium border border-purple-200 dark:border-purple-700"
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-md text-xs font-medium border border-purple-200 dark:border-purple-700"
             >
-              <div className="w-2 h-2 bg-purple-500 rounded-full" />
+              <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
               {category.name}
               {!disabled && (
                 <button
@@ -106,9 +106,9 @@ const WorkloadCategorySelector: React.FC<{
                     e.stopPropagation();
                     toggleCategory(category.id);
                   }}
-                  className="ml-1 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full p-0.5 transition-colors"
+                  className="ml-0.5 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full p-0.5 transition-colors"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-2.5 h-2.5" />
                 </button>
               )}
             </span>
@@ -118,14 +118,14 @@ const WorkloadCategorySelector: React.FC<{
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-[9999]">
-          <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 rounded-t-xl">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-              <Tag className="w-4 h-4 text-purple-500" />
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-[9999]">
+          <div className="p-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 rounded-t-lg">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+              <Tag className="w-3.5 h-3.5 text-purple-500" />
               Select Workload Categories
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto rounded-b-xl">
+          <div className="max-h-48 overflow-y-auto rounded-b-lg">
             {categories.map((category) => {
               const isSelected = value.includes(category.id);
               return (
@@ -133,21 +133,21 @@ const WorkloadCategorySelector: React.FC<{
                   key={category.id}
                   type="button"
                   onClick={() => toggleCategory(category.id)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left"
+                  className="w-full px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left"
                 >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                  <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
                     isSelected 
                       ? 'bg-purple-500 border-purple-500' 
                       : 'border-slate-300 dark:border-slate-600 hover:border-purple-400'
                   }`}>
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                    {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-slate-900 dark:text-slate-100">
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                       {category.name}
                     </div>
                     {category.description && (
-                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         {category.description}
                       </div>
                     )}
@@ -157,7 +157,7 @@ const WorkloadCategorySelector: React.FC<{
             })}
           </div>
           {categories.length === 0 && (
-            <div className="p-4 text-center text-slate-500 dark:text-slate-400">
+            <div className="p-3 text-center text-slate-500 dark:text-slate-400 text-sm">
               No workload categories available
             </div>
           )}
@@ -217,6 +217,66 @@ const OS_OPTIONS = [
   'Ubuntu 20.04', 'Ubuntu 22.04', 'Other Linux'
 ];
 
+// Asset-type-specific field configurations
+const ASSET_TYPE_CONFIGS = {
+  LAPTOP: {
+    specFields: [
+      { key: 'processor', label: 'Processor', icon: Cpu, options: PROCESSOR_OPTIONS, required: false },
+      { key: 'ram', label: 'Memory (RAM)', icon: Monitor, options: RAM_OPTIONS, required: false },
+      { key: 'storage', label: 'Storage', icon: HardDrive, options: STORAGE_OPTIONS, required: false },
+      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: OS_OPTIONS, required: false },
+      { key: 'screenSize', label: 'Screen Size', icon: Monitor, options: ['13"', '14"', '15"', '16"', '17"'], required: false },
+      { key: 'batteryHealth', label: 'Battery Health', icon: Settings, options: ['Excellent', 'Good', 'Fair', 'Poor', 'Needs Replacement'], required: false },
+    ],
+    title: 'Hardware Specifications',
+    description: 'Laptop hardware and performance details'
+  },
+  DESKTOP: {
+    specFields: [
+      { key: 'processor', label: 'Processor', icon: Cpu, options: PROCESSOR_OPTIONS, required: false },
+      { key: 'ram', label: 'Memory (RAM)', icon: Monitor, options: RAM_OPTIONS, required: false },
+      { key: 'storage', label: 'Storage', icon: HardDrive, options: STORAGE_OPTIONS, required: false },
+      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: OS_OPTIONS, required: false },
+      { key: 'graphicsCard', label: 'Graphics Card', icon: Monitor, options: ['Integrated', 'NVIDIA GTX 1650', 'NVIDIA RTX 3060', 'NVIDIA RTX 4070', 'AMD Radeon', 'Other'], required: false },
+      { key: 'formFactor', label: 'Form Factor', icon: Package, options: ['Mini Tower', 'Mid Tower', 'Full Tower', 'Small Form Factor', 'All-in-One'], required: false },
+    ],
+    title: 'Hardware Specifications',
+    description: 'Desktop computer hardware details'
+  },
+  TABLET: {
+    specFields: [
+      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: ['iPadOS 16', 'iPadOS 17', 'Android 12', 'Android 13', 'Windows 11'], required: false },
+      { key: 'storage', label: 'Storage Capacity', icon: HardDrive, options: ['32GB', '64GB', '128GB', '256GB', '512GB', '1TB'], required: false },
+      { key: 'screenSize', label: 'Screen Size', icon: Monitor, options: ['7"', '8"', '9"', '10"', '11"', '12"', '13"'], required: false },
+      { key: 'connectivity', label: 'Connectivity', icon: Settings, options: ['Wi-Fi Only', 'Wi-Fi + Cellular', 'Wi-Fi + 5G'], required: false },
+      { key: 'imei', label: 'IMEI (if cellular)', icon: Settings, options: [], required: false },
+      { key: 'carrier', label: 'Carrier', icon: Settings, options: ['Rogers', 'Bell', 'Telus', 'Freedom', 'Unlocked', 'N/A'], required: false },
+    ],
+    title: 'Device Specifications',
+    description: 'Tablet device and connectivity details'
+  },
+  PHONE: {
+    specFields: [
+      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: ['iOS 16', 'iOS 17', 'Android 12', 'Android 13', 'Android 14'], required: false },
+      { key: 'storage', label: 'Storage Capacity', icon: HardDrive, options: ['64GB', '128GB', '256GB', '512GB', '1TB'], required: false },
+      { key: 'phoneNumber', label: 'Phone Number', icon: Settings, options: [], required: false },
+      { key: 'imei', label: 'IMEI', icon: Settings, options: [], required: true },
+      { key: 'carrier', label: 'Carrier', icon: Settings, options: ['Rogers', 'Bell', 'Telus', 'Freedom', 'Unlocked'], required: false },
+      { key: 'planType', label: 'Plan Type', icon: Settings, options: ['Corporate', 'BYOD', 'Personal', 'Prepaid'], required: false },
+    ],
+    title: 'Device & Service Details',
+    description: 'Phone specifications and service information'
+  },
+  OTHER: {
+    specFields: [
+      { key: 'deviceCategory', label: 'Device Category', icon: Package, options: ['Monitor', 'Printer', 'Projector', 'Camera', 'Audio Equipment', 'Network Equipment', 'Other'], required: false },
+      { key: 'specifications', label: 'Key Specifications', icon: Settings, options: [], required: false },
+    ],
+    title: 'Device Information',
+    description: 'General device specifications'
+  },
+};
+
 // Smart Dropdown Component
 const SmartDropdown: React.FC<{
   label: string;
@@ -262,12 +322,12 @@ const SmartDropdown: React.FC<{
 
   return (
     <div className="relative">
-      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
+          <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
             {icon}
           </div>
         )}
@@ -278,19 +338,19 @@ const SmartDropdown: React.FC<{
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           placeholder={placeholder}
-          className={`w-full ${icon ? 'pl-10' : 'pl-4'} pr-10 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 ${error ? 'border-red-500' : ''}`}
+          className={`w-full ${icon ? 'pl-8' : 'pl-3'} pr-8 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 ${error ? 'border-red-500' : ''}`}
         />
-        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
       </div>
       
       {isOpen && filteredOptions.length > 0 && (
-        <div className="absolute z-[9999] w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+        <div className="absolute z-[9999] w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
           {filteredOptions.map((option, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleOptionSelect(option)}
-              className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+              className="w-full px-3 py-2 text-sm text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0"
             >
               {option}
             </button>
@@ -299,7 +359,7 @@ const SmartDropdown: React.FC<{
       )}
       
       {error && (
-        <p className="text-red-500 text-sm mt-1">{error}</p>
+        <p className="text-red-500 text-xs mt-1">{error}</p>
       )}
     </div>
   );
@@ -430,6 +490,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
   });
 
   const watchedStatus = watch('status');
+  const watchedAssetType = watch('assetType');
   const watchedMake = watch('make');
   const watchedAssetTag = watch('assetTag');
   const watchedModel = watch('model');
@@ -438,26 +499,58 @@ const AssetForm: React.FC<AssetFormProps> = ({
   const watchedRam = watch('ram');
   const watchedStorage = watch('storage');
 
+  // Debug asset type changes
+  useEffect(() => {
+    console.log('🎯 Asset type changed to:', watchedAssetType);
+  }, [watchedAssetType]);
+
   // Reset form when initial data changes (only if we have initial data)
   useEffect(() => {
     if (Object.keys(initialData).length > 0) {
-      // Extract specifications into individual fields
+      // Extract specifications into individual fields for all asset types
       const specs = initialData.specifications || {};
       const formData = {
         assetType: 'LAPTOP',
         status: 'AVAILABLE',
         condition: 'GOOD',
         ...initialData,
-        processor: specs.processor || '',
-        ram: specs.ram || '',
-        storage: specs.storage || '',
-        operatingSystem: specs.operatingSystem || '',
+        // Add all possible specification fields
+        ...specs,
       };
       
       reset(formData);
       setSelectedStaff(initialStaff);
     }
   }, [initialData, initialStaff, reset]);
+
+  // Clear specification fields when asset type changes (but only for new assets)
+  const isNewAsset = Object.keys(initialData).length === 0;
+  const [previousAssetType, setPreviousAssetType] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Initialize previous asset type on first render
+    if (previousAssetType === null) {
+      setPreviousAssetType(watchedAssetType);
+      return;
+    }
+    
+    // Only clear specs for new assets and when asset type actually changes
+    if (isNewAsset && watchedAssetType !== previousAssetType) {
+      console.log('🧹 Clearing specs because asset type changed from', previousAssetType, 'to', watchedAssetType);
+      
+      // Get all possible spec field keys from all asset types
+      const allSpecFields = Object.values(ASSET_TYPE_CONFIGS).flatMap(config => 
+        config.specFields.map(field => field.key)
+      );
+      
+      // Clear all spec fields
+      allSpecFields.forEach(fieldKey => {
+        setValue(fieldKey, '', { shouldDirty: false });
+      });
+      
+      setPreviousAssetType(watchedAssetType);
+    }
+  }, [watchedAssetType, previousAssetType, setValue, isNewAsset]);
 
   // Handle staff selection changes and update form
   const handleStaffChange = (staff: StaffMember | null) => {
@@ -558,15 +651,35 @@ const AssetForm: React.FC<AssetFormProps> = ({
 
   // Calculate completion for sections
   const calculateBasicInfoCompletion = () => {
-    const fields = [watchedAssetTag, watchedMake, watchedModel, watchedSerialNumber];
-    const completed = fields.filter(field => field && field.trim() !== '').length;
-    return { completed, total: 4 };
+    const requiredFields = [watchedSerialNumber, watchedMake, watchedModel]; // Always required
+    let totalFields = 3;
+    let completedFields = requiredFields.filter(field => field && field.trim() !== '').length;
+    
+    // BGC Tag is only required when assigned
+    const isBgcTagRequired = watchedStatus === 'ASSIGNED' || selectedStaff;
+    if (isBgcTagRequired) {
+      totalFields += 1;
+      if (watchedAssetTag && watchedAssetTag.trim() !== '') {
+        completedFields += 1;
+      }
+    } else {
+      // Count BGC tag as completed if it's filled (even when not required)
+      if (watchedAssetTag && watchedAssetTag.trim() !== '') {
+        completedFields += 1;
+        totalFields += 1;
+      }
+    }
+    
+    return { completed: completedFields, total: totalFields };
   };
 
   const calculateSpecsCompletion = () => {
-    const fields = [watchedProcessor, watchedRam, watchedStorage];
-    const completed = fields.filter(field => field && field.trim() !== '').length;
-    return { completed, total: 3 };
+    const config = ASSET_TYPE_CONFIGS[watchedAssetType as keyof typeof ASSET_TYPE_CONFIGS];
+    if (!config) return { completed: 0, total: 0 };
+    
+    const fieldValues = config.specFields.map(field => watch(field.key));
+    const completed = fieldValues.filter(value => value && value.toString().trim() !== '').length;
+    return { completed, total: config.specFields.length };
   };
 
   // Clone asset function
@@ -583,22 +696,88 @@ const AssetForm: React.FC<AssetFormProps> = ({
   };
 
   const handleFormSubmit = async (data: AssetFormData) => {
-    // Build specifications object from individual fields
-    const specifications = {
-      processor: data.processor,
-      ram: data.ram,
-      storage: data.storage,
-      operatingSystem: data.operatingSystem,
-    };
+    // Build specifications object from all dynamic fields based on asset type
+    const config = ASSET_TYPE_CONFIGS[data.assetType as keyof typeof ASSET_TYPE_CONFIGS];
+    const specifications: Record<string, any> = {};
+    const fieldsToRemove: string[] = [];
+    
+    if (config) {
+      config.specFields.forEach(field => {
+        const value = data[field.key];
+        if (value && value.toString().trim() !== '') {
+          specifications[field.key] = value;
+        }
+        fieldsToRemove.push(field.key);
+      });
+    }
 
     // Remove individual spec fields and add specifications object
-    const { processor, ram, storage, operatingSystem, ...restData } = data;
+    const restData = { ...data };
+    fieldsToRemove.forEach(field => {
+      delete restData[field];
+    });
+    
     const submitData = {
       ...restData,
       specifications,
     };
 
     await onSubmit(submitData, selectedStaff);
+  };
+
+  // Render dynamic specification fields based on asset type
+  const renderSpecificationField = (field: any) => {
+    const fieldName = field.key;
+    const IconComponent = field.icon;
+    
+    if (field.options.length > 0) {
+      // Dropdown field
+      return (
+        <div key={field.key}>
+          <Controller
+            name={fieldName}
+            control={control}
+            rules={{ required: field.required ? `${field.label} is required` : false }}
+            render={({ field: controllerField }) => (
+              <SmartDropdown
+                label={field.label}
+                options={field.options}
+                value={controllerField.value || ''}
+                onChange={controllerField.onChange}
+                placeholder={`Enter ${field.label.toLowerCase()}`}
+                icon={<IconComponent className="w-3.5 h-3.5" />}
+                required={field.required}
+                error={errors[fieldName]?.message as string}
+              />
+            )}
+          />
+        </div>
+      );
+    } else {
+      // Text input field
+      return (
+        <div key={field.key}>
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <div className="relative">
+            <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
+              <IconComponent className="w-3.5 h-3.5" />
+            </div>
+            <input
+              {...register(fieldName, { 
+                required: field.required ? `${field.label} is required` : false 
+              })}
+              className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+              placeholder={`Enter ${field.label.toLowerCase()}`}
+            />
+          </div>
+          {errors[fieldName] && (
+            <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
+          )}
+        </div>
+      );
+    }
   };
 
   const renderCustomField = (field: CustomField) => {
@@ -609,17 +788,17 @@ const AssetForm: React.FC<AssetFormProps> = ({
       case 'STRING':
         return (
           <div key={field.id}>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {field.name} {isRequired && <span className="text-red-500">*</span>}
             </label>
             <input
               {...register(fieldName, { 
                 required: isRequired ? `${field.name} is required` : false 
               })}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
             />
             {errors[fieldName] && (
-              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
             )}
           </div>
         );
@@ -627,7 +806,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
       case 'NUMBER':
         return (
           <div key={field.id}>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {field.name} {isRequired && <span className="text-red-500">*</span>}
             </label>
             <input
@@ -636,10 +815,10 @@ const AssetForm: React.FC<AssetFormProps> = ({
                 required: isRequired ? `${field.name} is required` : false,
                 valueAsNumber: true,
               })}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
             />
             {errors[fieldName] && (
-              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
             )}
           </div>
         );
@@ -648,14 +827,14 @@ const AssetForm: React.FC<AssetFormProps> = ({
         const options = field.options || [];
         return (
           <div key={field.id}>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {field.name} {isRequired && <span className="text-red-500">*</span>}
             </label>
             <select
               {...register(fieldName, { 
                 required: isRequired ? `${field.name} is required` : false 
               })}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
             >
               <option value="">Select {field.name}</option>
               {options.map((option: string) => (
@@ -665,7 +844,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
               ))}
             </select>
             {errors[fieldName] && (
-              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
             )}
           </div>
         );
@@ -675,7 +854,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
         const multiOptions = field.options || [];
         return (
           <div key={field.id}>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {field.name} {isRequired && <span className="text-red-500">*</span>}
             </label>
             <Controller
@@ -711,18 +890,18 @@ const AssetForm: React.FC<AssetFormProps> = ({
                 };
 
                 return (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     {multiOptions.map((option) => {
                       const isChecked = selected.includes(option);
                       return (
                         <label key={option} className="inline-flex items-center gap-2">
                           <input
                             type="checkbox"
-                            className="w-5 h-5 text-brand-600 border-slate-300 rounded focus:ring-brand-500 transition-colors"
+                            className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500 transition-colors"
                             checked={isChecked}
                             onChange={(e) => toggleOption(option, e.target.checked)}
                           />
-                          <span className="text-sm text-slate-700 dark:text-slate-300">{option}</span>
+                          <span className="text-xs text-slate-700 dark:text-slate-300">{option}</span>
                         </label>
                       );
                     })}
@@ -731,7 +910,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
               }}
             />
             {errors[fieldName] && (
-              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
             )}
           </div>
         );
@@ -739,7 +918,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
       case 'DATE':
         return (
           <div key={field.id}>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {field.name} {isRequired && <span className="text-red-500">*</span>}
             </label>
             <input
@@ -747,23 +926,23 @@ const AssetForm: React.FC<AssetFormProps> = ({
               {...register(fieldName, { 
                 required: isRequired ? `${field.name} is required` : false 
               })}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+              className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
             />
             {errors[fieldName] && (
-              <p className="text-red-500 text-sm mt-1">{String(errors[fieldName]?.message)}</p>
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
             )}
           </div>
         );
 
       case 'BOOLEAN':
         return (
-          <div key={field.id} className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
+          <div key={field.id} className="flex items-center space-x-2.5 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
             <input
               type="checkbox"
               {...register(fieldName)}
-              className="w-5 h-5 text-brand-600 border-slate-300 rounded focus:ring-brand-500 transition-colors"
+              className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500 transition-colors"
             />
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
               {field.name}
             </label>
           </div>
@@ -775,242 +954,256 @@ const AssetForm: React.FC<AssetFormProps> = ({
   };
 
   return (
-    <div className="space-y-8 relative">
+    <div className="space-y-6 relative">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {title}
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">
+          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
             {subtitle}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Clone Button */}
           <button
             type="button"
             onClick={handleCloneAsset}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
-            <Copy className="w-4 h-4" />
+            <Copy className="w-3.5 h-3.5" />
             Clone
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
             Cancel
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 overflow-visible">
-        {/* Basic Information */}
-        <CollapsibleSection
-          title="Basic Information"
-          icon={<Package className="w-6 h-6" />}
-          colorClass="blue"
-          defaultOpen={true}
-          completedFields={calculateBasicInfoCompletion().completed}
-          totalFields={calculateBasicInfoCompletion().total}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Asset Tag <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('assetTag', { required: 'Asset tag is required' })}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
-                placeholder="e.g., LT-001"
-              />
-              {errors.assetTag && (
-                <p className="text-red-500 text-sm mt-1">{errors.assetTag.message}</p>
-              )}
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 overflow-visible">
+        {/* Asset Type Selection - Compact */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+              <Package className="w-4 h-4" />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Asset Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                {...register('assetType', { required: 'Asset type is required' })}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-              >
-                {ASSET_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.icon} {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Controller
-                name="make"
-                control={control}
-                rules={{ required: 'Make is required' }}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Make"
-                    options={COMMON_MAKES}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., Dell, Lenovo, HP"
-                    required={true}
-                    error={errors.make?.message}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="model"
-                control={control}
-                rules={{ required: 'Model is required' }}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Model"
-                    options={watchedMake && COMMON_MODELS[watchedMake as keyof typeof COMMON_MODELS] || []}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., Latitude 5420, ThinkPad X1"
-                    required={true}
-                    error={errors.model?.message}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Serial Number
-              </label>
-              <input
-                {...register('serialNumber')}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
-                placeholder="Device serial number"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Condition
-              </label>
-              <select
-                {...register('condition')}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-              >
-                {ASSET_CONDITIONS.map((condition) => (
-                  <option key={condition.value} value={condition.value}>
-                    {condition.label}
-                  </option>
-                ))}
-              </select>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Asset Type
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Select the type of device you're adding
+              </p>
             </div>
           </div>
-        </CollapsibleSection>
-
-        {/* Specifications */}
-        <CollapsibleSection
-          title="Specifications"
-          icon={<Monitor className="w-6 h-6" />}
-          colorClass="purple"
-          defaultOpen={true}
-          completedFields={calculateSpecsCompletion().completed}
-          totalFields={calculateSpecsCompletion().total}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Controller
-                name="processor"
-                control={control}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Processor"
-                    options={PROCESSOR_OPTIONS}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., Intel Core i5, AMD Ryzen 5"
-                    icon={<Cpu className="w-4 h-4" />}
+          
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {ASSET_TYPES.map((type) => {
+              const isSelected = watchedAssetType === type.value;
+              return (
+                <label
+                  key={type.value}
+                  className={`relative flex flex-col items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-sm ${
+                    isSelected
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm transform scale-105'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    {...register('assetType', { required: 'Asset type is required' })}
+                    value={type.value}
+                    className="sr-only"
                   />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="ram"
-                control={control}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Memory (RAM)"
-                    options={RAM_OPTIONS}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., 8GB, 16GB"
-                    icon={<Monitor className="w-4 h-4" />}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="storage"
-                control={control}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Storage"
-                    options={STORAGE_OPTIONS}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., 256GB SSD, 1TB HDD"
-                    icon={<HardDrive className="w-4 h-4" />}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="operatingSystem"
-                control={control}
-                render={({ field }) => (
-                  <SmartDropdown
-                    label="Operating System"
-                    options={OS_OPTIONS}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="e.g., Windows 11, macOS"
-                  />
-                )}
-              />
-            </div>
+                  <div className={`text-2xl mb-1 transition-transform duration-200 ${isSelected ? 'scale-110' : ''}`}>
+                    {type.icon}
+                  </div>
+                  <span className={`text-xs font-medium transition-colors duration-200 ${
+                    isSelected 
+                      ? 'text-brand-700 dark:text-brand-300' 
+                      : 'text-slate-700 dark:text-slate-300'
+                  }`}>
+                    {type.label}
+                  </span>
+                  {isSelected && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-brand-500 text-white rounded-full flex items-center justify-center">
+                      <Check className="w-3 h-3" />
+                    </div>
+                  )}
+                </label>
+              );
+            })}
           </div>
-        </CollapsibleSection>
+          {errors.assetType && (
+            <p className="text-red-500 text-xs mt-2">{errors.assetType.message}</p>
+          )}
+        </div>
+
+        {/* Basic Information & Hardware Specifications - Side by Side */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {/* Basic Information */}
+          <CollapsibleSection
+            title="Basic Information"
+            icon={<Package className="w-5 h-5" />}
+            colorClass="blue"
+            defaultOpen={true}
+            completedFields={calculateBasicInfoCompletion().completed}
+            totalFields={calculateBasicInfoCompletion().total}
+          >
+            <div className="space-y-4">
+              {/* Service Tag (SN) - First field, mandatory */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Service Tag (SN) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  {...register('serialNumber', { required: 'Service tag is required' })}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+                  placeholder="e.g., 2NK4GHA"
+                />
+                {errors.serialNumber && (
+                  <p className="text-red-500 text-xs mt-1">{errors.serialNumber.message}</p>
+                )}
+              </div>
+
+              {/* BGC Tag - Second field, required only when assigned */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  BGC Tag {(watchedStatus === 'ASSIGNED' || selectedStaff) && <span className="text-red-500">*</span>}
+                  {(watchedStatus !== 'ASSIGNED' && !selectedStaff) && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">(required when assigned)</span>
+                  )}
+                </label>
+                <input
+                  {...register('assetTag', { 
+                    required: (watchedStatus === 'ASSIGNED' || selectedStaff) ? 'BGC tag is required when asset is assigned' : false 
+                  })}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
+                  placeholder="e.g., BGC3755"
+                />
+                {errors.assetTag && (
+                  <p className="text-red-500 text-xs mt-1">{errors.assetTag.message}</p>
+                )}
+              </div>
+
+              <div>
+                <Controller
+                  name="make"
+                  control={control}
+                  rules={{ required: 'Make is required' }}
+                  render={({ field }) => (
+                    <SmartDropdown
+                      label="Make"
+                      options={COMMON_MAKES}
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="e.g., Dell, Lenovo, HP"
+                      required={true}
+                      error={errors.make?.message}
+                    />
+                  )}
+                />
+              </div>
+
+              <div>
+                <Controller
+                  name="model"
+                  control={control}
+                  rules={{ required: 'Model is required' }}
+                  render={({ field }) => (
+                    <SmartDropdown
+                      label="Model"
+                      options={watchedMake && COMMON_MODELS[watchedMake as keyof typeof COMMON_MODELS] || []}
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="e.g., Latitude 5420, ThinkPad X1"
+                      required={true}
+                      error={errors.model?.message}
+                    />
+                  )}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Condition
+                </label>
+                <select
+                  {...register('condition')}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                >
+                  {ASSET_CONDITIONS.map((condition) => (
+                    <option key={condition.value} value={condition.value}>
+                      {condition.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Dynamic Specifications based on Asset Type */}
+          {watchedAssetType && (() => {
+            const config = ASSET_TYPE_CONFIGS[watchedAssetType as keyof typeof ASSET_TYPE_CONFIGS];
+            
+            if (!config || config.specFields.length === 0) {
+              return null;
+            }
+            
+            return (
+              <CollapsibleSection
+                key={`specs-${watchedAssetType}`} // Force re-render when asset type changes
+                title={config.title}
+                icon={<Monitor className="w-5 h-5" />}
+                colorClass="purple"
+                defaultOpen={true}
+                completedFields={calculateSpecsCompletion().completed}
+                totalFields={calculateSpecsCompletion().total}
+              >
+                <div className="space-y-1 mb-3">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {config.description}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
+                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></div>
+                    {config.specFields.length} fields for {ASSET_TYPES.find(t => t.value === watchedAssetType)?.label}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {config.specFields.map((field, index) => (
+                    <div key={`${watchedAssetType}-${field.key}-${index}`}>
+                      {renderSpecificationField(field)}
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            );
+          })()}
+        </div>
 
         {/* Assignment & Location */}
         <CollapsibleSection
           title="Assignment & Location"
-          icon={<User className="w-6 h-6" />}
+          icon={<User className="w-5 h-5" />}
           colorClass="green"
           defaultOpen={true}
         >
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Status and Staff Assignment */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Status
                 </label>
                 <select
                   {...register('status')}
-                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
                 >
                   {ASSET_STATUSES.map((status) => (
                     <option key={status.value} value={status.value}>
@@ -1021,7 +1214,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Assigned To Staff Member
                 </label>
                 <StaffSearch
@@ -1085,9 +1278,9 @@ const AssetForm: React.FC<AssetFormProps> = ({
             </div>
 
             {/* Workload Categories and Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Workload Categories
                 </label>
                 <Controller
@@ -1105,19 +1298,19 @@ const AssetForm: React.FC<AssetFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Location
                   {locationAutoUpdated && (
-                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                       Auto-updated
                     </span>
                   )}
                 </label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <MapPin className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <select
                     {...register('locationId')}
-                    className={`w-full pl-11 pr-4 py-3 border rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 ${
                       locationAutoUpdated 
                         ? 'border-green-400 dark:border-green-500 bg-green-50 dark:bg-green-900/20' 
                         : 'border-slate-300 dark:border-slate-600'
@@ -1139,47 +1332,47 @@ const AssetForm: React.FC<AssetFormProps> = ({
         {/* Purchase & Warranty */}
         <CollapsibleSection
           title="Purchase & Warranty"
-          icon={<DollarSign className="w-6 h-6" />}
+          icon={<DollarSign className="w-5 h-5" />}
           colorClass="emerald"
           defaultOpen={false}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Purchase Date
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="date"
                   {...register('purchaseDate')}
-                  className="w-full pl-11 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Purchase Price
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <DollarSign className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="number"
                   step="0.01"
                   {...register('purchasePrice', { valueAsNumber: true })}
-                  className="w-full pl-11 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Vendor
               </label>
               <select
                 {...register('vendorId')}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
               >
                 <option value="">Select Vendor</option>
                 {vendors?.map((vendor) => (
@@ -1191,15 +1384,15 @@ const AssetForm: React.FC<AssetFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Warranty End Date
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="date"
                   {...register('warrantyEndDate')}
-                  className="w-full pl-11 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
             </div>
@@ -1209,14 +1402,14 @@ const AssetForm: React.FC<AssetFormProps> = ({
         {/* Notes */}
         <CollapsibleSection
           title="Notes"
-          icon={<FileText className="w-6 h-6" />}
+          icon={<FileText className="w-5 h-5" />}
           colorClass="amber"
           defaultOpen={false}
         >
           <textarea
             {...register('notes')}
-            rows={4}
-            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 resize-none"
+            rows={3}
+            className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 resize-none"
             placeholder="Add any additional notes about this asset..."
           />
         </CollapsibleSection>
@@ -1225,16 +1418,16 @@ const AssetForm: React.FC<AssetFormProps> = ({
         {customFields && customFields.length > 0 && (
           <CollapsibleSection
             title="Additional Attributes"
-            icon={<Settings className="w-6 h-6" />}
+            icon={<Settings className="w-5 h-5" />}
             colorClass="purple"
             defaultOpen={false}
           >
             {customFieldsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"></div>
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-600"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {customFields.map(renderCustomField)}
               </div>
             )}

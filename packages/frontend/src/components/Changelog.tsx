@@ -19,6 +19,42 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.6',
+    date: 'July 5, 2025',
+    changes: {
+      features: [
+        'Compact UI overhaul: reduced font sizes, padding, and spacing across Asset forms',
+        'Updated Workload Category selector with denser layout and smaller chips',
+      ],
+      improvements: [
+        'Refined SmartDropdown, buttons, and section headers for consistency',
+        'Overall form height reduced by ~30% while maintaining readability',
+      ],
+    },
+  },
+  {
+    version: 'v0.5',
+    date: 'July 2, 2025',
+    changes: {
+      features: [
+        'Universal Users page: lists all local DB users with role management',
+        'Stats cards showing total users and counts by role',
+        'Dynamic custom-field filtering in Assets list (GPU Yes/No, Ticket text, etc.)',
+      ],
+      improvements: [
+        'Last-login timestamp tracked and displayed; deleted users auto-reactivate on login',
+        'Modern confirmation modal for asset deletion with spinner & dark-mode support',
+        'Filter chips now show custom-field labels and Yes/No values',
+        'Backend GET /assets supports cf_<fieldId>=value query filtering',
+      ],
+      bugFixes: [
+        'Fixed Radix Select crash on empty value',
+        'Serial-number uniqueness migrated to non-unique index',
+        'Resolved 500 error on asset create when customFields empty',
+      ],
+    },
+  },
+  {
     version: 'v0.4',
     date: 'July 1, 2025',
     changes: {
@@ -161,28 +197,7 @@ const changelog: ChangelogEntry[] = [
       ],
     },
   },
-  {
-    version: 'v0.5',
-    date: 'July 2, 2025',
-    changes: {
-      features: [
-        'Universal Users page: lists all local DB users with role management',
-        'Stats cards showing total users and counts by role',
-        'Dynamic custom-field filtering in Assets list (GPU Yes/No, Ticket text, etc.)',
-      ],
-      improvements: [
-        'Last-login timestamp tracked and displayed; deleted users auto-reactivate on login',
-        'Modern confirmation modal for asset deletion with spinner & dark-mode support',
-        'Filter chips now show custom-field labels and Yes/No values',
-        'Backend GET /assets supports cf_<fieldId>=value query filtering',
-      ],
-      bugFixes: [
-        'Fixed Radix Select crash on empty value',
-        'Serial-number uniqueness migrated to non-unique index',
-        'Resolved 500 error on asset create when customFields empty',
-      ],
-    },
-  },
+  
 ];
 
 const Changelog: React.FC<ChangelogProps> = ({ isOpen, onClose }) => {
