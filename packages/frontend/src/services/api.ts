@@ -3,7 +3,7 @@ import { PublicClientApplication } from '@azure/msal-browser';
 import { acquireTokenSafely, getIsAuthenticating } from '../auth/msal';
 import type { CustomField, Activity } from '@ats/shared';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 // Create axios instance
 export const api = axios.create({
