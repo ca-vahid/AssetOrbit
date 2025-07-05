@@ -1,9 +1,21 @@
 import { PublicClientApplication, type Configuration, BrowserCacheLocation } from '@azure/msal-browser';
 
+// Validate environment variables
+const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID;
+const authority = import.meta.env.VITE_AZURE_AD_AUTHORITY;
+
+if (!clientId) {
+  throw new Error('VITE_AZURE_AD_CLIENT_ID environment variable is required');
+}
+
+if (!authority) {
+  throw new Error('VITE_AZURE_AD_AUTHORITY environment variable is required');
+}
+
 const msalConfig: Configuration = {
   auth: {
-    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID as string,
-    authority: import.meta.env.VITE_AZURE_AD_AUTHORITY as string,
+    clientId,
+    authority,
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
     navigateToLoginRequestUrl: false, // Prevents redirect loops

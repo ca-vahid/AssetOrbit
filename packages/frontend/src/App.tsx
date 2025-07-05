@@ -61,7 +61,12 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         setupAuthInterceptor(instance as any);
 
         // Acquire token and fetch user info
-        const apiScope = `api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/access_as_user`;
+        const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID;
+        if (!clientId) {
+          throw new Error('VITE_AZURE_AD_CLIENT_ID environment variable is required');
+        }
+        
+        const apiScope = `api://${clientId}/access_as_user`;
         const result = await instance.acquireTokenSilent({ 
           scopes: [apiScope], 
           account: accounts[0] 
