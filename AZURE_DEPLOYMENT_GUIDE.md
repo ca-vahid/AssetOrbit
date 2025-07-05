@@ -67,7 +67,7 @@ INVv1/
 
 ### 7. Database Connection String Format
 **Problem**: `the URL must start with the protocol 'sqlserver://'`
-**Root Cause**: DATABASE_URL missing username/password in proper format
+**Root Cause**: DATABASE_URL have quotes "" in it. This was resolved by removing the quotes.
 
 ## Solution Architecture
 

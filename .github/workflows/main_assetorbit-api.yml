@@ -5,8 +5,10 @@ name: Build and deploy Node.js app to Azure Web App - assetorbit-api
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'packages/backend/**'
+      - '.github/workflows/main_assetorbit-api.yml'
   workflow_dispatch:
 
 env:
