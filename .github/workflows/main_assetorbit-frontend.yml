@@ -46,8 +46,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GRAY_DESERT_0213D731E }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          app_location: "packages/frontend"
-          output_location: "dist"
+          app_location: ""  # no build needed
+          app_artifact_location: "packages/frontend/dist"
+          skip_app_build: true
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_AZURE_AD_CLIENT_ID: ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
