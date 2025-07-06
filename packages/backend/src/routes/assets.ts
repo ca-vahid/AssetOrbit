@@ -59,11 +59,37 @@ async function enrichAssetsWithStaffInfo(assets: any[]): Promise<any[]> {
     assets.map(async (asset) => {
       if (asset.assignedToAadId) {
         try {
-          const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
-          return {
-            ...asset,
-            assignedToStaff: staffMember,
-          };
+          // Check if assignedToAadId is a GUID or a username
+          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(asset.assignedToAadId);
+          
+          if (isGuid) {
+            // It's a GUID - call getStaffMember directly
+            const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
+            return {
+              ...asset,
+              assignedToStaff: staffMember,
+            };
+          } else {
+            // It's a username - resolve it first using findUsersBySamAccount
+            const userMap = await graphService.findUsersBySamAccount([asset.assignedToAadId]);
+            const resolvedUser = userMap[asset.assignedToAadId];
+            
+            if (resolvedUser && resolvedUser.id) {
+              // Now get the full staff member info using the resolved GUID
+              const staffMember = await graphService.getStaffMember(resolvedUser.id);
+              return {
+                ...asset,
+                assignedToStaff: staffMember,
+              };
+            } else {
+              // Could not resolve username to GUID
+              logger.warn(`Could not resolve username "${asset.assignedToAadId}" to Azure AD GUID`);
+              return {
+                ...asset,
+                assignedToStaff: null,
+              };
+            }
+          }
         } catch (error) {
           logger.warn(`Failed to get staff info for ${asset.assignedToAadId}:`, error);
           return {
@@ -77,6 +103,35 @@ async function enrichAssetsWithStaffInfo(assets: any[]): Promise<any[]> {
   );
   return enrichedAssets;
 }
+
+// Add canonical asset field metadata (for import mapping)
+const CANONICAL_ASSET_FIELDS = [
+  { key: 'assetTag', label: 'Asset Tag', required: true },
+  { key: 'assetType', label: 'Asset Type', required: true },
+  { key: 'status', label: 'Status', required: false },
+  { key: 'condition', label: 'Condition', required: false },
+  { key: 'make', label: 'Make', required: true },
+  { key: 'model', label: 'Model', required: true },
+  { key: 'serialNumber', label: 'Serial Number', required: false },
+  { key: 'purchaseDate', label: 'Purchase Date', required: false },
+  { key: 'purchasePrice', label: 'Purchase Price', required: false },
+  { key: 'vendorId', label: 'Vendor', required: false },
+  { key: 'warrantyStartDate', label: 'Warranty Start Date', required: false },
+  { key: 'warrantyEndDate', label: 'Warranty End Date', required: false },
+  { key: 'assignedToAadId', label: 'Assigned User (AAD)', required: false },
+  { key: 'departmentId', label: 'Department', required: false },
+  { key: 'locationId', label: 'Location', required: false },
+  { key: 'notes', label: 'Notes', required: false },
+  { key: 'ram', label: 'Memory (RAM)', required: false },
+  { key: 'processor', label: 'Processor', required: false },
+  { key: 'storage', label: 'Storage', required: false },
+  { key: 'operatingSystem', label: 'Operating System', required: false },
+];
+
+// GET /api/assets/fields - canonical list of direct asset fields
+router.get('/fields', (_req: Request, res: Response) => {
+  res.json(CANONICAL_ASSET_FIELDS);
+});
 
 // GET /api/assets - Get all assets with pagination, filtering, and sorting
 router.get('/', async (req: Request, res: Response) => {
@@ -93,6 +148,7 @@ router.get('/', async (req: Request, res: Response) => {
       assignedToId,
       assignedToAadId,
       assignedTo, // Generic parameter that can be either ID or AAD ID
+      workloadCategoryId, // Filter by workload category
       dateFrom,
       dateTo,
       sortBy = 'createdAt',
@@ -173,6 +229,15 @@ router.get('/', async (req: Request, res: Response) => {
       if (dateTo) {
         where.createdAt.lte = new Date(dateTo as string);
       }
+    }
+
+    // Workload category filter
+    if (workloadCategoryId) {
+      where.workloadCategories = {
+        some: {
+          categoryId: workloadCategoryId as string,
+        },
+      };
     }
 
     // Custom field exact match filters: cf_<fieldId>=value
@@ -359,8 +424,28 @@ router.get('/:id', async (req: Request, res: Response) => {
     // Enrich with staff information if assigned to Azure AD user
     if (asset.assignedToAadId) {
       try {
-        const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
-        assetWithParsedData.assignedToStaff = staffMember;
+        // Check if assignedToAadId is a GUID or a username
+        const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(asset.assignedToAadId);
+        
+        if (isGuid) {
+          // It's a GUID - call getStaffMember directly
+          const staffMember = await graphService.getStaffMember(asset.assignedToAadId);
+          assetWithParsedData.assignedToStaff = staffMember;
+        } else {
+          // It's a username - resolve it first using findUsersBySamAccount
+          const userMap = await graphService.findUsersBySamAccount([asset.assignedToAadId]);
+          const resolvedUser = userMap[asset.assignedToAadId];
+          
+          if (resolvedUser && resolvedUser.id) {
+            // Now get the full staff member info using the resolved GUID
+            const staffMember = await graphService.getStaffMember(resolvedUser.id);
+            assetWithParsedData.assignedToStaff = staffMember;
+          } else {
+            // Could not resolve username to GUID
+            logger.warn(`Could not resolve username "${asset.assignedToAadId}" to Azure AD GUID`);
+            assetWithParsedData.assignedToStaff = null;
+          }
+        }
       } catch (error) {
         logger.warn(`Failed to get staff info for ${asset.assignedToAadId}:`, error);
         assetWithParsedData.assignedToStaff = null;
@@ -500,6 +585,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         assetType,
         status: status || 'AVAILABLE',
         condition: condition || 'GOOD',
+        source: 'MANUAL',
         make,
         model,
         serialNumber,

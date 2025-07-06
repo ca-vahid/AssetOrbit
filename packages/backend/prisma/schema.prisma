@@ -94,6 +94,7 @@ model Asset {
   assetType         String        // LAPTOP, DESKTOP, TABLET, PHONE, OTHER
   status            String        @default("AVAILABLE") // AVAILABLE, ASSIGNED, SPARE, MAINTENANCE, RETIRED, DISPOSED
   condition         String        @default("GOOD") // NEW, GOOD, FAIR, POOR
+  source            String        @default("MANUAL") // MANUAL, NINJAONE, INTUNE, EXCEL, BULK_UPLOAD, API
   
   // Basic Information
   make              String
@@ -250,6 +251,7 @@ model WorkloadCategory {
 
   // Relations
   assetLinks  AssetWorkloadCategory[]
+  rules       WorkloadCategoryRule[]
 }
 
 // Junction table linking Assets to Workload Categories (many-to-many)
@@ -265,4 +267,23 @@ model AssetWorkloadCategory {
   @@id([assetId, categoryId])
   @@index([categoryId])
   @@index([assetId])
+}
+
+// Rules for automatic workload category detection during import
+model WorkloadCategoryRule {
+  id              String   @id @default(uuid())
+  categoryId      String
+  category        WorkloadCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  priority        Int      // 1 = highest priority, stops evaluation when matched
+  sourceField     String   // e.g. "assignedToAadId", "specifications.ram", "make"
+  operator        String   // '=', '!=', '>=', '<=', 'includes', 'regex'
+  value           String   // value to compare against
+  description     String?  // human-readable description of the rule
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([priority])
+  @@index([categoryId])
+  @@index([isActive])
 }

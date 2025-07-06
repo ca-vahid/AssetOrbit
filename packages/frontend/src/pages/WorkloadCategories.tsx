@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Search, Building, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Edit2, Search, Building, Users, ExternalLink } from 'lucide-react';
 import { categoriesApi, type WorkloadCategory } from '../services/api';
 
 const WorkloadCategories: React.FC = () => {
@@ -110,7 +111,17 @@ const WorkloadCategories: React.FC = () => {
               <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
-                  <span>{category._count?.assetLinks || 0} assets</span>
+                  {category._count?.assetLinks && category._count.assetLinks > 0 ? (
+                    <Link
+                      to={`/assets?workloadCategoryId=${category.id}`}
+                      className="group flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors font-medium"
+                    >
+                      <span>{category._count.assetLinks} assets</span>
+                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  ) : (
+                    <span>0 assets</span>
+                  )}
                 </div>
                 <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                   category.isActive

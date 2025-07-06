@@ -1,16 +1,50 @@
+export enum AssetType {
+  LAPTOP = 'LAPTOP',
+  DESKTOP = 'DESKTOP',
+  TABLET = 'TABLET',
+  PHONE = 'PHONE',
+  OTHER = 'OTHER'
+}
+
+export enum AssetStatus {
+  AVAILABLE = 'AVAILABLE',
+  ASSIGNED = 'ASSIGNED',
+  SPARE = 'SPARE',
+  MAINTENANCE = 'MAINTENANCE',
+  RETIRED = 'RETIRED',
+  DISPOSED = 'DISPOSED'
+}
+
+export enum AssetCondition {
+  NEW = 'NEW',
+  GOOD = 'GOOD',
+  FAIR = 'FAIR',
+  POOR = 'POOR'
+}
+
+export enum AssetSource {
+  MANUAL = 'MANUAL',
+  NINJAONE = 'NINJAONE', 
+  INTUNE = 'INTUNE',
+  EXCEL = 'EXCEL',
+  BULK_UPLOAD = 'BULK_UPLOAD',
+  API = 'API'
+}
+
 export interface Asset {
   id: string;
-  assetType: 'laptop' | 'desktop' | 'tablet' | 'other';
+  assetTag: string;
+  assetType: AssetType;
+  status: AssetStatus;
+  condition: AssetCondition;
+  source: AssetSource;
   make: string;
   model: string;
   serialNumber: string;
-  assetTag?: string;
   processor?: string;
   ram?: string;
   storage?: string;
   operatingSystem?: string;
-  status: 'available' | 'assigned' | 'spare' | 'retired';
-  condition: 'new' | 'good' | 'fair' | 'poor';
   assignedTo?: string;
   department?: string; // legacy
   workloadCategories?: string[]; // IDs of workload categories

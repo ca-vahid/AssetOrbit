@@ -240,6 +240,120 @@ class GraphService {
     }
   }
 
+  async findUsersBySamAccount(usernames: string[]): Promise<Record<string, { id: string; displayName: string; officeLocation?: string } | null>> {
+    const result: Record<string, { id: string; displayName: string; officeLocation?: string } | null> = {};
+    if (!usernames.length) return result;
+
+    const client = await this.getClient();
+
+    await Promise.all(
+      usernames.map(async (rawUname) => {
+        const uname = (rawUname || '').trim();
+        if (!uname) {
+          return;
+        }
+
+        try {
+          // DEBUG: Log the username being resolved
+          logger.info(`Resolving username: "${uname}"`);
+
+          // Corporate domain exact match (highest priority)
+          const corporateDomains = (process.env.CORP_EMAIL_DOMAINS || 'bgcengineering.ca').split(',');
+          for (const domain of corporateDomains) {
+            const corporateEmail = `${uname}@${domain.trim()}`;
+            try {
+              const corporateUsers = await client.api('/users')
+                .filter(`userPrincipalName eq '${corporateEmail}' or mail eq '${corporateEmail}'`)
+                .select('id,displayName,userPrincipalName,mail,officeLocation')
+                .get();
+
+              if (corporateUsers.value?.length > 0) {
+                const user = corporateUsers.value[0];
+                result[uname] = {
+                  id: user.id,
+                  displayName: user.displayName,
+                  officeLocation: user.officeLocation
+                };
+                logger.info(`✅ Resolved "${uname}" to corporate user: ${user.displayName} (${user.id})`);
+                return;
+              }
+            } catch (error) {
+              logger.warn(`Corporate domain lookup failed for ${corporateEmail}:`, error);
+            }
+          }
+
+          // Exact onPremisesSamAccountName match
+          try {
+            const samUsers = await client.api('/users')
+              .filter(`onPremisesSamAccountName eq '${uname}'`)
+              .select('id,displayName,userPrincipalName,mail,officeLocation')
+              .get();
+
+            if (samUsers.value?.length > 0) {
+              const user = samUsers.value[0];
+              result[uname] = {
+                id: user.id,
+                displayName: user.displayName,
+                officeLocation: user.officeLocation
+              };
+              logger.info(`✅ Resolved "${uname}" via SAM account: ${user.displayName} (${user.id})`);
+              return;
+            }
+          } catch (error) {
+            logger.warn(`SAM account lookup failed for ${uname}:`, error);
+          }
+
+          // Fuzzy startswith match (fallback)
+          try {
+            const filter = `startswith(userPrincipalName,'${uname}')`;
+            const fuzzyUsers = await client.api('/users')
+              .filter(filter)
+              .select('id,displayName,userPrincipalName,mail,officeLocation')
+              .top(10)
+              .get();
+
+            if (fuzzyUsers.value?.length > 0) {
+              // Prefer corporate domain users
+              const corporateDomains = (process.env.CORP_EMAIL_DOMAINS || 'bgcengineering.ca').split(',');
+              const corporateUser = fuzzyUsers.value.find((user: any) => 
+                corporateDomains.some(domain => 
+                  user.userPrincipalName?.includes(`@${domain.trim()}`) || 
+                  user.mail?.includes(`@${domain.trim()}`)
+                )
+              );
+
+              const selectedUser = corporateUser || fuzzyUsers.value[0];
+              result[uname] = {
+                id: selectedUser.id,
+                displayName: selectedUser.displayName,
+                officeLocation: selectedUser.officeLocation
+              };
+              logger.info(`✅ Resolved "${uname}" via fuzzy match: ${selectedUser.displayName} (${selectedUser.id})`);
+              return;
+            }
+          } catch (error) {
+            logger.warn(`Fuzzy lookup failed for ${uname}:`, error);
+          }
+
+          // No match found
+          result[uname] = null;
+          logger.warn(`❌ Could not resolve username: "${uname}"`);
+
+        } catch (error) {
+          logger.error(`Error resolving username "${uname}":`, error);
+          result[uname] = null;
+        }
+      })
+    );
+
+    // DEBUG: Log the final resolution results
+    const resolved = Object.entries(result).filter(([_, user]) => user !== null).length;
+    const total = usernames.length;
+    logger.info(`User resolution complete: ${resolved}/${total} users resolved`);
+
+    return result;
+  }
+
   clearCache(): void {
     this.cache.clear();
     logger.info('Graph service cache cleared');

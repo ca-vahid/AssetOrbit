@@ -40,11 +40,32 @@ const strategy = new BearerStrategy(
             displayName: token.name || email || 'Unknown User',
             givenName: (token as any).given_name,
             surname: (token as any).family_name,
-            role: 'READ', // Default role
+            role: 'READ', // Default role for new users
             department: (token as any).department,
             officeLocation: (token as any).office_location,
+            isActive: true,
           },
         });
+      } else {
+        // Update existing user info from Azure AD (but preserve role)
+        await prisma.user.update({
+          where: { id: dbUser.id },
+          data: {
+            displayName: token.name || dbUser.displayName,
+            givenName: (token as any).given_name || dbUser.givenName,
+            surname: (token as any).family_name || dbUser.surname,
+            department: (token as any).department || dbUser.department,
+            officeLocation: (token as any).office_location || dbUser.officeLocation,
+            isActive: true, // Ensure user is active when they log in
+            lastLoginAt: new Date(),
+          },
+        });
+        
+        // Refresh the user data after update
+        const updatedUser = await prisma.user.findUnique({ where: { id: dbUser.id } });
+        if (updatedUser) {
+          dbUser = updatedUser;
+        }
       }
       
       // Attach both token and database user info to request
@@ -82,10 +103,22 @@ export const requireRole = (allowedRoles: string[]) => {
     const user = (req as any).user;
     
     if (!user) {
+      logger.warn('Authorization failed: No user found');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
+    logger.info('Role check', { 
+      userRole: user.role, 
+      allowedRoles, 
+      userId: user.userId,
+      email: user.dbUser?.email 
+    });
+    
     if (!allowedRoles.includes(user.role)) {
+      logger.warn('Authorization failed: Insufficient permissions', { 
+        userRole: user.role, 
+        allowedRoles 
+      });
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
     

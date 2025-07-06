@@ -19,6 +19,32 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.7',
+    date: 'July 5, 2025',
+    changes: {
+      features: [
+        'End-to-end Bulk Import Module with multi-step wizard (file upload, mapping, validation, confirmation)',
+        'Real-time import progress tracking via Server-Sent Events (SSE) with automatic reconnection',
+        'User & Location auto-resolution with Azure AD and location matching',
+        'Serial-number conflict detection with skip / overwrite strategies',
+        'Automatic unique Asset-Tag generation when missing or conflicting',
+        'Intelligent Workload Category Detection during import based on configurable rules (RAM, GPU, user assignments, etc.)',
+      ],
+      improvements: [
+        'Enhanced error handling – technical Prisma errors converted to friendly messages',
+        'Skips rows with missing serial numbers instead of failing entire import',
+        'Batch processing (25 items) for faster, parallel imports',
+        'Comprehensive import filters and custom validation hooks',
+        'Added full developer guide (IMPORT_MODULE_GUIDE.md)',
+      ],
+      bugFixes: [
+        'Fixed SSE endpoint auth issue preventing progress updates',
+        'Resolved duplicate asset-tag constraint violations under repeated tests',
+        'Fixed “Assigned To” resolution creating placeholder users correctly',
+      ],
+    },
+  },
+  {
     version: 'v0.6',
     date: 'July 5, 2025',
     changes: {

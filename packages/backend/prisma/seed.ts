@@ -16,7 +16,11 @@ async function main() {
   await prisma.attachment.deleteMany();
   await prisma.assetTicket.deleteMany();
   await prisma.customFieldValue.deleteMany();
+  await prisma.assetWorkloadCategory.deleteMany();
+  await prisma.asset.deleteMany();
   await prisma.customField.deleteMany();
+  await prisma.workloadCategoryRule.deleteMany();
+  await prisma.workloadCategory.deleteMany();
   await prisma.vendor.deleteMany();
   await prisma.location.deleteMany();
   await prisma.department.deleteMany();
@@ -60,38 +64,23 @@ async function main() {
   const locations = await Promise.all([
     prisma.location.create({
       data: {
-        name: 'HQ - Floor 1',
-        building: 'Headquarters',
-        floor: '1',
-        address: '123 Main St',
         city: 'Seattle',
-        state: 'WA',
+        province: 'WA',
         country: 'USA',
-        postalCode: '98101',
       },
     }),
     prisma.location.create({
       data: {
-        name: 'HQ - Floor 2',
-        building: 'Headquarters',
-        floor: '2',
-        address: '123 Main St',
-        city: 'Seattle',
-        state: 'WA',
-        country: 'USA',
-        postalCode: '98101',
+        city: 'Vancouver',
+        province: 'BC',
+        country: 'Canada',
       },
     }),
     prisma.location.create({
       data: {
-        name: 'Storage Room',
-        building: 'Warehouse',
-        room: 'SR-101',
-        address: '456 Storage Blvd',
-        city: 'Seattle',
-        state: 'WA',
-        country: 'USA',
-        postalCode: '98102',
+        city: 'Toronto',
+        province: 'ON',
+        country: 'Canada',
       },
     }),
   ]);
@@ -241,6 +230,152 @@ async function main() {
       data: {
         name: 'Track About Number',
         fieldType: 'STRING',
+      },
+    }),
+  ]);
+
+  // Create Workload Categories
+  const workloadCategories = await Promise.all([
+    prisma.workloadCategory.create({
+      data: {
+        name: 'Accounting',
+        description: 'good for accounting',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'CAD',
+        description: 'This has GPU',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'Data Scientist',
+        description: 'No description',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'Field Laptop',
+        description: 'older laptops designated for field use',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'Boardroom',
+        description: 'For conference room and presentation use',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'High Memory',
+        description: 'Laptops with 64GB+ RAM for memory-intensive tasks',
+      },
+    }),
+    prisma.workloadCategory.create({
+      data: {
+        name: 'Giant Memory',
+        description: 'Laptops with 128GB+ RAM for extreme workloads',
+      },
+    }),
+  ]);
+
+  // Create Workload Category Detection Rules
+  await Promise.all([
+    // Rule 1: Skype users go to Boardroom (highest priority)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'Boardroom')!.id,
+        priority: 1,
+        sourceField: 'assignedToAadId',
+        operator: '=',
+        value: 'skypeduplicatecontacts',
+        description: 'Skype conference room users assigned to Boardroom category',
+        isActive: true,
+      },
+    }),
+    // Rule 2: 128GB+ RAM = Giant Memory
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'Giant Memory')!.id,
+        priority: 2,
+        sourceField: 'specifications.ram',
+        operator: 'regex',
+        value: '(12[8-9]|1[3-9][0-9]|[2-9][0-9][0-9])\\s*GB',
+        description: 'Assets with 128GB+ RAM for machine learning and data processing',
+        isActive: true,
+      },
+    }),
+    // Rule 3: 64GB+ RAM = High Memory (lower priority than Giant Memory)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'High Memory')!.id,
+        priority: 3,
+        sourceField: 'specifications.ram',
+        operator: 'regex',
+        value: '(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\\s*GB',
+        description: 'Assets with 64-127GB RAM for development and virtualization',
+        isActive: true,
+      },
+    }),
+    // Rule 4: CAD workstations (has dedicated GPU)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'CAD')!.id,
+        priority: 4,
+        sourceField: 'specifications.graphics',
+        operator: 'regex',
+        value: '(nvidia|quadro|rtx|gtx|amd radeon pro|firepro)',
+        description: 'Assets with dedicated graphics cards for CAD and design work',
+        isActive: true,
+      },
+    }),
+    // Rule 5: Data Scientists (specific department or role)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'Data Scientist')!.id,
+        priority: 5,
+        sourceField: 'specifications.processor',
+        operator: 'includes',
+        value: 'i9',
+        description: 'High-performance processors for data science workloads',
+        isActive: true,
+      },
+    }),
+    // Rule 6: Field laptops (fair condition assets)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'Field Laptop')!.id,
+        priority: 6,
+        sourceField: 'condition',
+        operator: '=',
+        value: 'FAIR',
+        description: 'Fair condition assets designated for field work',
+        isActive: true,
+      },
+    }),
+    // Rule 7: Accounting workstations (specific department)
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'Accounting')!.id,
+        priority: 7,
+        sourceField: 'assetType',
+        operator: '=',
+        value: 'DESKTOP',
+        description: 'Desktop computers for accounting department',
+        isActive: true,
+      },
+    }),
+    // Rule 8: Apple devices for creative work
+    prisma.workloadCategoryRule.create({
+      data: {
+        categoryId: workloadCategories.find(c => c.name === 'CAD')!.id,
+        priority: 8,
+        sourceField: 'make',
+        operator: '=',
+        value: 'Apple',
+        description: 'Apple devices for creative and design work',
+        isActive: true,
       },
     }),
   ]);

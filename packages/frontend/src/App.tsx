@@ -12,9 +12,11 @@ import CustomFields from './pages/CustomFields';
 import AddAsset from './pages/AddAsset';
 import AssetList from './pages/AssetList';
 import EditAsset from './pages/EditAsset';
+import BulkUpload from './pages/BulkUpload';
 import Technicians from './pages/Technicians';
 import Staff from './pages/Staff';
 import WorkloadCategories from './pages/WorkloadCategories';
+import WorkloadRules from './pages/WorkloadRules';
 import Locations from './pages/Locations';
 
 // Create a query client for React Query
@@ -255,7 +257,7 @@ const App: React.FC = () => {
                   <Route path="assets" element={<AssetList />} />
                   <Route path="assets/new" element={<AddAsset />} />
                   <Route path="assets/:id/edit" element={<EditAsset />} />
-                  <Route path="assets/bulk" element={<AddAsset />} />
+                  <Route path="assets/bulk" element={<BulkUpload />} />
                   
                   {/* Management */}
                   <Route path="management/technicians" element={<Technicians />} />
@@ -275,6 +277,7 @@ const App: React.FC = () => {
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="settings/custom-fields" element={<CustomFields />} />
+                  <Route path="settings/workload-rules" element={<WorkloadRules />} />
                   
                   {/* Catch all - redirect to dashboard */}
                   <Route path="*" element={<Navigate to="/" replace />} />

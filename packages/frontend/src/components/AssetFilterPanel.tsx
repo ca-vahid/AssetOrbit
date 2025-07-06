@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import { Filter, X, ChevronDown, Search } from 'lucide-react';
-import { departmentsApi, locationsApi, customFieldsApi } from '../services/api';
+import { departmentsApi, locationsApi, customFieldsApi, categoriesApi } from '../services/api';
 
 interface AssetFilters {
   assignedTo?: string;
@@ -12,6 +12,7 @@ interface AssetFilters {
   assetType?: string;
   departmentId?: string;
   locationId?: string;
+  workloadCategoryId?: string;
   dateFrom?: string;
   dateTo?: string;
   [key: string]: string | undefined; // dynamic custom-field keys: cf_<id>
@@ -56,7 +57,7 @@ const AssetFilterPanel: React.FC<AssetFilterPanelProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<AssetFilters>(filters);
 
-  // Fetch departments and locations for dropdowns
+  // Fetch departments, locations, and workload categories for dropdowns
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: () => departmentsApi.getAll(),
@@ -65,6 +66,11 @@ const AssetFilterPanel: React.FC<AssetFilterPanelProps> = ({
   const { data: locations } = useQuery({
     queryKey: ['locations'],
     queryFn: () => locationsApi.getLocations(),
+  });
+
+  const { data: workloadCategories } = useQuery({
+    queryKey: ['workload-categories'],
+    queryFn: () => categoriesApi.getAll(),
   });
 
   // Fetch active custom fields
@@ -320,6 +326,43 @@ const AssetFilterPanel: React.FC<AssetFilterPanelProps> = ({
                     className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   >
                     Clear location filter
+                  </button>
+                )}
+              </div>
+
+              {/* Workload Category Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Workload Category
+                </label>
+                <Select.Root 
+                  value={localFilters.workloadCategoryId || ''} 
+                  onValueChange={(value) => updateLocalFilter('workloadCategoryId', value || undefined)}
+                >
+                  <Select.Trigger className="w-full flex items-center justify-between px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100">
+                    <Select.Value placeholder="Any category" />
+                    <Select.Icon>
+                      <ChevronDown className="w-4 h-4" />
+                    </Select.Icon>
+                  </Select.Trigger>
+                  <Select.Portal>
+                    <Select.Content className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
+                      <Select.Viewport className="p-1">
+                        {workloadCategories?.filter(cat => cat.isActive).map((category) => (
+                          <Select.Item key={category.id} value={category.id} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer rounded-md">
+                            <Select.ItemText>{category.name}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Viewport>
+                    </Select.Content>
+                  </Select.Portal>
+                </Select.Root>
+                {localFilters.workloadCategoryId && (
+                  <button
+                    onClick={() => updateLocalFilter('workloadCategoryId', undefined)}
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                  >
+                    Clear category filter
                   </button>
                 )}
               </div>

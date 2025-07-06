@@ -6,6 +6,7 @@ import { assetsApi, activitiesApi, staffApi, type Asset as ApiAsset } from '../s
 import { useCustomFields } from '../hooks/useCustomFields';
 import type { Activity } from '@ats/shared';
 import EditAsset from '../pages/EditAsset';
+import SourceBadge from './SourceBadge';
 
 interface AssetDetailModalProps {
   assetId: string;
@@ -364,132 +365,127 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                       {/* Left Column */}
                       <div className="space-y-8">
                         {/* Assignment */}
-                        {(asset.assignedTo || asset.assignedToStaff) && (
-                          <div className="relative bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-purple-50/20 dark:from-blue-900/10 dark:via-indigo-900/10 dark:to-purple-900/5 rounded-xl p-6 border border-blue-200/50 dark:border-blue-700/50 shadow-sm hover:shadow-md transition-all duration-300 group">
-                            {/* Subtle background pattern */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            
-                            <h3 className="relative text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                              <div className="p-2.5 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                <UserCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                              </div>
-                              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
-                                Assigned To
-                              </span>
-                            </h3>
-                            {asset.assignedToStaff ? (
-                              <div className="relative flex items-start gap-5 p-4 bg-white/50 dark:bg-slate-800/30 rounded-lg border border-white/60 dark:border-slate-700/50 backdrop-blur-sm">
-                                <div className="relative">
-                                  <ProfilePicture 
-                                    azureAdId={asset.assignedToStaff.id} 
-                                    displayName={asset.assignedToStaff.displayName} 
-                                    size="md" 
-                                    className="group-hover:scale-105 transition-transform duration-300"
-                                  />
-                                  {/* Online status indicator */}
-                                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full shadow-sm" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div>
-                                      <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1 leading-tight">
-                                        {asset.assignedToStaff.displayName}
-                                      </p>
-                                      <p className="text-blue-600 dark:text-blue-400 font-medium text-sm bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md inline-block">
-                                        {asset.assignedToStaff.jobTitle || 'Employee'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="space-y-2 mt-3">
-                                    {asset.assignedToStaff.department && (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 bg-slate-100 dark:bg-slate-700 rounded-md flex items-center justify-center">
-                                          <Building className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                                        </div>
-                                        <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                          {asset.assignedToStaff.department}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {asset.assignedToStaff.officeLocation && (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 bg-slate-100 dark:bg-slate-700 rounded-md flex items-center justify-center">
-                                          <MapPin className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                                        </div>
-                                        <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                          {asset.assignedToStaff.officeLocation}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {asset.assignedToStaff.mail && (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 bg-slate-100 dark:bg-slate-700 rounded-md flex items-center justify-center">
-                                          <Mail className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                                        </div>
-                                        <a 
-                                          href={`mailto:${asset.assignedToStaff.mail}`}
-                                          className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:text-blue-700 dark:hover:text-blue-300 transition-colors underline decoration-blue-300 underline-offset-2"
-                                        >
-                                          {asset.assignedToStaff.mail}
-                                        </a>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ) : asset.assignedTo ? (
-                              <div className="relative flex items-start gap-5 p-4 bg-white/50 dark:bg-slate-800/30 rounded-lg border border-white/60 dark:border-slate-700/50 backdrop-blur-sm">
-                                <div className="relative">
-                                  <ProfilePicture 
-                                    azureAdId={asset.assignedToAadId} 
-                                    displayName={asset.assignedTo.displayName} 
-                                    size="md" 
-                                    className="group-hover:scale-105 transition-transform duration-300"
-                                  />
-                                  {/* Online status indicator */}
-                                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full shadow-sm" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div>
-                                      <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1 leading-tight">
-                                        {asset.assignedTo.displayName}
-                                      </p>
-                                      <p className="text-emerald-600 dark:text-emerald-400 font-medium text-sm bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-md inline-block">
-                                        IT Technician
-                                      </p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="space-y-2 mt-3">
-                                    {asset.assignedTo.department && (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 bg-slate-100 dark:bg-slate-700 rounded-md flex items-center justify-center">
-                                          <Building className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                                        </div>
-                                        <span className="text-slate-700 dark:text-slate-300 text-sm font-medium">
-                                          {asset.assignedTo.department}
-                                        </span>
-                                      </div>
-                                    )}
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-5 h-5 bg-slate-100 dark:bg-slate-700 rounded-md flex items-center justify-center">
-                                        <Mail className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                                      </div>
-                                      <a 
-                                        href={`mailto:${asset.assignedTo.email}`}
-                                        className="text-emerald-600 dark:text-emerald-400 text-sm font-medium hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors underline decoration-emerald-300 underline-offset-2"
-                                      >
-                                        {asset.assignedTo.email}
-                                      </a>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
+              {(asset.assignedTo || asset.assignedToStaff || asset.assignedToAadId) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Assigned To
+                    </span>
+                  </div>
+                  
+                  {asset.assignedToStaff ? (
+                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <ProfilePicture
+                          size="md"
+                          azureAdId={asset.assignedToStaff.id}
+                          displayName={asset.assignedToStaff.displayName}
+                          className="flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                              {asset.assignedToStaff.displayName}
+                            </h4>
                           </div>
-                        )}
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                            {asset.assignedToStaff.jobTitle || 'Employee'}
+                          </p>
+                          
+                          <div className="grid grid-cols-1 gap-3 text-sm">
+                            {asset.assignedToStaff.department && (
+                              <div className="flex items-center gap-2">
+                                <Building className="w-4 h-4 text-slate-400" />
+                                <span className="text-slate-600 dark:text-slate-400">Department:</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                                  {asset.assignedToStaff.department}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {asset.assignedToStaff.officeLocation && (
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-4 h-4 text-slate-400" />
+                                <span className="text-slate-600 dark:text-slate-400">Location:</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                                  {asset.assignedToStaff.officeLocation}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {asset.assignedToStaff.mail && (
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4 text-slate-400" />
+                                <a 
+                                  href={`mailto:${asset.assignedToStaff.mail}`}
+                                  className="text-brand-600 dark:text-brand-400 hover:underline truncate"
+                                >
+                                  {asset.assignedToStaff.mail}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : asset.assignedTo ? (
+                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <ProfilePicture
+                          size="md"
+                          azureAdId={asset.assignedToAadId}
+                          displayName={asset.assignedTo.displayName}
+                          className="flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                              {asset.assignedTo.displayName}
+                            </h4>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-3 text-sm">
+                            {asset.assignedTo.department && (
+                              <div className="flex items-center gap-2">
+                                <Building className="w-4 h-4 text-slate-400" />
+                                <span className="text-slate-600 dark:text-slate-400">Department:</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                                  {asset.assignedTo.department}
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-4 h-4 text-slate-400" />
+                              <a 
+                                href={`mailto:${asset.assignedTo.email}`}
+                                className="text-brand-600 dark:text-brand-400 hover:underline truncate"
+                              >
+                                {asset.assignedTo.email}
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : asset.assignedToAadId ? (
+                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                      <div className="flex items-center gap-3">
+                        <User className="w-8 h-8 text-slate-400" />
+                        <div>
+                          <h4 className="font-medium text-slate-900 dark:text-slate-100">
+                            {asset.assignedToAadId}
+                          </h4>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">
+                            User (No additional details available)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
                         {/* Workload Categories */}
                         {asset.workloadCategories && asset.workloadCategories.length > 0 && (
@@ -533,6 +529,12 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                                 Technical Specifications
                               </h3>
                               <div className="grid grid-cols-1 gap-4">
+                                {asset.source && (
+                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
+                                    <span className="text-slate-600 dark:text-slate-400">Source</span>
+                                    <SourceBadge source={asset.source} size="sm" />
+                                  </div>
+                                )}
                                 {asset.serialNumber && (
                                   <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
                                     <span className="text-slate-600 dark:text-slate-400">Serial Number</span>

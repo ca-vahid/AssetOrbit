@@ -110,6 +110,7 @@ export interface Asset {
   assetType: string;
   status: string;
   condition: string;
+  source?: string;
   make: string;
   model: string;
   serialNumber?: string;
@@ -227,7 +228,32 @@ export interface WorkloadCategory {
   isActive: boolean;
   _count?: {
     assetLinks: number;
+    rules?: number;
   };
+}
+
+export interface WorkloadCategoryRule {
+  id: string;
+  categoryId: string;
+  category: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  priority: number;
+  sourceField: string;
+  operator: string;
+  value: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssetFieldMeta {
+  key: string;
+  label: string;
+  required: boolean;
 }
 
 // API endpoints
@@ -307,4 +333,20 @@ export const categoriesApi = {
   getAll: (params?: any) => api.get<WorkloadCategory[]>('/workload-categories', { params }).then(res => res.data),
   create: (data: any) => api.post<WorkloadCategory>('/workload-categories', data).then(res => res.data),
   update: (id: string, data: any) => api.put<WorkloadCategory>(`/workload-categories/${id}`, data).then(res => res.data),
+  delete: (id: string) => api.delete(`/workload-categories/${id}`).then(res => res.data),
+}; 
+
+export const workloadRulesApi = {
+  getAll: (params?: any) => api.get<WorkloadCategoryRule[]>('/workload-categories/rules', { params }).then(res => res.data),
+  create: (data: any) => api.post<WorkloadCategoryRule>('/workload-categories/rules', data).then(res => res.data),
+  update: (id: string, data: any) => api.put<WorkloadCategoryRule>(`/workload-categories/rules/${id}`, data).then(res => res.data),
+  delete: (id: string) => api.delete(`/workload-categories/rules/${id}`).then(res => res.data),
+  test: (data: { sourceField: string; operator: string; value: string; testData?: any }) => 
+    api.post<{ result: boolean; error?: string; explanation: string }>('/workload-categories/rules/test', data).then(res => res.data),
+  getValidFields: () => 
+    api.get<{ fields: string[]; operators: string[] }>('/workload-categories/rules/fields').then(res => res.data),
+};
+
+export const assetFieldsApi = {
+  getAll: () => api.get<AssetFieldMeta[]>('/assets/fields').then(res => res.data),
 }; 

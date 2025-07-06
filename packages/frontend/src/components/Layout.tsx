@@ -3,7 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMsal } from '@azure/msal-react';
 import { useStore } from '../store';
-import { TopNavigation, Sidebar, StatusBar } from './layouts';
+import { TopNavigation, Sidebar } from './layouts';
 import Changelog from './Changelog';
 
 const Layout: React.FC = () => {
@@ -30,7 +30,7 @@ const Layout: React.FC = () => {
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      <div className="flex h-[calc(100vh-6rem)] mt-16 mb-8">
+      <div className="flex h-[calc(100vh-6rem)] mt-16">
         {/* Sidebar */}
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -42,7 +42,7 @@ const Layout: React.FC = () => {
         <main 
           className={`
             flex-1 transition-all duration-300 ease-spring relative
-            ${sidebarCollapsed ? 'ml-16' : 'ml-64'}
+            ${sidebarCollapsed ? 'ml-16' : 'ml-48'}
           `}
         >
           {/* Content Background with glass effect */}
@@ -74,8 +74,7 @@ const Layout: React.FC = () => {
         </main>
       </div>
 
-      {/* Status Bar */}
-      <StatusBar />
+      {/* Status Bar removed */}
 
       {/* Changelog Modal */}
       <Changelog isOpen={showChangelog} onClose={() => setShowChangelog(false)} />

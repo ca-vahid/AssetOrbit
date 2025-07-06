@@ -17,6 +17,7 @@ import customFieldsRouter from './routes/customFields';
 import activitiesRouter from './routes/activities';
 import staffRouter from './routes/staff';
 import workloadCategoriesRouter from './routes/workloadCategories';
+import importRouter from './routes/import';
 import { initAuth, authenticateJwt } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -36,7 +37,9 @@ app.use(
 // Security headers
 app.use(helmet());
 
-app.use(express.json());
+// Increase payload limit for bulk imports
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(
   morgan('[:method] :url :status :res[content-length] - :response-time ms', {
     stream: {
@@ -58,6 +61,7 @@ app.use('/api/custom-fields', customFieldsRouter);
 app.use('/api/activities', activitiesRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/workload-categories', workloadCategoriesRouter);
+app.use('/api/import', importRouter);
 
 // Protected route example
 app.get('/api/protected', authenticateJwt, (req: Request, res: Response) => {
