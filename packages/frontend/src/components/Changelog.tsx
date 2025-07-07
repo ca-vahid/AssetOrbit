@@ -19,6 +19,39 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.8',
+    date: 'July 6, 2025',
+    changes: {
+      features: [
+        'Enhanced Import Results UI with clickable Failed and Skipped sections showing detailed error information',
+        'Comprehensive Import Statistics tracking with auto-categorized assets, unique users, locations, asset types, and status breakdowns',
+        'Interactive statistics cards with expandable details and copy functionality',
+        'Real-time statistics updates during import progress via Server-Sent Events (SSE)',
+        'Detailed skipped items tracking with specific reasons (missing serial numbers, duplicates, etc.)',
+        'Improved import results display with compact layout and better visual hierarchy',
+      ],
+      improvements: [
+        'Disabled automatic User record creation during imports - only IT technicians who log in get User records',
+        'Enhanced user assignment handling - preserves full usernames (including domain) when Azure AD resolution fails',
+        'Simplified frontend user resolution logic - always sends usernames to backend for consistent processing',
+        'Updated import results to show both failed and skipped items as clickable sections with detailed breakdowns',
+        'Improved statistics collection and display with categorized assets, unique user counts, and type/status breakdowns',
+        'Enhanced backend user resolution to handle both GUIDs and usernames gracefully',
+        'Added comprehensive debugging and logging for user resolution processes',
+        'Updated IMPORT_MODULE_GUIDE.md with v0.8 changes and user handling documentation',
+      ],
+      bugFixes: [
+        'Fixed user resolution consistency issue where first import showed GUIDs but subsequent imports showed usernames',
+        'Resolved "Staff member not found" warnings by improving asset enrichment logic',
+        'Fixed statistics not being returned properly from backend during imports',
+        'Corrected frontend display logic to handle missing User records gracefully',
+        'Fixed import results layout issues with overlapping buttons and excessive spacing',
+        'Resolved issue where skipped items only showed counts without detailed information',
+        'Fixed asset assignment display to show usernames directly when no User record exists',
+      ],
+    },
+  },
+  {
     version: 'v0.7',
     date: 'July 5, 2025',
     changes: {

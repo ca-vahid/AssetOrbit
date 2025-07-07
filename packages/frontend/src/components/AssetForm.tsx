@@ -1434,8 +1434,8 @@ const AssetForm: React.FC<AssetFormProps> = ({
           </CollapsibleSection>
         )}
 
-        {/* Submit Actions */}
-        <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 p-6 -mx-6 -mb-6 mt-8">
+        {/* Submit Actions - now inline */}
+        <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 p-6 -mx-6 -mb-6 mt-8">
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-400">
               {isDirty ? 'You have unsaved changes' : 'No changes made'}

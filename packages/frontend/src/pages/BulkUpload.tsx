@@ -43,6 +43,7 @@ import { useCustomFields } from '../hooks/useCustomFields';
 import { useResolveImport } from '../hooks/useResolveImport';
 import { useImportAssets, useImportProgress, generateSessionId, type ImportProgress } from '../hooks/useImportAssets';
 import { useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Types now imported from importSources.ts
 
@@ -126,21 +127,22 @@ const BulkUpload: React.FC = () => {
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   // Scroll to the active section whenever the current step changes
-  useEffect(() => {
-    const scrollOptions: ScrollIntoViewOptions = { behavior: 'smooth', block: 'start' };
+  // Note: Disabled to allow scroll-to-top behavior in handleNext
+  // useEffect(() => {
+  //   const scrollOptions: ScrollIntoViewOptions = { behavior: 'smooth', block: 'start' };
 
-    if (currentStep === 1 && categorySectionRef.current) {
-      categorySectionRef.current.scrollIntoView(scrollOptions);
-    } else if (currentStep === 2 && sourceSectionRef.current) {
-      sourceSectionRef.current.scrollIntoView(scrollOptions);
-    } else if (currentStep === 3 && columnMappingRef.current) {
-      columnMappingRef.current.scrollIntoView(scrollOptions);
-    } else if (currentStep === 4 && confirmationRef.current) {
-      confirmationRef.current.scrollIntoView(scrollOptions);
-    } else if (currentStep === 5 && resultsRef.current) {
-      resultsRef.current.scrollIntoView(scrollOptions);
-    }
-  }, [currentStep]);
+  //   if (currentStep === 1 && categorySectionRef.current) {
+  //     categorySectionRef.current.scrollIntoView(scrollOptions);
+  //   } else if (currentStep === 2 && sourceSectionRef.current) {
+  //     sourceSectionRef.current.scrollIntoView(scrollOptions);
+  //   } else if (currentStep === 3 && columnMappingRef.current) {
+  //     columnMappingRef.current.scrollIntoView(scrollOptions);
+  //   } else if (currentStep === 4 && confirmationRef.current) {
+  //     confirmationRef.current.scrollIntoView(scrollOptions);
+  //   } else if (currentStep === 5 && resultsRef.current) {
+  //     resultsRef.current.scrollIntoView(scrollOptions);
+  //   }
+  // }, [currentStep]);
 
   useEffect(() => {
     if (!mappingValid || !csvData || resolveMutation.isLoading || Object.keys(resolvedUserMap).length) return;
@@ -273,11 +275,6 @@ const BulkUpload: React.FC = () => {
               setCsvData({ headers, rows: filteredData });
               setExcludedItems(excludedData);
               setFilterStats(filterStats);
-              
-              // Auto-progress to column mapping step
-              setTimeout(() => {
-                setCurrentStep(3);
-              }, 500); // Small delay to show the file upload success state
             }
           },
           error: (error) => {
@@ -307,167 +304,67 @@ const BulkUpload: React.FC = () => {
   }
 
   const handleNext = () => {
-    if (currentStep === 1 && selectedCategory) {
+    if (currentStep === 1) {
+      if (!selectedCategory) return;
       setCurrentStep(2);
+      setCategoryExpanded(false);
       setSourceExpanded(true);
-    } else if (currentStep === 2 && selectedSource) {
-      if (uploadedFiles.length === 0) {
-        // Smooth-scroll to the drop-zone so the user can add a file
-        dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (csvData) {
+    } else if (currentStep === 2) {
+      if (!selectedSource || uploadedFiles.length === 0) return;
         setCurrentStep(3);
-      } else {
-        alert('Please wait for the file to be processed or upload a CSV file.');
-      }
-    } else if (currentStep === 3 && mappingValid) {
+      setSourceExpanded(false);
+    } else if (currentStep === 3) {
+      if (!mappingValid) return;
       setCurrentStep(4);
-      // Auto-scroll will be handled by useEffect
     } else if (currentStep === 4) {
-      // Perform actual import
-      const filteredAssets = getFilteredItemsToImport();
-
-      // Transform rows to include resolved user/location IDs and apply NinjaOne field transformations
-      const transformedAssets = filteredAssets.map((row) => {
-        const newRow: Record<string, string> = { ...row };
-
-        columnMappings.forEach((m) => {
-          const rawValue = row[m.ninjaColumn] || '';
+      if (importMutation.isLoading) return;
           
-          // Apply NinjaOne field transformations using the processor if available
-          if (m.processor && rawValue) {
-            try {
-              const transformedValue = m.processor(rawValue);
-              if (transformedValue !== null && transformedValue !== undefined) {
-                newRow[m.ninjaColumn] = String(transformedValue);
-              }
-            } catch (error) {
-              console.warn(`Failed to transform value for ${m.ninjaColumn}:`, error);
-            }
-          }
-
-          // Handle user resolution (use the potentially transformed value)
-          if (m.targetField === 'assignedToAadId') {
-            const currentValue = newRow[m.ninjaColumn] || rawValue;
-            
-            // Extract the username from domain\username format for Azure AD lookup
-            const uname = currentValue.includes('\\') ? currentValue.split('\\').pop() : currentValue;
-            
-            // Check if we have Azure AD resolution for this user
-            const resolved = resolvedUserMap[uname || ''];
-            if (resolved && resolved.id) {
-              // User was resolved in preview - send the GUID
-              newRow[m.ninjaColumn] = resolved.id;
-              console.log(`✅ Using resolved GUID for "${currentValue}": ${resolved.id}`);
-              
-              // Handle Azure AD location assignment
-              if (resolved.officeLocation) {
-                const locationId = resolvedLocationMap[resolved.officeLocation];
-                if (locationId) {
-                  newRow['_azureAdLocation'] = locationId;
-                  console.log(`📍 Set Azure AD location for ${uname}: ${resolved.officeLocation} → ${locationId}`);
-                } else {
-                  console.warn(`📍 Location "${resolved.officeLocation}" not found in resolvedLocationMap:`, Object.keys(resolvedLocationMap));
-                }
-              }
-            } else {
-              // User was NOT resolved - preserve the FULL original username (including domain)
-              newRow[m.ninjaColumn] = currentValue;
-              console.log(`👤 Preserving full username (no Azure AD resolution): "${currentValue}"`);
-            }
-          }
-          
-          // Handle location resolution (use the potentially transformed value)
-          if (m.targetField === 'locationId') {
-            const currentValue = newRow[m.ninjaColumn] || rawValue;
-            const resolvedLocId = resolvedLocationMap[currentValue];
-            if (resolvedLocId) {
-              newRow[m.ninjaColumn] = resolvedLocId; // replace with DB location id
-            }
-          }
-        });
-
-        return newRow;
-      });
-
-      // Add location mapping if we have Azure AD location data
-      const enhancedMappings = [...columnMappings];
-      if (transformedAssets.some(row => row['_azureAdLocation'])) {
-        enhancedMappings.push({
-          ninjaColumn: '_azureAdLocation',
-          targetField: 'locationId',
-          targetType: 'direct' as const,
-          description: 'Location from Azure AD user profile',
-          required: false
-        });
-        console.log(`📍 Added Azure AD location mapping to enhanced mappings`);
-      } else {
-        console.log(`📍 No Azure AD location data found in transformed assets`);
-        
-        // Debug: Show which assets have _azureAdLocation
-        const assetsWithAzureLocation = transformedAssets.filter(row => row['_azureAdLocation']);
-        console.log(`📍 Assets with _azureAdLocation:`, assetsWithAzureLocation.length);
-        
-        // Debug: Show all keys in first few assets
-        if (transformedAssets.length > 0) {
-          console.log(`📍 Sample asset keys:`, Object.keys(transformedAssets[0]));
-        }
-      }
-
-      // Map selected source to backend source enum
-      const sourceMapping: Record<string, string> = {
-        'ninjaone': 'NINJAONE',
-        'bgc-template': 'EXCEL',
-        'invoice': 'EXCEL',
-        'intune': 'INTUNE',
-        'custom-excel': 'EXCEL'
-      };
-
-      // Generate session ID and set import start time
+      // Advance to step 5 immediately to show progress
+      setCurrentStep(5);
+      
+      // Generate session ID and set up progress tracking
       const sessionId = generateSessionId();
       setImportSessionId(sessionId);
       setImportStartTime(Date.now());
       setRealTimeProgress(null);
       
-      // Scroll to progress section after a short delay
-      setTimeout(() => {
-        if (progressRef.current) {
-          progressRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-      
-      importMutation.mutate({
-        assets: transformedAssets,
-        columnMappings: enhancedMappings,
-        conflictResolution: conflictResolution,
-        source: sourceMapping[selectedSource || ''] || 'BULK_UPLOAD',
+      // Prepare data for import
+      const itemsToImport = getFilteredItemsToImport();
+      const importData = {
+        assets: itemsToImport,
+        columnMappings,
+        conflictResolution,
+        source: selectedSource || '',
         sessionId: sessionId
-      }, {
-        onSuccess: (results) => {
-          console.log('Import results received:', results);
-          console.log('Statistics:', results.statistics);
-          setImportResults(results);
-          setCurrentStep(5);
+      };
+
+      // Start import
+      importMutation.mutate(importData, {
+        onSuccess: (result) => {
+          setImportResults(result);
           setImportStartTime(null);
           setImportSessionId(null);
           setRealTimeProgress(null);
           // Store import timestamp for filtering
           setImportTimestamp(new Date().toISOString());
-          // Small delay to ensure the results section is rendered before scrolling
-          setTimeout(() => {
-            if (resultsRef.current) {
-              resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          }, 100);
         },
-        onError: (error) => {
+        onError: (error: any) => {
           setImportStartTime(null);
           setImportSessionId(null);
           setRealTimeProgress(null);
-          const errorInfo = parseImportError(error);
-          setImportError(errorInfo);
+          const parsedError = parseImportError(error);
+          setImportError(parsedError);
         }
       });
+    } else if (currentStep === 5) {
+      // View results
+      handleViewAssets();
     }
+
+    // Scroll to top when changing steps
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 50); // Small delay to ensure the new step content is rendered
   };
 
   const getNextButtonText = () => {
@@ -742,39 +639,27 @@ const BulkUpload: React.FC = () => {
       {/* Content */}
       <div className="space-y-6">
         {/* Step 1: Asset Category Selection */}
-        <div ref={categorySectionRef} className="scroll-mt-24">
-        <Collapsible.Root open={categoryExpanded} onOpenChange={setCategoryExpanded}>
-          <Collapsible.Trigger className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${currentStep >= 1 ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' : 'bg-slate-200 dark:bg-slate-600 text-slate-500'}`}>
-                <Monitor className="w-5 h-5" />
+        {currentStep === 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 rounded-lg">
+                <Monitor className="w-6 h-6" />
               </div>
-              <div className="text-left">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                   What are you uploading?
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-slate-600 dark:text-slate-400 mt-1">
                   Choose the type of assets you want to import
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {selectedCategory && (
-                <div className="flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-full text-xs font-medium">
-                  <Check className="w-3 h-3" />
-                  {selectedCategory === 'endpoints' ? 'Endpoint Devices' : 'Servers'}
-                </div>
-              )}
-              {categoryExpanded ? (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              )}
-            </div>
-          </Collapsible.Trigger>
-          
-          <Collapsible.Content className="overflow-hidden">
-            <div className="pt-4">
+            
               {/* Compact Category Selection */}
               <div className="flex gap-4 max-w-2xl">
                 {/* Endpoint Devices Option */}
@@ -836,45 +721,32 @@ const BulkUpload: React.FC = () => {
                 </button>
               </div>
             </div>
-          </Collapsible.Content>
-        </Collapsible.Root>
-        </div>
+            </motion.div>
+          )}
 
         {/* Step 2: Source Selection */}
-        {selectedCategory === 'endpoints' && currentStep >= 2 && (
-          <div ref={sourceSectionRef} className="scroll-mt-24">
-          <Collapsible.Root open={sourceExpanded} onOpenChange={setSourceExpanded}>
-            <Collapsible.Trigger className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${currentStep >= 2 ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' : 'bg-slate-200 dark:bg-slate-600 text-slate-500'}`}>
-                  <Upload className="w-5 h-5" />
+        {currentStep === 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 rounded-lg">
+                <Upload className="w-6 h-6" />
                 </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                     Source file / document
                   </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-slate-600 dark:text-slate-400 mt-1">
                     Choose how you want to import your endpoint devices
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {selectedSource && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-full text-xs font-medium">
-                    <Check className="w-3 h-3" />
-                    {selectedSourceConfig?.title}
-                  </div>
-                )}
-                {sourceExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                )}
-              </div>
-            </Collapsible.Trigger>
             
-            <Collapsible.Content className="overflow-hidden">
-              <div className="pt-4 space-y-4">
+            <div className="space-y-4">
                 {/* Upload Source Cards - Compact Layout */}
                 <div className="max-w-4xl">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -950,16 +822,18 @@ const BulkUpload: React.FC = () => {
                   </div>
                 )}
               </div>
-            </Collapsible.Content>
-          </Collapsible.Root>
           </div>
-        )}
-
-        
+            </motion.div>
+          )}
 
         {/* Step 3: Column Mapping */}
-        {currentStep >= 3 && csvData && (
-          <div ref={columnMappingRef} className="scroll-mt-24">
+        {currentStep === 3 && csvData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+          <div>
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="p-6 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
@@ -1074,11 +948,17 @@ const BulkUpload: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+            </motion.div>
+          )}
 
         {/* Step 4: Data Preview & Confirmation */}
-        {currentStep >= 4 && csvData && mappingValid && (
-          <div ref={confirmationRef} className="scroll-mt-24">
+        {currentStep === 4 && csvData && mappingValid && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+          <div>
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between">
@@ -1259,11 +1139,118 @@ const BulkUpload: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+            </motion.div>
+          )}
 
-        {/* Step 5: Import Results */}
-        {currentStep >= 5 && importResults && (
-          <div ref={resultsRef} className="scroll-mt-24">
+        {/* Step 5: Import Progress & Results */}
+        {currentStep === 5 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+          <div>
+            {/* Show import progress while importing */}
+            {importMutation.isLoading && (
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                      Importing Assets...
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                      Processing {getFilteredItemsToImport().length} assets. This may take a few minutes.
+                      {realTimeProgress && (
+                        <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">
+                          ({realTimeProgress.processed} of {realTimeProgress.total} processed)
+                        </span>
+                      )}
+                    </p>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
+                      <div 
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out relative overflow-hidden"
+                        style={{ 
+                          width: (() => {
+                            if (realTimeProgress) {
+                              const pct = Math.round((realTimeProgress.processed / realTimeProgress.total) * 100);
+                              return `${Math.max(pct, 5)}%`; // always show at least 5% so bar is visible
+                            }
+                            return '5%';
+                          })()
+                        }}
+                      >
+                        {!realTimeProgress && (
+                          <div className="absolute inset-0 bg-blue-600 rounded-full animate-pulse"></div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2">
+                      <span>
+                        {realTimeProgress?.currentItem 
+                          ? `Processing: ${realTimeProgress.currentItem}`
+                          : 'Processing assets...'
+                        }
+                      </span>
+                      <span>
+                        {realTimeProgress 
+                          ? `${Math.round((realTimeProgress.processed / realTimeProgress.total) * 100)}% • ${formatElapsedTime(elapsedTime)}`
+                          : elapsedTime > 0 
+                            ? `Elapsed: ${formatElapsedTime(elapsedTime)}` 
+                            : 'Please wait'
+                        }
+                      </span>
+                    </div>
+                    
+                    {/* Progress Stats */}
+                    {realTimeProgress && (
+                      <div className="flex gap-4 mt-3 text-xs">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            {realTimeProgress.successful} successful
+                          </span>
+                        </div>
+                        {realTimeProgress.failed > 0 && (
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-slate-600 dark:text-slate-400">
+                              {realTimeProgress.failed} failed
+                            </span>
+                          </div>
+                        )}
+                        {realTimeProgress.skipped && realTimeProgress.skipped > 0 && (
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                            <span className="text-slate-600 dark:text-slate-400">
+                              {realTimeProgress.skipped} skipped
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      <strong>Please don't close this page</strong> while the import is in progress. 
+                      The process will complete automatically and show results.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show results when import is complete */}
+            {!importMutation.isLoading && importResults && (
             <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="p-6 text-center">
                 <div className={`p-3 rounded-full inline-block mb-4 ${
@@ -1791,114 +1778,18 @@ const BulkUpload: React.FC = () => {
                   >
                     Import More Assets
                   </button>
-                </div>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Import Progress Indicator */}
-      {importMutation.isLoading && (
-        <div ref={progressRef} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 scroll-mt-24">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                Importing Assets...
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                Processing {getFilteredItemsToImport().length} assets. This may take a few minutes.
-                {realTimeProgress && (
-                  <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">
-                    ({realTimeProgress.processed} of {realTimeProgress.total} processed)
-                  </span>
-                )}
-              </p>
+                    </motion.div>
+        )}
+      </div>
               
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out relative overflow-hidden"
-                  style={{ 
-                    width: (() => {
-                      if (realTimeProgress) {
-                        const pct = Math.round((realTimeProgress.processed / realTimeProgress.total) * 100);
-                        return `${Math.max(pct, 5)}%`; // always show at least 5% so bar is visible
-                      }
-                      return '5%';
-                    })()
-                  }}
-                >
-                  {!realTimeProgress && (
-                    <div className="absolute inset-0 bg-blue-600 rounded-full animate-pulse"></div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2">
-                <span>
-                  {realTimeProgress?.currentItem 
-                    ? `Processing: ${realTimeProgress.currentItem}`
-                    : 'Processing assets...'
-                  }
-                </span>
-                <span>
-                  {realTimeProgress 
-                    ? `${Math.round((realTimeProgress.processed / realTimeProgress.total) * 100)}% • ${formatElapsedTime(elapsedTime)}`
-                    : elapsedTime > 0 
-                      ? `Elapsed: ${formatElapsedTime(elapsedTime)}` 
-                      : 'Please wait'
-                  }
-                </span>
-              </div>
-              
-              {/* Progress Stats */}
-              {realTimeProgress && (
-                <div className="flex gap-4 mt-3 text-xs">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-slate-600 dark:text-slate-400">
-                      {realTimeProgress.successful} successful
-                    </span>
-                  </div>
-                  {realTimeProgress.failed > 0 && (
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span className="text-slate-600 dark:text-slate-400">
-                        {realTimeProgress.failed} failed
-                      </span>
-                    </div>
-                  )}
-                  {realTimeProgress.skipped && realTimeProgress.skipped > 0 && (
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                      <span className="text-slate-600 dark:text-slate-400">
-                        {realTimeProgress.skipped} skipped
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                <strong>Please don't close this page</strong> while the import is in progress. 
-                The process will complete automatically and show results.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="sticky bottom-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-700 p-6 z-10">
+      {/* Footer - now inline */}
+      {currentStep < 5 && (
+      <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-6 mt-6">
         <div className="flex justify-between">
           <button
             onClick={() => navigate('/assets')}
@@ -1917,6 +1808,7 @@ const BulkUpload: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Import Error Modal */}
       {importError && (

@@ -18,9 +18,8 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100/50 to-brand-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-navy-950">
-      {/* Glass morphism background overlay */}
-      <div className="fixed inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-navy-500/5 pointer-events-none" />
+    <div className="min-h-screen bg-white dark:bg-slate-900">
+      {/* Background overlay removed to prevent grey bar */}
       
       {/* Top Navigation */}
       <TopNavigation
@@ -30,7 +29,7 @@ const Layout: React.FC = () => {
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      <div className="flex h-[calc(100vh-6rem)] mt-16">
+      <div className="flex mt-16">
         {/* Sidebar */}
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -46,7 +45,7 @@ const Layout: React.FC = () => {
           `}
         >
           {/* Content Background with glass effect */}
-          <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-l border-white/20 dark:border-slate-700/50" />
+          <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-l border-white/20 dark:border-slate-700/50 pointer-events-none" />
           
           {/* Main content container */}
           <div className="relative h-full overflow-auto">
@@ -55,7 +54,7 @@ const Layout: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="p-6 h-full min-h-[calc(100vh-8rem)]"
+              className="p-6 h-full"
             >
               <AnimatePresence mode="wait">
                 <motion.div

@@ -1045,24 +1045,24 @@ const AssetList: React.FC = () => {
                             <Tooltip.Trigger asChild>
                               <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
                                 <div className="relative">
-                                  <ProfilePicture 
-                                    azureAdId={asset.assignedToStaff.id} 
-                                    displayName={asset.assignedToStaff.displayName} 
-                                    size="xs" 
-                                  />
+                          <ProfilePicture 
+                            azureAdId={asset.assignedToStaff.id} 
+                            displayName={asset.assignedToStaff.displayName} 
+                            size="xs" 
+                          />
                                   <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 to-brand-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
                                 </div>
-                                <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1">
                                   <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                                     {asset.assignedToStaff.displayName.split(' ').slice(0, 2).join(' ')}
-                                  </div>
+                          </div>
                                   {asset.assignedToStaff.jobTitle && (
                                     <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                       {asset.assignedToStaff.jobTitle.length > 20 ? 
                                         `${asset.assignedToStaff.jobTitle.substring(0, 20)}...` : 
                                         asset.assignedToStaff.jobTitle
                                       }
-                                    </div>
+                        </div>
                                   )}
                                 </div>
                               </div>
@@ -1087,18 +1087,18 @@ const AssetList: React.FC = () => {
                             <Tooltip.Trigger asChild>
                               <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
                                 <div className="relative">
-                                  <ProfilePicture 
-                                    displayName={asset.assignedTo.displayName} 
-                                    size="xs" 
-                                  />
+                          <ProfilePicture 
+                            displayName={asset.assignedTo.displayName} 
+                            size="xs" 
+                          />
                                   <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
                                 </div>
-                                <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1">
                                   <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                                     {asset.assignedTo.displayName.split(' ').slice(0, 2).join(' ')}
-                                  </div>
+                          </div>
                                   <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">IT Tech</div>
-                                </div>
+                        </div>
                               </div>
                             </Tooltip.Trigger>
                             <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
@@ -1117,7 +1117,7 @@ const AssetList: React.FC = () => {
                               <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
                                 <div className="w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-full flex items-center justify-center">
                                   <span className="text-xs font-medium text-slate-600 dark:text-slate-300">?</span>
-                                </div>
+                        </div>
                                 <span className="text-sm text-slate-600 dark:text-slate-400 truncate font-mono">
                                   {asset.assignedToAadId.substring(0, 8)}...
                                 </span>

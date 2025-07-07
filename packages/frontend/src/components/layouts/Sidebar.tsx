@@ -265,28 +265,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) =
             </div>
           ))}
         </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-white/20 dark:border-slate-700/50">
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                variants={contentVariants}
-                initial="collapsed"
-                animate="expanded"
-                exit="collapsed"
-                className="text-center"
-              >
-                <div className="text-xs text-slate-400 dark:text-slate-500">
-                  AssetOrbit v0.7
-                </div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                  Enterprise Edition
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
     </motion.aside>
   );
