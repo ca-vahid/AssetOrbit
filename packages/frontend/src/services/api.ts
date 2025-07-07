@@ -260,6 +260,7 @@ export interface AssetFieldMeta {
 export const assetsApi = {
   getAll: (params?: any) => api.get<PaginatedResponse<Asset>>('/assets', { params }).then(res => res.data),
   getById: (id: string) => api.get<Asset>(`/assets/${id}`).then(res => res.data),
+  getStats: () => api.get<{ total: number; assetTypes: Record<string, number>; statuses: Record<string, number> }>('/assets/stats').then(res => res.data),
   create: (data: any) => api.post<Asset>('/assets', data).then(res => res.data),
   update: (id: string, data: any) => api.put<Asset>(`/assets/${id}`, data).then(res => res.data),
   patch: (id: string, data: any) => api.patch<Asset>(`/assets/${id}`, data).then(res => res.data),

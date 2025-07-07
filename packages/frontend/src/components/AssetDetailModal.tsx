@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck } from 'lucide-react';
+import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck, Laptop, Smartphone, Tablet } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { assetsApi, activitiesApi, staffApi, type Asset as ApiAsset } from '../services/api';
@@ -204,11 +204,16 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   const getAssetTypeIcon = (type: string) => {
     switch (type) {
       case 'LAPTOP':
-        return Monitor;
+        return Laptop; // Laptop icon
       case 'DESKTOP':
-        return Cpu;
+        return Monitor; // Desktop/Monitor icon
+      case 'TABLET':
+        return Tablet; // Tablet icon
+      case 'PHONE':
+        return Smartphone; // Phone icon
+      case 'OTHER':
       default:
-        return Package;
+        return Package; // Generic package icon
     }
   };
 
@@ -309,51 +314,102 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
               ) : asset ? (
                 <>
                   {/* Hero Section */}
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-8 border-b border-slate-200 dark:border-slate-700">
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-6">
+                      <div className="flex items-start gap-4">
                         {/* Asset Icon */}
-                        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
                           {React.createElement(getAssetTypeIcon(asset.assetType), {
-                            className: "w-8 h-8 text-slate-700 dark:text-slate-300"
+                            className: "w-6 h-6 text-slate-700 dark:text-slate-300"
                           })}
                         </div>
                         
                         {/* Asset Info */}
-                        <div>
-                          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-4 mb-2">
+                            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                             {asset.assetTag}
                           </h1>
-                          <p className="text-xl text-slate-600 dark:text-slate-400 mb-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusColor(asset.status)}`}>
+                              {asset.status}
+                            </span>
+                          </div>
+                          
+                          <p className="text-lg text-slate-600 dark:text-slate-400 mb-3">
                             {asset.make} {asset.model}
                           </p>
                           
-                          {/* Status Badges */}
-                          <div className="flex gap-3">
-                            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border ${getStatusColor(asset.status)}`}>
-                              {asset.status}
-                            </span>
-                            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border ${getConditionColor(asset.condition)}`}>
-                              {asset.condition}
-                            </span>
+                          {/* Key Specs & Categories */}
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            {/* Vendor */}
+                            {asset.vendor && (
+                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                                <Building className="w-4 h-4" />
+                                <span>{asset.vendor.name}</span>
+                              </div>
+                            )}
+                            
+                            {/* Key Hardware Specs */}
+                            {(() => {
+                              const specs = parseSpecifications(asset.specifications);
+                              if (!specs) return null;
+                              
+                              return (
+                                <>
+                                  {specs.processor && (
+                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                                      <Cpu className="w-4 h-4" />
+                                      <span>{specs.processor}</span>
+                                    </div>
+                                  )}
+                                  {specs.ram && (
+                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                                      <MemoryStick className="w-4 h-4" />
+                                      <span>{specs.ram}</span>
+                                    </div>
+                                  )}
+                                  {specs.storage && (
+                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                                      <HardDrive className="w-4 h-4" />
+                                      <span>{specs.storage}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
+                          
+                          {/* Workload Categories */}
+                          {asset.workloadCategories && asset.workloadCategories.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {asset.workloadCategories.map((category) => (
+                                <span
+                                  key={category.id}
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+                                >
+                                  <Tag className="w-3 h-3 mr-1" />
+                                  {category.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={handleEdit}
-                          className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors shadow-lg"
+                          className="flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors text-sm font-medium"
                         >
                           <Edit className="w-4 h-4" />
-                          Edit Asset
+                          Edit
                         </button>
                         <button
                           onClick={onClose}
-                          className="p-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-white dark:hover:bg-slate-700"
+                          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-lg hover:bg-white dark:hover:bg-slate-700"
                         >
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -361,43 +417,206 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
 
                   {/* Content */}
                   <div className="p-8 overflow-y-auto max-h-[calc(95vh-200px)]">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Left Column */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      {/* Left Column - Asset Details */}
+                      <div className="lg:col-span-2 space-y-8">
+                        {/* Asset Overview */}
+                        <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                              <Package className="w-5 h-5" />
+                            </div>
+                            Asset Overview
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Asset Tag</span>
+                                <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold">{asset.assetTag}</span>
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Type</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">{asset.assetType}</span>
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Make & Model</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">{asset.make} {asset.model}</span>
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Serial Number</span>
+                                <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Status</span>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium border ${getStatusColor(asset.status)}`}>
+                                  {asset.status}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Condition</span>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium border ${getConditionColor(asset.condition)}`}>
+                                  {asset.condition}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Source</span>
+                                {asset.source ? <SourceBadge source={asset.source} size="sm" /> : <span className="text-slate-500">—</span>}
+                              </div>
+                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                                <span className="text-slate-600 dark:text-slate-400 font-medium">Location</span>
+                                <span className="text-slate-900 dark:text-slate-100 font-medium">
+                                  {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Technical Specifications */}
+                        {(() => {
+                          const specs = parseSpecifications(asset.specifications);
+                          if (!specs || Object.keys(specs).length === 0) return null;
+                          
+                          return (
+                            <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-700">
+                              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
+                                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
+                                  <Cpu className="w-5 h-5" />
+                                </div>
+                                Technical Specifications
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {specs.processor && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <Cpu className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Processor</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.processor}</p>
+                                  </div>
+                                )}
+                                {specs.ram && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <MemoryStick className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Memory</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.ram}</p>
+                                  </div>
+                                )}
+                                {specs.storage && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <HardDrive className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Storage</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.storage}</p>
+                                  </div>
+                                )}
+                                {specs.operatingSystem && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <Shield className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Operating System</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.operatingSystem}</p>
+                                  </div>
+                                )}
+                                {specs.screenSize && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <Monitor className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Screen Size</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.screenSize}</p>
+                                  </div>
+                                )}
+                                {specs.batteryHealth && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Battery Health</span>
+                                    </div>
+                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.batteryHealth}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Workload Categories */}
+                        {asset.workloadCategories && asset.workloadCategories.length > 0 && (
+                          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-700">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
+                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
+                                <Tag className="w-5 h-5" />
+                              </div>
+                              Workload Categories
+                            </h3>
+                            <div className="flex flex-wrap gap-3">
+                              {asset.workloadCategories.map((category, index) => (
+                                <span
+                                  key={category.id}
+                                  className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 shadow-sm hover:shadow-md transition-all duration-300"
+                                >
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-2" />
+                                  {category.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        {asset.notes && (
+                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                              <Package className="w-5 h-5 text-slate-600" />
+                              Notes
+                            </h3>
+                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-white dark:bg-slate-700 p-4 rounded-lg">
+                              {asset.notes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Column - Assignment & Business Info */}
                       <div className="space-y-8">
                         {/* Assignment */}
-              {(asset.assignedTo || asset.assignedToStaff || asset.assignedToAadId) && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {(asset.assignedTo || asset.assignedToStaff || asset.assignedToAadId) ? (
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                                <User className="w-4 h-4" />
+                              </div>
                       Assigned To
-                    </span>
-                  </div>
+                            </h3>
                   
                   {asset.assignedToStaff ? (
-                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
                       <div className="flex items-start gap-3">
                         <ProfilePicture
-                          size="md"
+                                    size="sm"
                           azureAdId={asset.assignedToStaff.id}
                           displayName={asset.assignedToStaff.displayName}
                           className="flex-shrink-0"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate mb-1">
                               {asset.assignedToStaff.displayName}
                             </h4>
-                          </div>
                           <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
                             {asset.assignedToStaff.jobTitle || 'Employee'}
                           </p>
                           
-                          <div className="grid grid-cols-1 gap-3 text-sm">
+                                    <div className="space-y-2 text-sm">
                             {asset.assignedToStaff.department && (
                               <div className="flex items-center gap-2">
-                                <Building className="w-4 h-4 text-slate-400" />
-                                <span className="text-slate-600 dark:text-slate-400">Department:</span>
+                                          <Building className="w-3 h-3 text-slate-400" />
                                 <span className="text-slate-900 dark:text-slate-100 font-medium">
                                   {asset.assignedToStaff.department}
                                 </span>
@@ -406,8 +625,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                             
                             {asset.assignedToStaff.officeLocation && (
                               <div className="flex items-center gap-2">
-                                <MapPin className="w-4 h-4 text-slate-400" />
-                                <span className="text-slate-600 dark:text-slate-400">Location:</span>
+                                          <MapPin className="w-3 h-3 text-slate-400" />
                                 <span className="text-slate-900 dark:text-slate-100 font-medium">
                                   {asset.assignedToStaff.officeLocation}
                                 </span>
@@ -416,10 +634,10 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                             
                             {asset.assignedToStaff.mail && (
                               <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-slate-400" />
+                                          <Mail className="w-3 h-3 text-slate-400" />
                                 <a 
                                   href={`mailto:${asset.assignedToStaff.mail}`}
-                                  className="text-brand-600 dark:text-brand-400 hover:underline truncate"
+                                            className="text-blue-600 dark:text-blue-400 hover:underline truncate text-sm"
                                 >
                                   {asset.assignedToStaff.mail}
                                 </a>
@@ -430,26 +648,23 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                       </div>
                     </div>
                   ) : asset.assignedTo ? (
-                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
                       <div className="flex items-start gap-3">
                         <ProfilePicture
-                          size="md"
+                                    size="sm"
                           azureAdId={asset.assignedToAadId}
                           displayName={asset.assignedTo.displayName}
                           className="flex-shrink-0"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate mb-1">
                               {asset.assignedTo.displayName}
                             </h4>
-                          </div>
                           
-                          <div className="grid grid-cols-1 gap-3 text-sm">
+                                    <div className="space-y-2 text-sm">
                             {asset.assignedTo.department && (
                               <div className="flex items-center gap-2">
-                                <Building className="w-4 h-4 text-slate-400" />
-                                <span className="text-slate-600 dark:text-slate-400">Department:</span>
+                                          <Building className="w-3 h-3 text-slate-400" />
                                 <span className="text-slate-900 dark:text-slate-100 font-medium">
                                   {asset.assignedTo.department}
                                 </span>
@@ -457,10 +672,10 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                             )}
                             
                             <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4 text-slate-400" />
+                                        <Mail className="w-3 h-3 text-slate-400" />
                               <a 
                                 href={`mailto:${asset.assignedTo.email}`}
-                                className="text-brand-600 dark:text-brand-400 hover:underline truncate"
+                                          className="text-blue-600 dark:text-blue-400 hover:underline truncate text-sm"
                               >
                                 {asset.assignedTo.email}
                               </a>
@@ -470,9 +685,9 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                       </div>
                     </div>
                   ) : asset.assignedToAadId ? (
-                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
                       <div className="flex items-center gap-3">
-                        <User className="w-8 h-8 text-slate-400" />
+                                  <User className="w-6 h-6 text-slate-400" />
                         <div>
                           <h4 className="font-medium text-slate-900 dark:text-slate-100">
                             {asset.assignedToAadId}
@@ -485,137 +700,62 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                     </div>
                   ) : null}
                 </div>
-              )}
-
-                        {/* Workload Categories */}
-                        {asset.workloadCategories && asset.workloadCategories.length > 0 && (
-                          <div className="relative bg-gradient-to-br from-purple-50/50 via-pink-50/30 to-indigo-50/20 dark:from-purple-900/10 dark:via-pink-900/10 dark:to-indigo-900/5 rounded-xl p-6 border border-purple-200/50 dark:border-purple-700/50 shadow-sm hover:shadow-md transition-all duration-300 group">
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            
-                            <h3 className="relative text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5 flex items-center gap-3">
-                              <div className="p-2.5 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                <Tag className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                              </div>
-                              <span className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-                                Workload Categories
-                              </span>
-                            </h3>
-                            <div className="relative flex flex-wrap gap-3">
-                              {asset.workloadCategories.map((category, index) => (
-                                <span
-                                  key={category.id}
-                                  className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-700/50 shadow-sm hover:shadow-md hover:scale-105 transition-all duration-300"
-                                  style={{
-                                    animationDelay: `${index * 100}ms`,
-                                  }}
-                                >
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-2 animate-pulse" />
-                                  {category.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Specifications */}
-                        {(() => {
-                          const specs = parseSpecifications(asset.specifications);
-                          if (!specs && !asset.serialNumber) return null;
-                          
-                          return (
-                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                                <Cpu className="w-5 h-5 text-orange-600" />
-                                Technical Specifications
-                              </h3>
-                              <div className="grid grid-cols-1 gap-4">
-                                {asset.source && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Source</span>
-                                    <SourceBadge source={asset.source} size="sm" />
-                                  </div>
-                                )}
-                                {asset.serialNumber && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Serial Number</span>
-                                    <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber}</span>
-                                  </div>
-                                )}
-                                {specs?.processor && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Processor</span>
-                                    <span className="text-slate-900 dark:text-slate-100">{specs.processor}</span>
-                                  </div>
-                                )}
-                                {specs?.ram && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Memory</span>
-                                    <span className="text-slate-900 dark:text-slate-100">{specs.ram}</span>
-                                  </div>
-                                )}
-                                {specs?.storage && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Storage</span>
-                                    <span className="text-slate-900 dark:text-slate-100">{specs.storage}</span>
-                                  </div>
-                                )}
-                                {specs?.operatingSystem && (
-                                  <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">Operating System</span>
-                                    <span className="text-slate-900 dark:text-slate-100">{specs.operatingSystem}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Location */}
-                        {asset.location && (
+                        ) : (
                           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                              <MapPin className="w-5 h-5 text-green-600" />
-                              Location
-                            </h3>
-                            <p className="text-slate-900 dark:text-slate-100">
-                              {asset.location.city}, {asset.location.province}, {asset.location.country}
-                            </p>
+                            <div className="text-center py-8">
+                              <div className="mx-auto w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                                <User className="w-6 h-6 text-slate-400" />
+                              </div>
+                              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Unassigned</h3>
+                              <p className="text-slate-600 dark:text-slate-400">This asset is not currently assigned to anyone</p>
+                            </div>
                           </div>
                         )}
-                      </div>
 
-                      {/* Right Column */}
-                      <div className="space-y-8">
                         {/* Purchase & Warranty */}
                         {(asset.purchaseDate || asset.purchasePrice || asset.vendor || asset.warrantyEndDate) && (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                              <DollarSign className="w-5 h-5 text-emerald-600" />
+                          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-700">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
+                              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                                <DollarSign className="w-5 h-5" />
+                              </div>
                               Purchase & Warranty
                             </h3>
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {asset.purchaseDate && (
-                                <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                  <span className="text-slate-600 dark:text-slate-400">Purchase Date</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{formatDate(asset.purchaseDate)}</span>
+                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Purchase Date</span>
+                                  </div>
+                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{formatDate(asset.purchaseDate)}</p>
                                 </div>
                               )}
                               {asset.purchasePrice && (
-                                <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                  <span className="text-slate-600 dark:text-slate-400">Purchase Price</span>
-                                  <span className="text-slate-900 dark:text-slate-100 font-semibold">{formatCurrency(asset.purchasePrice)}</span>
+                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Purchase Price</span>
+                                  </div>
+                                  <p className="text-slate-900 dark:text-slate-100 font-semibold text-lg">{formatCurrency(asset.purchasePrice)}</p>
                                 </div>
                               )}
                               {asset.vendor && (
-                                <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                  <span className="text-slate-600 dark:text-slate-400">Vendor</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{asset.vendor.name}</span>
+                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <Building className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Vendor</span>
+                                  </div>
+                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{asset.vendor.name}</p>
                                 </div>
                               )}
                               {asset.warrantyEndDate && (
-                                <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                  <span className="text-slate-600 dark:text-slate-400">Warranty End</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{formatDate(asset.warrantyEndDate)}</span>
+                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Warranty End</span>
+                                  </div>
+                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{formatDate(asset.warrantyEndDate)}</p>
                                 </div>
                               )}
                             </div>
@@ -623,38 +763,40 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                         )}
 
                         {/* Custom Fields */}
-                        {customFields && customFields.length > 0 && (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                              <Package className="w-5 h-5 text-indigo-600" />
+                        {customFields && customFields.length > 0 && (() => {
+                          const hasCustomFieldValues = customFields.some(field => {
+                            const value = getCustomFieldValue(field.id);
+                            return value !== '—';
+                          });
+                          
+                          if (!hasCustomFieldValues) return null;
+                          
+                          return (
+                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-700">
+                              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
+                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                                  <Package className="w-5 h-5" />
+                                </div>
                               Additional Attributes
                             </h3>
-                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {customFields.map((field) => {
                                 const value = getCustomFieldValue(field.id);
                                 if (value === '—') return null;
                                 return (
-                                  <div key={field.id} className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-0">
-                                    <span className="text-slate-600 dark:text-slate-400">{field.name}</span>
-                                    <span className="text-slate-900 dark:text-slate-100">{value}</span>
+                                    <div key={field.id} className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-indigo-200 dark:border-indigo-700">
+                                      <div className="flex items-center gap-3 mb-2">
+                                        <Tag className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{field.name}</span>
+                                      </div>
+                                      <p className="text-slate-900 dark:text-slate-100 font-medium">{value}</p>
                                   </div>
                                 );
                               })}
                             </div>
                           </div>
-                        )}
-
-                        {/* Notes */}
-                        {asset.notes && (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-                              Notes
-                            </h3>
-                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                              {asset.notes}
-                            </p>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
 

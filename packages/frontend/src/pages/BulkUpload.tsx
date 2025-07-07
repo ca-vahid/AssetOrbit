@@ -180,27 +180,16 @@ const BulkUpload: React.FC = () => {
         { onSuccess: ({ userMap, locationMap, conflicts }) => {
             setResolvedUserMap(userMap);
             
-            // DEBUG: Log resolved user map to see office locations
-            console.log('📍 Resolved user map:', userMap);
-            Object.entries(userMap).forEach(([username, user]) => {
-              if (user) {
-                console.log(`📍 User ${username}: officeLocation = "${user.officeLocation}"`);
-              }
-            });
-            
             // Collect Azure AD office locations from resolved users
             const azureAdLocations = Object.values(userMap)
               .filter(user => user && user.officeLocation)
               .map(user => user!.officeLocation!);
-            
-            console.log('📍 Azure AD locations extracted:', azureAdLocations);
             
             // If we have Azure AD locations, resolve them too
             if (azureAdLocations.length > 0) {
               resolveMutation.mutate(
                 { usernames: [], locations: azureAdLocations, serialNumbers: [] },
                 { onSuccess: ({ locationMap: azureLocationMap }) => {
-                    console.log('📍 Azure location map:', azureLocationMap);
                     setResolvedLocationMap({ ...locationMap, ...azureLocationMap });
                   } }
               );
@@ -335,7 +324,9 @@ const BulkUpload: React.FC = () => {
         columnMappings,
         conflictResolution,
         source: selectedSource || '',
-        sessionId: sessionId
+        sessionId: sessionId,
+        resolvedUserMap,
+        resolvedLocationMap
       };
 
       // Start import
@@ -593,7 +584,8 @@ const BulkUpload: React.FC = () => {
   const handleViewAssets = async () => {
     try {
       // Invalidate assets cache to ensure fresh data
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+              await queryClient.invalidateQueries({ queryKey: ['assets'] });
+        await queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
       
       // Navigate to assets page with date filter to show recently imported assets
       if (importTimestamp) {
@@ -895,6 +887,16 @@ const BulkUpload: React.FC = () => {
                     setMappingErrors(errors);
                   }}
                 />
+                
+                {/* Lookup error banner */}
+                {resolveMutation.isError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      We were unable to resolve usernames or locations due to a temporary service issue. We will retry automatically, but you can still continue – unresolved items will be imported with local users and without locations.
+                    </p>
+                  </div>
+                )}
                 
                 {/* Excluded Items Section */}
                 {excludedItems.length > 0 && (

@@ -6,7 +6,7 @@ import { matchLocations } from '../utils/locationMatcher';
 import prisma from '../services/database';
 import logger from '../utils/logger';
 import { Prisma } from '../generated/prisma';
-import { USER_ROLES } from '../constants/index';
+import { USER_ROLES, ASSET_TYPES } from '../constants/index';
 
 // Configuration for batch processing
 const BATCH_SIZE = 25;
@@ -108,6 +108,53 @@ async function detectWorkloadCategory(assetData: any, rules: any[]): Promise<str
   return null;
 }
 
+// Utility: round storage size to common denominations
+function roundToCommonStorageSize(gib: number): string {
+  if (gib > 3800) return '4 TB';
+  if (gib > 1800) return '2 TB';
+  if (gib > 900) return '1 TB';
+  if (gib > 450) return '512 GB';
+  if (gib > 230) return '256 GB';
+  if (gib > 110) return '128 GB';
+  if (gib > 50) return '64 GB';
+  return `${Math.round(gib)} GB`;
+}
+
+// Utility: simplify raw memory value in GiB to nearest common size label
+function simplifyRam(value: string): string | null {
+  if (!value) return null;
+  const gib = parseFloat(value);
+  if (isNaN(gib)) return null;
+
+  if (gib > 120) return '128 GB';
+  if (gib > 90) return '96 GB';
+  if (gib > 60) return '64 GB';
+  if (gib > 30) return '32 GB';
+  if (gib > 14) return '16 GB';
+  if (gib > 6)  return '8 GB';
+  if (gib > 2)  return '4 GB';
+  return `${Math.round(gib)} GB`;
+}
+
+// Utility: aggregate NinjaOne "Volumes" column into a single rounded storage size label
+function aggregateVolumes(value: string): string | null {
+  if (!value) return null;
+  const volumeRegex = /Type: "(.*?)"(?:[^\(]*)\((\d+\.?\d*)\s*GiB\)/g;
+  let totalGib = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = volumeRegex.exec(value)) !== null) {
+    const type = match[1];
+    const capacity = parseFloat(match[2]);
+    // Skip removable disks – we only want local storage
+    if (type.toLowerCase() !== 'removable disk') {
+      totalGib += capacity;
+    }
+  }
+
+  return totalGib > 0 ? roundToCommonStorageSize(totalGib) : null;
+}
+
 // Process a batch of assets in parallel
 async function processAssetBatch(
   assetBatch: Array<{ asset: Record<string, string>; index: number }>,
@@ -120,7 +167,9 @@ async function processAssetBatch(
   conflictResolution: 'skip' | 'overwrite',
   source: string,
   trackingId: string,
-  req: any
+  req: any,
+  resolvedUserMap: Record<string, { id: string; displayName: string; officeLocation?: string } | null> = {},
+  resolvedLocationMap: Record<string, string | null> = {}
 ): Promise<Array<{
   success: boolean;
   index: number;
@@ -161,6 +210,25 @@ async function processAssetBatch(
       // Specific fields that must be stored as ISO DateTime strings
       const dateFields = ['purchaseDate', 'warrantyStartDate', 'warrantyEndDate'];
 
+      // Normalize asset type (e.g. convert "WINDOWS_DESKTOP" -> "DESKTOP")
+      const roleToAssetTypeMap: Record<string, string> = {
+        'WINDOWS_DESKTOP': ASSET_TYPES.DESKTOP,
+        'WINDOWS_LAPTOP': ASSET_TYPES.LAPTOP,
+        'MAC_DESKTOP': ASSET_TYPES.DESKTOP,
+        'MAC_LAPTOP': ASSET_TYPES.LAPTOP,
+        'LINUX_DESKTOP': ASSET_TYPES.DESKTOP,
+        'LINUX_LAPTOP': ASSET_TYPES.LAPTOP,
+        'WINDOWS_SERVER': 'SERVER',
+        'LINUX_SERVER': 'SERVER',
+        'HYPER-V_SERVER': 'SERVER',
+        'VMWARE_SERVER': 'SERVER',
+        'SERVER': 'SERVER',
+        'TABLET': ASSET_TYPES.TABLET,
+        'MOBILE': ASSET_TYPES.OTHER,
+        'NETWORK_DEVICE': ASSET_TYPES.OTHER,
+        'PRINTER': ASSET_TYPES.OTHER
+      };
+
       // Apply column mappings
       for (const mapping of columnMappings) {
         const csvValue = csvRow[mapping.ninjaColumn];
@@ -169,16 +237,41 @@ async function processAssetBatch(
         }
 
         if (csvValue) {
+          // Pre-process certain fields that require transformation
+          let transformedValue: any = csvValue;
+
+          switch (mapping.targetField) {
+            // Only transform asset type when the source column is NinjaOne "Role"
+            case 'assetType':
+              if (mapping.ninjaColumn === 'Role') {
+                const upper = String(csvValue).toUpperCase().trim();
+                transformedValue = roleToAssetTypeMap[upper] || 'OTHER';
+              }
+              break;
+            case 'ram':
+              transformedValue = simplifyRam(csvValue);
+              break;
+            case 'storage':
+              transformedValue = aggregateVolumes(csvValue);
+              break;
+            case 'lastOnline':
+              transformedValue = toISO(csvValue);
+              break;
+            default:
+              // For direct date fields handled later via dateFields array
+              transformedValue = csvValue;
+          }
+
           // Handle different field types
           if (mapping.targetField.startsWith('cf_')) {
             // Custom field
             const customFieldId = mapping.targetField.substring(3);
-            assetData.customFields[customFieldId] = csvValue;
+            assetData.customFields[customFieldId] = transformedValue;
           } else if (directAssetFields.includes(mapping.targetField)) {
             // Direct Asset model field
-            let val: any = csvValue;
+            let val: any = transformedValue;
             if (dateFields.includes(mapping.targetField)) {
-              val = toISO(csvValue);
+              val = toISO(String(transformedValue));
               if (!val) {
                 continue; // Skip invalid date but keep processing
               }
@@ -189,7 +282,7 @@ async function processAssetBatch(
             if (!assetData.specifications) {
               assetData.specifications = {};
             }
-            assetData.specifications[mapping.targetField] = csvValue;
+            assetData.specifications[mapping.targetField] = transformedValue;
           }
         }
       }
@@ -242,25 +335,21 @@ async function processAssetBatch(
             ? assetData.assignedToAadId.split('\\').pop() 
             : assetData.assignedToAadId;
             
-          try {
-            const userMap = await graphService.findUsersBySamAccount([cleanUsername || '']);
-            const resolvedUser = userMap[cleanUsername || ''];
-            
-            if (resolvedUser && resolvedUser.id) {
-              // Replace with GUID for consistent statistics
-              const originalUsername = assetData.assignedToAadId;
-              assetData.assignedToAadId = resolvedUser.id;
-              logger.info(`✅ Resolved username "${originalUsername}" to GUID: ${resolvedUser.id}`);
-            } else {
-              // Keep the full original username (including domain if present)
-              logger.info(`👤 Preserving full username (no Azure AD resolution): "${assetData.assignedToAadId}"`);
+          // Use pre-resolved user map from frontend
+          const resolvedUser = resolvedUserMap[cleanUsername || ''] || resolvedUserMap[assetData.assignedToAadId];
+          
+          if (resolvedUser && resolvedUser.id) {
+            // Replace with GUID for consistent statistics
+            const originalUsername = assetData.assignedToAadId;
+            assetData.assignedToAadId = resolvedUser.id;
+            // Resolve location from user's office location if available
+            if (resolvedUser.officeLocation && !assetData.locationId) {
+              const resolvedLocationId = resolvedLocationMap[resolvedUser.officeLocation];
+              if (resolvedLocationId) {
+                assetData.locationId = resolvedLocationId;
+              }
             }
-          } catch (error) {
-            logger.error(`Failed to resolve username "${assetData.assignedToAadId}":`, error);
-            // Keep the original username on error
           }
-        } else {
-          logger.info(`✅ Already a GUID: ${assetData.assignedToAadId}`);
         }
         
         // Remove the automatic user creation logic (keep disabled)
@@ -482,6 +571,17 @@ async function processAssetBatch(
   });
 }
 
+// Utility: normalize source identifier from frontend to canonical source label stored in DB
+function normalizeImportSource(src: string | undefined): string {
+  if (!src) return 'BULK_UPLOAD';
+  const lower = src.toLowerCase();
+  if (lower === 'ninjaone') return 'NINJAONE';
+  if (lower === 'intune') return 'INTUNE';
+  if (lower === 'bgc-template' || lower === 'custom-excel' || lower === 'invoice') return 'EXCEL';
+  // Already in canonical form or unknown – default to upper-case for safety
+  return src.toUpperCase();
+}
+
 const router = Router();
 
 // ----------  PUBLIC SERVER-SENT EVENTS ENDPOINT (no auth) ----------
@@ -540,7 +640,7 @@ router.post('/resolve', async (req: Request, res: Response) => {
       serialNumbers: string[];
     };
 
-    console.log('Resolving import payload', { usernames, locations, serialNumbers });
+    logger.info('Resolving import payload', { usernames: usernames.length, locations: locations.length, serialNumbers: serialNumbers.length });
 
     const userMap = await graphService.findUsersBySamAccount(Array.from(new Set(usernames)));
     const locationMap = await matchLocations(Array.from(new Set(locations)));
@@ -572,7 +672,11 @@ router.post('/resolve', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('Resolver results', { userMap, locationMap, conflicts });
+    logger.info('Resolver completed', { 
+      resolvedUsers: Object.keys(userMap).length, 
+      resolvedLocations: Object.keys(locationMap).length, 
+      conflicts: Object.keys(conflicts).length 
+    });
 
     res.json({ userMap, locationMap, conflicts });
   } catch (err: any) {
@@ -595,8 +699,10 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       assets, 
       columnMappings, 
       conflictResolution = 'overwrite',
-      source = 'BULK_UPLOAD',
-      sessionId
+      source: rawSource = 'BULK_UPLOAD',
+      sessionId,
+      resolvedUserMap = {},
+      resolvedLocationMap = {}
     } = req.body as {
       assets: Record<string, string>[];
       columnMappings: Array<{
@@ -608,6 +714,8 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       conflictResolution: 'skip' | 'overwrite';
       source?: string;
       sessionId?: string;
+      resolvedUserMap?: Record<string, { id: string; displayName: string; officeLocation?: string } | null>;
+      resolvedLocationMap?: Record<string, string | null>;
     };
 
     if (!assets || !Array.isArray(assets) || assets.length === 0) {
@@ -657,6 +765,9 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
 
     logger.info(`Starting bulk import of ${assets.length} assets with session ${trackingId}`);
 
+    // Normalize source label once and reuse for all batches
+    const source = normalizeImportSource(rawSource);
+
     // Process assets in batches for better performance
     const batchCount = Math.ceil(assets.length / BATCH_SIZE);
     let processedCount = 0;
@@ -686,7 +797,9 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
           conflictResolution,
           source,
           trackingId,
-          req
+          req,
+          resolvedUserMap,
+          resolvedLocationMap
         );
 
         // Update results and progress for each completed asset
@@ -702,47 +815,33 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
             // Collect statistics for successful imports
             if (result.statistics) {
               const stats = result.statistics;
-              logger.info({ 
-                assetType: stats.assetType, 
-                status: stats.status, 
-                assignedUser: stats.assignedUser, 
-                location: stats.location,
-                categorized: stats.categorized 
-              }, 'Processing statistics for asset');
               
               // Track asset type breakdown
               if (stats.assetType) {
                 results.statistics.assetTypeBreakdown[stats.assetType] = 
                   (results.statistics.assetTypeBreakdown[stats.assetType] || 0) + 1;
-                logger.info(results.statistics.assetTypeBreakdown, 'Updated asset type breakdown');
               }
               
               // Track status breakdown
               if (stats.status) {
                 results.statistics.statusBreakdown[stats.status] = 
                   (results.statistics.statusBreakdown[stats.status] || 0) + 1;
-                logger.info(results.statistics.statusBreakdown, 'Updated status breakdown');
               }
               
               // Track unique users
               if (stats.assignedUser && !results.statistics.uniqueUsers.includes(stats.assignedUser)) {
                 results.statistics.uniqueUsers.push(stats.assignedUser);
-                logger.info({ user: stats.assignedUser, totalUsers: results.statistics.uniqueUsers.length }, 'Added unique user');
               }
               
               // Track unique locations
               if (stats.location && !results.statistics.uniqueLocations.includes(stats.location)) {
                 results.statistics.uniqueLocations.push(stats.location);
-                logger.info({ location: stats.location, totalLocations: results.statistics.uniqueLocations.length }, 'Added unique location');
               }
               
               // Track categorized assets
               if (stats.categorized) {
                 results.statistics.categorizedAssets.push(stats.categorized);
-                logger.info(stats.categorized, 'Added categorized asset');
               }
-            } else {
-              logger.warn('No statistics returned for successful asset at index:', result.index);
             }
           } else if (result.skipped) {
             results.skipped++;
@@ -862,7 +961,6 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
     }
 
     logger.info(`Bulk import completed: ${results.successful} successful, ${results.failed} failed, ${results.skipped} skipped`);
-    logger.info(results.statistics, 'Final statistics');
     res.json(results);
 
   } catch (err: any) {

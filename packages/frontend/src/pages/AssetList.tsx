@@ -177,6 +177,13 @@ const AssetList: React.FC = () => {
     queryFn: () => assetsApi.getAll(queryParams),
   });
 
+  // Fetch asset statistics (total counts by type and status)
+  const { data: statsData } = useQuery({
+    queryKey: ['assets-stats'],
+    queryFn: () => assetsApi.getStats(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
   const assets = assetsData?.data || [];
   const pagination = assetsData?.pagination;
 
@@ -297,8 +304,9 @@ const AssetList: React.FC = () => {
     setIsDeleting(true);
     try {
       await assetsApi.delete(deleteConfirmAsset.id);
-      // Refresh the assets list
+      // Refresh the assets list and stats
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
       setDeleteConfirmAsset(null);
     } catch (error) {
       console.error('Failed to delete asset:', error);
@@ -316,8 +324,9 @@ const AssetList: React.FC = () => {
       // Delete assets in parallel
       await Promise.all(selectedAssets.map(assetId => assetsApi.delete(assetId)));
       
-      // Refresh the assets list
+      // Refresh the assets list and stats
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
       
       // Clear selection
       setSelectedAssets([]);
@@ -384,32 +393,30 @@ const AssetList: React.FC = () => {
     }
   };
 
-  // Calculate statistics - smart stats based on current filters
+  // Calculate statistics - use real stats data for both asset type and status counts
   const stats = useMemo(() => {
     const currentTypeFilter = filters.assetType;
-    const filteredAssets = currentTypeFilter 
-      ? assets.filter(a => a.assetType === currentTypeFilter)
-      : assets;
     
-    // Asset type counts (for top row)
+    // Asset type counts (for top row) - use real stats data
     const assetTypeCounts = Object.keys(ASSET_TYPES).reduce((acc, type) => {
-      acc[type] = assets.filter(a => a.assetType === type).length;
+      acc[type] = statsData?.assetTypes?.[type] || 0;
       return acc;
     }, {} as Record<string, number>);
     
-    // Status counts for current filter (for bottom row)
-    const total = filteredAssets.length;
-    const available = filteredAssets.filter(a => a.status === 'AVAILABLE').length;
-    const assigned = filteredAssets.filter(a => a.status === 'ASSIGNED').length;
-    const spare = filteredAssets.filter(a => a.status === 'SPARE').length;
-    const retired = filteredAssets.filter(a => a.status === 'RETIRED').length;
+    // Status counts (for bottom row) - use real stats data
+    const total = statsData?.total || 0;
+    const available = statsData?.statuses?.['AVAILABLE'] || 0;
+    const assigned = statsData?.statuses?.['ASSIGNED'] || 0;
+    const spare = statsData?.statuses?.['SPARE'] || 0;
+    const retired = statsData?.statuses?.['RETIRED'] || 0;
+    const maintenance = statsData?.statuses?.['MAINTENANCE'] || 0;
     
     return { 
       assetTypeCounts,
-      statusCounts: { total, available, assigned, spare, retired },
+      statusCounts: { total, available, assigned, spare, retired, maintenance },
       currentFilter: currentTypeFilter
     };
-  }, [assets, filters.assetType]);
+  }, [filters.assetType, statsData]);
 
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
 
@@ -444,7 +451,7 @@ const AssetList: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="text-right bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
             <p className="text-2xl font-medium text-slate-900 dark:text-slate-100 tabular-nums">
-              {pagination?.total || 0}
+              {statsData?.total || 0}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide font-medium">
               Total Assets
@@ -473,7 +480,7 @@ const AssetList: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Assets</p>
-                <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{pagination?.total || 0}</p>
+                <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{statsData?.total || 0}</p>
               </div>
             </div>
           </div>
@@ -535,7 +542,7 @@ const AssetList: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Available{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                  Available
                 </p>
                 <p className="text-lg font-medium text-green-600 dark:text-green-400 tabular-nums">{stats.statusCounts.available}</p>
               </div>
@@ -549,7 +556,7 @@ const AssetList: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Assigned{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                  Assigned
                 </p>
                 <p className="text-lg font-medium text-blue-600 dark:text-blue-400 tabular-nums">{stats.statusCounts.assigned}</p>
               </div>
@@ -563,7 +570,7 @@ const AssetList: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Spare{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                  Spare
                 </p>
                 <p className="text-lg font-medium text-orange-600 dark:text-orange-400 tabular-nums">{stats.statusCounts.spare}</p>
               </div>
@@ -577,7 +584,7 @@ const AssetList: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Retired{stats.currentFilter ? ` (${ASSET_TYPES[stats.currentFilter as keyof typeof ASSET_TYPES]?.label})` : ''}
+                  Retired
                 </p>
                 <p className="text-lg font-medium text-red-600 dark:text-red-400 tabular-nums">{stats.statusCounts.retired}</p>
               </div>
@@ -882,9 +889,6 @@ const AssetList: React.FC = () => {
                   <th className={`hidden xl:table-cell px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
                     Location
                   </th>
-                  <th className={`w-16 px-4 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
@@ -907,11 +911,27 @@ const AssetList: React.FC = () => {
                         className="w-4 h-4 text-brand-600 bg-white border-slate-300 rounded focus:ring-brand-500 focus:ring-2"
                       />
                     </td>
-                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[140px]">
-                          {asset.assetTag}
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAssetId(asset.id);
+                          }}
+                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate max-w-[140px] transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 -mx-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="relative">
+                              {asset.assetTag}
+                              <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-brand-500 scale-x-0 group-hover/asset:scale-x-100 transition-transform duration-200 origin-left"></div>
+                            </span>
+                            <div className="opacity-0 group-hover/asset:opacity-100 transition-opacity duration-200">
+                              <svg className="w-3 h-3 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </div>
+                          </div>
+                        </button>
                         {asset.serialNumber && (
                           <div className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[160px]">
                             SN: {asset.serialNumber}
@@ -924,6 +944,63 @@ const AssetList: React.FC = () => {
                           </span>
                         </div>
                       </div>
+
+                      {/* Inline actions button – appears on row hover */}
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            className="p-2 absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenu.Trigger>
+
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            className="min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1 z-50"
+                            side="right"
+                            align="start"
+                            sideOffset={5}
+                          >
+                            {currentUser?.role !== 'READ' && (
+                              <DropdownMenu.Item
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.location.href = `/assets/${asset.id}/edit`;
+                                }}
+                              >
+                                <Edit className="w-4 h-4" />
+                                Edit Asset
+                              </DropdownMenu.Item>
+                            )}
+                            <DropdownMenu.Item
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(asset.assetTag);
+                              }}
+                            >
+                              <Copy className="w-4 h-4" />
+                              Copy Asset Tag
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Separator className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                            {currentUser?.role === 'ADMIN' && (
+                              <DropdownMenu.Item
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer outline-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Asset
+                              </DropdownMenu.Item>
+                            )}
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
                     </td>
                     <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
                       <Tooltip.Provider>
@@ -951,19 +1028,14 @@ const AssetList: React.FC = () => {
                       </Tooltip.Provider>
                     </td>
                     <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
-                      <Tooltip.Provider>
-                        <Tooltip.Root>
-                          <Tooltip.Trigger asChild>
-                            <div className="text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
-                              <span className="font-medium">{asset.make}</span> <span className="text-slate-600 dark:text-slate-300">{asset.model}</span>
-                            </div>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg max-w-sm">
-                            <div className="font-semibold">{asset.make}</div>
-                            <div>{asset.model}</div>
-                          </Tooltip.Content>
-                        </Tooltip.Root>
-                      </Tooltip.Provider>
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
+                          {asset.model}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate max-w-[200px]">
+                          {asset.make}
+                        </div>
+                      </div>
                       {/* Show assigned user on small screens */}
                       <div className="lg:hidden mt-1">
                         {asset.assignedToStaff ? (
@@ -1149,77 +1221,6 @@ const AssetList: React.FC = () => {
                       ) : (
                         <span className="text-slate-400 dark:text-slate-500">—</span>
                       )}
-                    </td>
-                    <td className={`w-16 px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenu.Trigger>
-                        
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            className="min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1 z-50"
-                            side="left"
-                            align="start"
-                            sideOffset={5}
-                          >
-                            <DropdownMenu.Item
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedAssetId(asset.id);
-                              }}
-                            >
-                              <Eye className="w-4 h-4" />
-                              View Details
-                            </DropdownMenu.Item>
-                            
-                            {currentUser?.role !== 'READ' && (
-                              <DropdownMenu.Item
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.location.href = `/assets/${asset.id}/edit`;
-                                }}
-                              >
-                                <Edit className="w-4 h-4" />
-                                Edit Asset
-                              </DropdownMenu.Item>
-                            )}
-                            
-                            <DropdownMenu.Item
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(asset.assetTag);
-                              }}
-                            >
-                              <Copy className="w-4 h-4" />
-                              Copy Asset Tag
-                            </DropdownMenu.Item>
-                            
-                            <DropdownMenu.Separator className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                            
-                            {currentUser?.role === 'ADMIN' && (
-                              <DropdownMenu.Item
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer outline-none"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete Asset
-                              </DropdownMenu.Item>
-                            )}
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
                     </td>
                   </tr>
                 ))}

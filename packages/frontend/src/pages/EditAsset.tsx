@@ -29,6 +29,8 @@ interface AssetFormData {
   warrantyEndDate?: string;
   warrantyNotes?: string;
   notes?: string;
+  /** Specifications object containing hardware details */
+  specifications?: Record<string, any>;
   [key: string]: any;
 }
 
@@ -57,6 +59,7 @@ const EditAsset: React.FC<EditAssetProps> = ({ asset: propAsset, onSave, onCance
     mutationFn: (data: any) => assetsApi.update(asset!.id, data),
     onSuccess: (updatedAsset) => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
       queryClient.invalidateQueries({ queryKey: ['asset', asset!.id] });
       
       if (onSave) {
@@ -86,6 +89,7 @@ const EditAsset: React.FC<EditAssetProps> = ({ asset: propAsset, onSave, onCance
         vendorId: asset.vendor?.id || '',
         warrantyEndDate: asset.warrantyEndDate ? asset.warrantyEndDate.split('T')[0] : '',
         notes: asset.notes || '',
+        specifications: asset.specifications || {},
       };
 
       // Add custom field values
@@ -119,7 +123,7 @@ const EditAsset: React.FC<EditAssetProps> = ({ asset: propAsset, onSave, onCance
         }
       });
 
-      // Build payload with staff assignment only
+      // Build payload with specifications and staff assignment
       const payload = {
         assetTag: data.assetTag,
         assetType: data.assetType,
@@ -138,6 +142,7 @@ const EditAsset: React.FC<EditAssetProps> = ({ asset: propAsset, onSave, onCance
         vendorId: data.vendorId || null,
         warrantyEndDate: data.warrantyEndDate || null,
         notes: data.notes || null,
+        specifications: data.specifications && Object.keys(data.specifications).length > 0 ? data.specifications : null,
         customFields: customFieldValues,
       };
 

@@ -22,6 +22,8 @@ interface AssetFormData {
   warrantyEndDate?: string;
   warrantyNotes?: string;
   notes?: string;
+  /** Specifications object containing hardware details like processor, ram, etc. */
+  specifications?: Record<string, any>;
   [key: string]: any;
 }
 
@@ -46,7 +48,7 @@ const AddAsset: React.FC = () => {
         }
       });
 
-      // Build payload
+      // Build payload (include specifications)
       const payload = {
         assetTag: data.assetTag,
         assetType: data.assetType,
@@ -65,6 +67,7 @@ const AddAsset: React.FC = () => {
         warrantyEndDate: data.warrantyEndDate || null,
         warrantyNotes: data.warrantyNotes || null,
         notes: data.notes || null,
+        specifications: data.specifications && Object.keys(data.specifications).length > 0 ? data.specifications : null,
         customFields: customFieldValues,
       };
 
@@ -72,6 +75,7 @@ const AddAsset: React.FC = () => {
 
       // Invalidate cached asset lists so the new asset appears immediately
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
 
       // Navigate to asset list
       navigate('/assets', { replace: true });

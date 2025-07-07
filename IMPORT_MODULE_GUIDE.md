@@ -1321,3 +1321,35 @@ The previous approach of creating User records for every assigned person was pro
 - Violated the principle of least privilege
 
 The new approach stores assignment information directly while maintaining clean user management for actual system users. 
+
+### Source Label Normalisation (new)
+
+Starting with the latest import logic, the backend converts any raw `source` identifier sent from the wizard to a *canonical* label before persisting the asset.  This ensures the UI shows the correct provenance (e.g. “NinjaOne”) instead of falling back to “Manual Upload”.  The mapping currently applied is:
+
+| Raw value from wizard | Stored value |
+|-----------------------|-------------|
+| `ninjaone`            | `NINJAONE`  |
+| `intune`              | `INTUNE`    |
+| `bgc-template`, `custom-excel`, `invoice` | `EXCEL` |
+| *(undefined / anything else)* | `BULK_UPLOAD` (default) |
+
+```typescript
+// Backend helper (packages/backend/src/routes/import.ts)
+function normalizeImportSource(src?: string): string {
+  if (!src) return 'BULK_UPLOAD';
+  const lower = src.toLowerCase();
+  if (lower === 'ninjaone') return 'NINJAONE';
+  if (lower === 'intune')   return 'INTUNE';
+  if (['bgc-template', 'custom-excel', 'invoice'].includes(lower)) return 'EXCEL';
+  return src.toUpperCase(); // fallback
+}
+```
+
+### Server-side Data Transformations (clarification)
+
+Previous revisions implied that some value rounding (RAM, storage) only happened on the client preview.  This is no longer true – the backend now **guarantees** that:
+
+* `Memory Capacity (GiB)` is rounded to common sizes (e.g. `31.46` → `32 GB`).
+* `Volumes` are aggregated, non-removable disks totalled, then rounded to the nearest common capacity (e.g. `930.8 GiB` + `28.6 GiB` → `1 TB`).
+
+These transformations occur inside `processAssetBatch()` before the record is written, so the persisted data always matches what users see in the preview. 

@@ -16,9 +16,13 @@ import {
   Zap,
   Activity,
   Wifi,
-  WifiOff
+  WifiOff,
+  Shield,
+  Crown,
+  Eye
 } from 'lucide-react';
 import { useStore } from '../../store';
+import ProfilePicture from '../ProfilePicture';
 import clsx from 'clsx';
 
 interface TopNavigationProps {
@@ -60,51 +64,56 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
       {/* Glass morphism background */}
       <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50" />
       
-      <div className="relative flex items-center justify-between h-full px-6">
+      <div className="relative flex items-center justify-between h-full px-3">
         {/* Left Section */}
         <div className="flex items-center gap-4">
-          {/* Sidebar Toggle */}
-          <Tooltip.Provider>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onToggleSidebar}
-                  className="p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-all duration-200 shadow-glass-sm"
-                >
-                  <Menu className="w-5 h-5 text-slate-700 dark:text-slate-300" />
-                </motion.button>
-              </Tooltip.Trigger>
-              <Tooltip.Content side="bottom" className="px-3 py-1 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
-                Toggle Sidebar
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
+          {/* Logo & Controls Container */}
+          <div className="flex items-center gap-3 pl-2 pr-4 py-2 bg-white/30 dark:bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-700/30">
+            {/* AssetOrbit Logo */}
+            <motion.div 
+              className="flex items-center"
+              whileHover={{ scale: 1.02 }}
+            >
+              <img 
+                src="/logo.png" 
+                alt="AssetOrbit" 
+                className="h-20 w-auto object-contain hover:scale-105 transition-transform duration-200 drop-shadow-lg cursor-pointer" 
+                onClick={() => window.location.href = '/'}
+              />
+            </motion.div>
 
-          {/* Brand */}
-          <motion.div 
-            className="flex items-center gap-3"
-            whileHover={{ scale: 1.02 }}
-          >
-            <div className="relative">
-              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-navy-600 rounded-xl shadow-elevation-2" />
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-brand-600 to-navy-600 dark:from-brand-400 dark:to-navy-400 bg-clip-text text-transparent">
-                AssetOrbit
-              </h1>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onShowChangelog}
-                className="px-2 py-1 text-xs font-semibold bg-gradient-to-r from-brand-500/20 to-navy-500/20 hover:from-brand-500/30 hover:to-navy-500/30 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-700 transition-all duration-200"
-              >
-                                  v0.8
-              </motion.button>
-            </div>
-          </motion.div>
+            {/* Divider */}
+            <div className="w-px h-8 bg-slate-200/50 dark:bg-slate-700/50" />
+
+            {/* Sidebar Toggle */}
+            <Tooltip.Provider>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onToggleSidebar}
+                    className="p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-all duration-200 shadow-glass-sm"
+                  >
+                    <Menu className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  </motion.button>
+                </Tooltip.Trigger>
+                <Tooltip.Content side="bottom" className="px-3 py-1 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
+                  Toggle Sidebar
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+
+            {/* Version Badge */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onShowChangelog}
+              className="px-2 py-1 text-xs font-semibold bg-gradient-to-r from-brand-500/20 to-brand-600/20 hover:from-brand-500/30 hover:to-brand-600/30 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-700 transition-all duration-200"
+            >
+              v0.8
+            </motion.button>
+          </div>
 
           {/* Search Bar */}
           <div className="relative ml-8 hidden lg:block">
@@ -211,15 +220,37 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-all duration-200 shadow-glass-sm"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-navy-600 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
-                </div>
+                <ProfilePicture
+                  azureAdId={currentUser?.azureAdId}
+                  displayName={currentUser?.displayName || accounts[0]?.name || 'User'}
+                  size="sm"
+                  className="ring-2 ring-white/50 dark:ring-slate-700/50"
+                />
                 <div className="hidden md:block text-left">
                   <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
                     {currentUser?.displayName || accounts[0]?.name || 'User'}
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {currentUser?.role || 'User'}
+                  <div className="flex items-center gap-1 text-xs">
+                    {currentUser?.role === 'ADMIN' && (
+                      <Crown className="w-3 h-3 text-amber-500" />
+                    )}
+                    {currentUser?.role === 'WRITE' && (
+                      <Shield className="w-3 h-3 text-blue-500" />
+                    )}
+                    {currentUser?.role === 'READ' && (
+                      <Eye className="w-3 h-3 text-slate-500" />
+                    )}
+                    <span className={clsx(
+                      "font-medium",
+                      currentUser?.role === 'ADMIN' && "text-amber-600 dark:text-amber-400",
+                      currentUser?.role === 'WRITE' && "text-blue-600 dark:text-blue-400",
+                      currentUser?.role === 'read' && "text-slate-500 dark:text-slate-400",
+                      !currentUser?.role && "text-slate-500 dark:text-slate-400"
+                    )}>
+                      {currentUser?.role === 'ADMIN' ? 'Administrator' : 
+                       currentUser?.role === 'WRITE' ? 'Editor' : 
+                       currentUser?.role === 'read' ? 'Viewer' : 'User'}
+                    </span>
                   </div>
                 </div>
               </motion.button>
@@ -233,14 +264,43 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
               >
                 {/* User Info */}
                 <div className="px-3 py-3 border-b border-slate-200/50 dark:border-slate-700/50">
-                  <div className="font-medium text-slate-900 dark:text-slate-100">
-                    {currentUser?.displayName || accounts[0]?.name || 'User'}
+                  <div className="flex items-center gap-3 mb-2">
+                    <ProfilePicture
+                      azureAdId={currentUser?.azureAdId}
+                      displayName={currentUser?.displayName || accounts[0]?.name || 'User'}
+                      size="lg"
+                      className="ring-2 ring-brand-200 dark:ring-brand-700"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                        {currentUser?.displayName || accounts[0]?.name || 'User'}
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        {currentUser?.email || accounts[0]?.username || ''}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    {currentUser?.email || accounts[0]?.username || ''}
-                  </div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    Role: {currentUser?.role || 'User'}
+                  <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    {currentUser?.role === 'ADMIN' && (
+                      <Crown className="w-4 h-4 text-amber-500" />
+                    )}
+                    {currentUser?.role === 'WRITE' && (
+                      <Shield className="w-4 h-4 text-blue-500" />
+                    )}
+                    {currentUser?.role === 'read' && (
+                      <Eye className="w-4 h-4 text-slate-500" />
+                    )}
+                    <span className={clsx(
+                      "text-sm font-medium",
+                      currentUser?.role === 'ADMIN' && "text-amber-600 dark:text-amber-400",
+                      currentUser?.role === 'WRITE' && "text-blue-600 dark:text-blue-400",
+                      currentUser?.role === 'read' && "text-slate-500 dark:text-slate-400",
+                      !currentUser?.role && "text-slate-500 dark:text-slate-400"
+                    )}>
+                      {currentUser?.role === 'ADMIN' ? 'Administrator' : 
+                       currentUser?.role === 'WRITE' ? 'Editor' : 
+                       currentUser?.role === 'read' ? 'Viewer' : 'User'}
+                    </span>
                   </div>
                 </div>
 

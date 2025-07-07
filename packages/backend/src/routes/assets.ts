@@ -341,6 +341,50 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/assets/stats - Get asset statistics (counts by type and status)
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    // Get asset type counts
+    const assetTypeCounts = await prisma.asset.groupBy({
+      by: ['assetType'],
+      _count: {
+        id: true,
+      },
+    });
+
+    // Get status counts
+    const statusCounts = await prisma.asset.groupBy({
+      by: ['status'],
+      _count: {
+        id: true,
+      },
+    });
+
+    // Get total count
+    const totalCount = await prisma.asset.count();
+
+    // Format the response
+    const assetTypeStats = assetTypeCounts.reduce((acc, item) => {
+      acc[item.assetType] = item._count.id;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const statusStats = statusCounts.reduce((acc, item) => {
+      acc[item.status] = item._count.id;
+      return acc;
+    }, {} as Record<string, number>);
+
+    res.json({
+      total: totalCount,
+      assetTypes: assetTypeStats,
+      statuses: statusStats,
+    });
+  } catch (error) {
+    logger.error(`Error fetching asset statistics: ${error instanceof Error ? error.message : error}`);
+    res.status(500).json({ error: 'Failed to fetch asset statistics' });
+  }
+});
+
 // GET /api/assets/:id - Get single asset by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -1140,12 +1184,7 @@ router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res:
       return res.status(404).json({ error: 'Asset not found' });
     }
 
-    // Delete asset (cascades to related records)
-    await prisma.asset.delete({
-      where: { id },
-    });
-
-    // Log activity
+    // --- NEW: Log activity BEFORE deleting the asset to avoid FK constraint errors ---
     await logActivity(
       userId,
       ACTIVITY_ACTIONS.DELETE,
@@ -1154,6 +1193,13 @@ router.delete('/:id', requireRole([USER_ROLES.ADMIN]), async (req: Request, res:
       id,
       { assetTag: asset.assetTag, deletedAt: new Date() }
     );
+
+    // Delete asset (cascades to related records). After deletion, the FK on ActivityLog will
+    // automatically set `assetId` to NULL (because of onDelete: SetNull), so the previously
+    // inserted log record remains valid.
+    await prisma.asset.delete({
+      where: { id },
+    });
 
     res.status(204).send();
   } catch (error) {
