@@ -1,0 +1,7 @@
+Service Tag,Brand ,Model,Purchase date,Location of computer,Owner,BGC Asset Tag,Ticket number
+ABC123,Dell,Latitude 5420,01/15/2024,Toronto,John Smith,,TICKET-001
+DEF456,HP,EliteBook 840,02/01/2024,Vancouver,Jane Doe,12345,TICKET-002
+GHI789,Lenovo,ThinkPad X1,03/10/2024,Calgary,,BGC999,TICKET-003
+JKL012,ASUS,ZenBook Pro,04/05/2024,Montreal,NonExistentUser,,TICKET-004
+MNO345,Apple,MacBook Pro,05/12/2024,Toronto,Emily Rowe,67890,TICKET-005
+PQR678,Microsoft,Surface,06/20/2024,Vancouver,Valid User,BGC111,TICKET-006 

@@ -111,7 +111,7 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
               onClick={onShowChangelog}
               className="px-2 py-1 text-xs font-semibold bg-gradient-to-r from-brand-500/20 to-brand-600/20 hover:from-brand-500/30 hover:to-brand-600/30 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-700 transition-all duration-200"
             >
-              v0.8
+              v0.9
             </motion.button>
           </div>
 

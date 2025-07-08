@@ -12,6 +12,7 @@ import {
   Settings
 } from 'lucide-react';
 import { ColumnMapping, getMappingForColumn, getIgnoredColumns } from '../utils/ninjaMapping';
+import { getBGCTemplateMappings } from '../utils/importSources';
 import type { AssetFieldMeta } from '../services/api';
 import type { CustomField } from '@ats/shared';
 
@@ -23,6 +24,7 @@ interface ColumnMapperProps {
   onValidationChange: (isValid: boolean, errors: string[]) => void;
   assetFields: AssetFieldMeta[];
   customFields: CustomField[];
+  requiredOverrides?: string[];
 }
 
 interface MappingState extends ColumnMapping {
@@ -38,6 +40,7 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
   onValidationChange,
   assetFields,
   customFields,
+  requiredOverrides = [],
 }) => {
   const [mappings, setMappings] = useState<MappingState[]>([]);
   const [showIgnored, setShowIgnored] = useState(false);
@@ -66,29 +69,44 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
 
   // Initialize mappings when headers change
   useEffect(() => {
+    let bgcMappings: ColumnMapping[] = [];
+    if (sourceType === 'bgc') {
+      try {
+        bgcMappings = getBGCTemplateMappings();
+      } catch (_) {
+        bgcMappings = [];
+      }
+    }
+
+    const findDefault = (header: string): ColumnMapping | undefined => {
+      if (sourceType === 'ninja') return getMappingForColumn(header);
+      if (sourceType === 'bgc') {
+        return bgcMappings.find(m => m.ninjaColumn === header);
+      }
+      return undefined;
+    };
+
     const initialMappings: MappingState[] = csvHeaders.map(header => {
-      const defaultMapping = getMappingForColumn(header);
-      
+      const defaultMapping = findDefault(header);
       if (defaultMapping) {
         return {
           ...defaultMapping,
           ninjaColumn: header,
           originalMapping: defaultMapping
         };
-      } else {
-        // Unknown column - set as ignore by default
-        return {
-          ninjaColumn: header,
-          targetField: '',
-          targetType: 'ignore' as const,
-          description: 'Unknown column (will be ignored)',
-          isCustom: true
-        };
       }
+      // Unknown column - ignore by default
+      return {
+        ninjaColumn: header,
+        targetField: '',
+        targetType: 'ignore',
+        description: 'Unknown column (will be ignored)',
+        isCustom: true
+      } as MappingState;
     });
 
     setMappings(initialMappings);
-  }, [csvHeaders]);
+  }, [csvHeaders, sourceType]);
 
   // Validate mappings and notify parent
   useEffect(() => {
@@ -96,7 +114,10 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
     const activeMappings = mappings.filter(m => m.targetType !== 'ignore');
     
     // Check for required fields returned by backend
-    const requiredFields = assetFields.filter(f => f.required).map(f => f.key);
+    let requiredFields = assetFields.filter(f => f.required).map(f => f.key);
+    if (requiredOverrides.length) {
+      requiredFields = requiredFields.filter(f => !requiredOverrides.includes(f));
+    }
     const mappedFields = activeMappings.map(m => m.targetField);
     requiredFields.forEach(reqKey => {
       if (!mappedFields.includes(reqKey)) {
@@ -136,7 +157,7 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
       lastMappingsRef.current = mappingsString;
       onMappingChange(activeMappings);
     }
-  }, [mappings, assetFields]);
+  }, [mappings, assetFields, requiredOverrides]);
 
   const updateMapping = (index: number, updates: Partial<MappingState>) => {
     setMappings(prev => prev.map((mapping, i) => 

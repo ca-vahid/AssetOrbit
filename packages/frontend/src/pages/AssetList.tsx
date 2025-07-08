@@ -101,6 +101,9 @@ const AssetList: React.FC = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [deleteConfirmAsset, setDeleteConfirmAsset] = useState<{ id: string; tag: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Bulk delete progress tracking
+  const [deleteCompleted, setDeleteCompleted] = useState(0);
+  const [deleteTotal, setDeleteTotal] = useState(0);
   const [viewDensity, setViewDensity] = useState<'compact' | 'comfortable'>('comfortable');
   const [focusedAssetIndex, setFocusedAssetIndex] = useState<number | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
@@ -318,35 +321,45 @@ const AssetList: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedAssets.length === 0) return;
-    
+
+    const total = selectedAssets.length;
+    setDeleteTotal(total);
+    setDeleteCompleted(0);
     setIsDeleting(true);
+
     try {
-      // Delete assets in parallel
-      await Promise.all(selectedAssets.map(assetId => assetsApi.delete(assetId)));
-      
+      const CHUNK_SIZE = 50; // delete up to 50 assets per request
+      for (let i = 0; i < selectedAssets.length; i += CHUNK_SIZE) {
+        const chunk = selectedAssets.slice(i, i + CHUNK_SIZE);
+        await assetsApi.bulkDelete(chunk);
+        setDeleteCompleted((prev) => prev + chunk.length);
+      }
+
       // Refresh the assets list and stats
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
       await queryClient.invalidateQueries({ queryKey: ['assets-stats'] });
-      
+
       // Clear selection
       setSelectedAssets([]);
-      
+
       // Show success toast
       setToast({
-        message: `Successfully deleted ${selectedAssets.length} asset${selectedAssets.length > 1 ? 's' : ''}`,
-        type: 'success'
+        message: `Successfully deleted ${total} asset${total > 1 ? 's' : ''}`,
+        type: 'success',
       });
-      
+
       // Close confirmation dialog
       setShowBulkDeleteConfirm(false);
     } catch (error) {
       console.error('Failed to delete assets:', error);
       setToast({
         message: 'Failed to delete some assets. Please try again.',
-        type: 'error'
+        type: 'error',
       });
     } finally {
       setIsDeleting(false);
+      setDeleteCompleted(0);
+      setDeleteTotal(0);
     }
   };
 
@@ -1527,13 +1540,27 @@ const AssetList: React.FC = () => {
             </div>
             
             <div className="mb-6">
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                Are you sure you want to permanently delete{' '}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {selectedAssets.length} asset{selectedAssets.length > 1 ? 's' : ''}
-                </span>
-                ? All associated data will be removed and cannot be recovered.
-              </p>
+              {isDeleting ? (
+                <>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-red-600 dark:bg-red-500 h-3 transition-all duration-300"
+                      style={{ width: `${deleteTotal ? (deleteCompleted / deleteTotal) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 text-center">
+                    Deleting {deleteCompleted} / {deleteTotal} asset{deleteTotal > 1 ? 's' : ''}...
+                  </p>
+                </>
+              ) : (
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                  Are you sure you want to permanently delete{' '}
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedAssets.length} asset{selectedAssets.length > 1 ? 's' : ''}
+                  </span>
+                  ? All associated data will be removed and cannot be recovered.
+                </p>
+              )}
             </div>
             
             <div className="flex gap-3 justify-end">

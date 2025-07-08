@@ -16,6 +16,10 @@ export interface ImportSourceConfig {
   enabled: boolean;
   comingSoon?: boolean;
   features: string[];
+  // NEW: override global required fields (e.g. assetType) for this source
+  requiredOverrides?: string[];
+  // NEW: name of filter to apply (key in IMPORT_FILTERS) – null or undefined = no filter
+  filterKey?: string | null;
   // New extensibility properties
   category: UploadCategory;
   getMappings?: () => ColumnMapping[] | Promise<ColumnMapping[]>;
@@ -37,108 +41,120 @@ export const getNinjaOneMappings = async (): Promise<ColumnMapping[]> => {
 // BGC Template mappings (to be defined)
 export const getBGCTemplateMappings = (): ColumnMapping[] => {
   return [
+    // Service Tag → Serial Number (required)
     {
-      ninjaColumn: 'Asset Tag',
-      targetField: 'assetTag',
+      ninjaColumn: 'Service Tag',
+      targetField: 'serialNumber',
       targetType: 'direct',
-      description: 'BGC Asset Tag',
-      required: true
+      description: 'Device serial number',
+      required: true,
+      processor: (val: string) => val?.trim() || null,
     },
+    // Brand → Make
     {
-      ninjaColumn: 'Asset Type',
-      targetField: 'assetType',
-      targetType: 'direct',
-      description: 'Asset Type (LAPTOP, DESKTOP, etc.)',
-      required: true
-    },
-    {
-      ninjaColumn: 'Make',
+      ninjaColumn: 'Brand ',
       targetField: 'make',
       targetType: 'direct',
-      description: 'Manufacturer',
-      required: true
+      description: 'Manufacturer (Dell, Lenovo, etc.)',
+      required: false,
+      processor: (val: string) => {
+        const clean = val?.trim();
+        return clean && clean.length > 0 ? clean : 'Dell';
+      },
     },
+    // Model → Model
     {
       ninjaColumn: 'Model',
       targetField: 'model',
       targetType: 'direct',
-      description: 'Model',
-      required: true
+      description: 'Device model',
+      required: false,
+      processor: (val: string) => val?.trim(),
     },
+    // Purchase date (MM/DD/YYYY) → purchaseDate (ISO)
     {
-      ninjaColumn: 'Serial Number',
-      targetField: 'serialNumber',
-      targetType: 'direct',
-      description: 'Serial Number'
-    },
-    {
-      ninjaColumn: 'Assigned To',
-      targetField: 'assignedToAadId',
-      targetType: 'direct',
-      processor: (value: string) => {
-        // Simple username extraction for BGC template
-        return value ? value.trim() : null;
-      },
-      description: 'Assigned User (requires Azure AD lookup)'
-    },
-    {
-      ninjaColumn: 'Status',
-      targetField: 'status',
-      targetType: 'direct',
-      processor: (value: string) => {
-        const statusMap: Record<string, string> = {
-          'available': 'AVAILABLE',
-          'assigned': 'ASSIGNED',
-          'retired': 'RETIRED',
-          'maintenance': 'MAINTENANCE'
-        };
-        return statusMap[value.toLowerCase()] || 'AVAILABLE';
-      },
-      description: 'Asset Status'
-    },
-    {
-      ninjaColumn: 'Condition',
-      targetField: 'condition',
-      targetType: 'direct',
-      processor: (value: string) => {
-        const conditionMap: Record<string, string> = {
-          'new': 'NEW',
-          'good': 'GOOD',
-          'fair': 'FAIR',
-          'poor': 'POOR'
-        };
-        return conditionMap[value.toLowerCase()] || 'GOOD';
-      },
-      description: 'Asset Condition'
-    },
-    {
-      ninjaColumn: 'Purchase Date',
+      ninjaColumn: 'Purchase date',
       targetField: 'purchaseDate',
       targetType: 'direct',
-      processor: (value: string) => {
-        if (!value) return null;
-        const date = new Date(value);
-        return isNaN(date.getTime()) ? null : date.toISOString();
+      description: 'Purchase date',
+      processor: (val: string) => {
+        if (!val) return null;
+        const parsed = new Date(val);
+        return isNaN(parsed.getTime()) ? null : parsed.toISOString();
       },
-      description: 'Purchase Date'
     },
+    // Location of computer → locationId (resolved later)
     {
-      ninjaColumn: 'Warranty End Date',
-      targetField: 'warrantyEndDate',
+      ninjaColumn: 'Location of computer',
+      targetField: 'locationId',
       targetType: 'direct',
-      processor: (value: string) => {
-        if (!value) return null;
-        const date = new Date(value);
-        return isNaN(date.getTime()) ? null : date.toISOString();
+      description: 'Physical location name (resolved to ID)',
+      processor: (val: string) => val?.trim(),
+    },
+    // Owner → assignedToAadId (username or display name)
+    {
+      ninjaColumn: 'Owner',
+      targetField: 'assignedToAadId',
+      targetType: 'direct',
+      description: 'Assigned user (username or full name)',
+      processor: (val: string) => {
+        if (!val) return null;
+        const clean = val.trim();
+        if (!clean) return null;
+        
+        // Store as-is - backend will detect format and use appropriate lookup
+        // Examples:
+        // - "AAliSambaIssiaka" → username lookup
+        // - "Jorge Gonzalez Perez" → display name lookup
+        return clean;
       },
-      description: 'Warranty End Date'
     },
+    // BGC Asset Tag → assetTag (ensure prefix)
     {
-      ninjaColumn: 'Notes',
-      targetField: 'notes',
+      ninjaColumn: 'BGC Asset Tag',
+      targetField: 'assetTag',
       targetType: 'direct',
-      description: 'Notes'
-    }
+      description: 'Asset tag with BGC prefix',
+      required: false,
+      processor: (val: string) => {
+        if (!val) return null;
+        const trimmed = val.trim();
+        if (!trimmed) return null;
+        
+        // If it already starts with BGC, return as-is (uppercase)
+        if (trimmed.toUpperCase().startsWith('BGC')) {
+          return trimmed.toUpperCase();
+        }
+        
+        // If it's just a number or doesn't have BGC prefix, add BGC
+        return `BGC${trimmed.toUpperCase()}`;
+      },
+    },
+    // Duplicate mapping: Asset Tag (technicians often omit "BGC" prefix)
+    {
+      ninjaColumn: 'Asset Tag',
+      targetField: 'assetTag',
+      targetType: 'direct',
+      description: 'Asset tag (may be missing BGC prefix)',
+      required: false,
+      processor: (val: string) => {
+        if (!val) return null;
+        const trimmed = val.trim();
+        if (!trimmed) return null;
+        if (trimmed.toUpperCase().startsWith('BGC')) {
+          return trimmed.toUpperCase();
+        }
+        return `BGC${trimmed.toUpperCase()}`;
+      },
+    },
+    // Ticket number → specifications.ticketNumber (store in JSON for now)
+    {
+      ninjaColumn: 'Ticket number',
+      targetField: 'ticketNumber',
+      targetType: 'specifications',
+      description: 'Related ticket reference',
+      processor: (val: string) => val?.trim() || null,
+    },
   ];
 };
 
@@ -244,6 +260,8 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
         'Network information',
         'User assignments'
       ],
+      requiredOverrides: [],
+      filterKey: 'ninja-endpoints',
       getMappings: getNinjaOneMappings,
       customProcessing: {
         userResolution: true,
@@ -294,9 +312,11 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
         'Warranty information'
       ],
       getMappings: () => getBGCTemplateMappings(),
+      requiredOverrides: ['assetType', 'make', 'assetTag'],
+      filterKey: null,
       customProcessing: {
         userResolution: true,
-        locationResolution: false,
+        locationResolution: true,
         conflictDetection: true
       }
     },

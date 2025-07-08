@@ -269,11 +269,18 @@ class GraphService {
 
               if (corporateUsers.value?.length > 0) {
                 const user = corporateUsers.value[0];
-                result[uname] = {
+                const userResult = {
                   id: user.id,
                   displayName: user.displayName,
                   officeLocation: user.officeLocation
                 };
+                
+                // Store result for both original and trimmed keys
+                result[rawUname] = userResult;
+                if (rawUname !== uname) {
+                  result[uname] = userResult;
+                }
+                
                 logger.info(`✅ Resolved "${uname}" to corporate user: ${user.displayName} (${user.id})`);
                 return;
               }
@@ -291,11 +298,18 @@ class GraphService {
 
             if (samUsers.value?.length > 0) {
               const user = samUsers.value[0];
-              result[uname] = {
+              const userResult = {
                 id: user.id,
                 displayName: user.displayName,
                 officeLocation: user.officeLocation
               };
+              
+              // Store result for both original and trimmed keys
+              result[rawUname] = userResult;
+              if (rawUname !== uname) {
+                result[uname] = userResult;
+              }
+              
               logger.info(`✅ Resolved "${uname}" via SAM account: ${user.displayName} (${user.id})`);
               return;
             }
@@ -323,11 +337,18 @@ class GraphService {
               );
 
               const selectedUser = corporateUser || fuzzyUsers.value[0];
-              result[uname] = {
+              const userResult = {
                 id: selectedUser.id,
                 displayName: selectedUser.displayName,
                 officeLocation: selectedUser.officeLocation
               };
+              
+              // Store result for both original and trimmed keys
+              result[rawUname] = userResult;
+              if (rawUname !== uname) {
+                result[uname] = userResult;
+              }
+              
               logger.info(`✅ Resolved "${uname}" via fuzzy match: ${selectedUser.displayName} (${selectedUser.id})`);
               return;
             }
@@ -335,13 +356,19 @@ class GraphService {
             logger.warn(`Fuzzy lookup failed for ${uname}:`, error);
           }
 
-          // No match found
-          result[uname] = null;
+          // No match found - store null for both keys
+          result[rawUname] = null;
+          if (rawUname !== uname) {
+            result[uname] = null;
+          }
           logger.warn(`❌ Could not resolve username: "${uname}"`);
 
         } catch (error) {
           logger.error(`Error resolving username "${uname}":`, error);
-          result[uname] = null;
+          result[rawUname] = null;
+          if (rawUname !== uname) {
+            result[uname] = null;
+          }
         }
       })
     );
@@ -350,6 +377,156 @@ class GraphService {
     const resolved = Object.entries(result).filter(([_, user]) => user !== null).length;
     const total = usernames.length;
     logger.info(`User resolution complete: ${resolved}/${total} users resolved`);
+
+    return result;
+  }
+
+  async findUsersByDisplayName(displayNames: string[]): Promise<Record<string, { id: string; displayName: string; officeLocation?: string } | null>> {
+    const result: Record<string, { id: string; displayName: string; officeLocation?: string } | null> = {};
+    if (!displayNames.length) return result;
+
+    const client = await this.getClient();
+
+    await Promise.all(
+      displayNames.map(async (rawName) => {
+        const name = (rawName || '').trim();
+        if (!name) {
+          return;
+        }
+
+        try {
+          // DEBUG: Log the display name being resolved
+          logger.info(`Resolving display name: "${name}"`);
+
+          // Exact display name match
+          try {
+            const exactUsers = await client.api('/users')
+              .filter(`displayName eq '${name}'`)
+              .select('id,displayName,userPrincipalName,mail,officeLocation')
+              .get();
+
+            if (exactUsers.value?.length > 0) {
+              // If multiple users with same display name, prioritize corporate accounts
+              const corporateDomains = (process.env.CORP_EMAIL_DOMAINS || 'bgcengineering.ca,cambioearth.com').split(',');
+              
+              let selectedUser = exactUsers.value[0]; // fallback
+              
+              if (exactUsers.value.length > 1) {
+                // Look for corporate account first
+                const corporateUser = exactUsers.value.find((user: any) => 
+                  corporateDomains.some(domain => 
+                    user.userPrincipalName?.toLowerCase().includes(`@${domain.trim().toLowerCase()}`) || 
+                    user.mail?.toLowerCase().includes(`@${domain.trim().toLowerCase()}`)
+                  )
+                );
+                
+                if (corporateUser) {
+                  selectedUser = corporateUser;
+                  logger.info(`👔 Prioritized corporate account for "${name}": ${corporateUser.userPrincipalName || corporateUser.mail}`);
+                } else {
+                  logger.warn(`⚠️ Multiple users found for "${name}" but no corporate account detected. Using first result.`);
+                }
+              }
+              
+              const userResult = {
+                id: selectedUser.id,
+                displayName: selectedUser.displayName,
+                officeLocation: selectedUser.officeLocation
+              };
+              
+              // Store result for both original and trimmed keys
+              result[rawName] = userResult;
+              if (rawName !== name) {
+                result[name] = userResult;
+              }
+              
+              logger.info(`✅ Resolved "${name}" via exact display name: ${selectedUser.displayName} (${selectedUser.id})`);
+              return;
+            }
+          } catch (error) {
+            logger.warn(`Exact display name lookup failed for ${name}:`, error);
+          }
+
+          // Fuzzy display name match (startswith)
+          try {
+            const fuzzyUsers = await client.api('/users')
+              .filter(`startswith(displayName,'${name}')`)
+              .select('id,displayName,userPrincipalName,mail,officeLocation')
+              .top(10)
+              .get();
+
+            if (fuzzyUsers.value?.length > 0) {
+              // Find the best match (exact match preferred, then corporate account preferred)
+              const corporateDomains = (process.env.CORP_EMAIL_DOMAINS || 'bgcengineering.ca,cambioearth.com').split(',');
+              
+              // First, look for exact display name match
+              const exactMatch = fuzzyUsers.value.find((user: any) => 
+                user.displayName?.toLowerCase() === name.toLowerCase()
+              );
+              
+              let selectedUser;
+              
+              if (exactMatch) {
+                selectedUser = exactMatch;
+                logger.info(`🎯 Found exact display name match in fuzzy results for "${name}"`);
+              } else {
+                // No exact match, prioritize corporate accounts
+                const corporateUser = fuzzyUsers.value.find((user: any) => 
+                  corporateDomains.some(domain => 
+                    user.userPrincipalName?.toLowerCase().includes(`@${domain.trim().toLowerCase()}`) || 
+                    user.mail?.toLowerCase().includes(`@${domain.trim().toLowerCase()}`)
+                  )
+                );
+                
+                if (corporateUser) {
+                  selectedUser = corporateUser;
+                  logger.info(`👔 Prioritized corporate account in fuzzy results for "${name}": ${corporateUser.userPrincipalName || corporateUser.mail}`);
+                } else {
+                  selectedUser = fuzzyUsers.value[0];
+                  logger.info(`📋 Using first fuzzy result for "${name}" (no corporate account found)`);
+                }
+              }
+              
+              const userResult = {
+                id: selectedUser.id,
+                displayName: selectedUser.displayName,
+                officeLocation: selectedUser.officeLocation
+              };
+              
+              // Store result for both original and trimmed keys
+              result[rawName] = userResult;
+              if (rawName !== name) {
+                result[name] = userResult;
+              }
+              
+              logger.info(`✅ Resolved "${name}" via fuzzy display name: ${selectedUser.displayName} (${selectedUser.id})`);
+              return;
+            }
+          } catch (error) {
+            logger.warn(`Fuzzy display name lookup failed for ${name}:`, error);
+          }
+
+          // No match found - store null for both keys
+          result[rawName] = null;
+          if (rawName !== name) {
+            result[name] = null;
+          }
+          logger.warn(`❌ Could not resolve display name: "${name}"`);
+
+        } catch (error) {
+          logger.error(`Error resolving display name "${name}":`, error);
+          result[rawName] = null;
+          if (rawName !== name) {
+            result[name] = null;
+          }
+        }
+      })
+    );
+
+    // DEBUG: Log the final resolution results
+    const resolved = Object.entries(result).filter(([_, user]) => user !== null).length;
+    const total = displayNames.length;
+    logger.info(`Display name resolution complete: ${resolved}/${total} users resolved`);
 
     return result;
   }

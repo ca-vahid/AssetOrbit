@@ -1,3 +1,5 @@
+import { getImportSource } from './importSources';
+
 export interface FilterRule {
   field: string;
   operator: 'equals' | 'includes' | 'excludes' | 'startsWith' | 'endsWith' | 'daysSince';
@@ -201,6 +203,10 @@ export function applyImportFilter(
 
 // Get filter key based on source and category
 export function getFilterKey(source: string, category: string): string {
+  const srcCfg = getImportSource(category as any, source as any);
+  if (srcCfg && srcCfg.filterKey !== undefined) {
+    return srcCfg.filterKey || '';
+  }
   if (source === 'ninjaone' && category === 'endpoints') {
     return 'ninja-endpoints';
   }
@@ -208,10 +214,10 @@ export function getFilterKey(source: string, category: string): string {
     return 'ninja-servers';
   }
   if (source === 'bgc-template' && category === 'endpoints') {
-    return 'bgc-endpoints';
+    return '';
   }
   if (source === 'bgc-template' && category === 'servers') {
-    return 'bgc-servers';
+    return '';
   }
   
   // Default: no filtering

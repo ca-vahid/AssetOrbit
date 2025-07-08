@@ -311,50 +311,63 @@ async function processAssetBatch(
         }
       }
 
+      // Ensure BGC prefix on asset tags that are purely numeric or missing prefix
+      if (assetData.assetTag && /^[0-9]+$/.test(assetData.assetTag.trim())) {
+        assetData.assetTag = `BGC${assetData.assetTag.trim().toUpperCase()}`;
+      } else if (assetData.assetTag && !assetData.assetTag.toUpperCase().startsWith('BGC') && /^[A-Z0-9]+$/.test(assetData.assetTag.trim())) {
+        // Covers cases like "4315" or "bgc4315" (lowercase)
+        assetData.assetTag = `BGC${assetData.assetTag.trim().replace(/^bgc/i, '').toUpperCase()}`;
+      }
+
       // Set default values and ensure required fields are present
-      assetData.status = assetData.status || 'AVAILABLE';
       assetData.condition = assetData.condition || 'GOOD';
       assetData.assetType = assetData.assetType || 'LAPTOP';
       assetData.make = assetData.make || 'Unknown';
       assetData.model = assetData.model || 'Unknown';
       assetData.source = source;
 
-      // Auto-set status to ASSIGNED when user specified
-      if (assetData.assignedToId || assetData.assignedToAadId) {
-        assetData.status = 'ASSIGNED';
-      }
+      // --- USER ASSIGNMENT NORMALIZATION & RESOLUTION ---------------------
+      if (assetData.assignedToAadId) {
+        // 1) Trim surrounding whitespace
+        let normalizedUser = String(assetData.assignedToAadId).trim();
 
-      // Resolve assignedToAadId to local User row so UI can display name
-      if (assetData.assignedToAadId && !assetData.assignedToId) {
-        // Check if it's already a GUID or if it's a username that needs resolution
-        const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assetData.assignedToAadId);
-        
+        // 2) Drop DOMAIN\ prefix if present
+        if (normalizedUser.includes('\\')) {
+          normalizedUser = normalizedUser.split('\\').pop() as string;
+        }
+
+        // 3) Update assetData with the normalized value (still may be display name)
+        assetData.assignedToAadId = normalizedUser;
+
+        // 4) Check if it's a GUID – skip lookup if so
+        const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedUser);
+
         if (!isGuid) {
-          // It's a username - extract clean username and try to resolve to GUID
-          const cleanUsername = assetData.assignedToAadId.includes('\\') 
-            ? assetData.assignedToAadId.split('\\').pop() 
-            : assetData.assignedToAadId;
-            
-          // Use pre-resolved user map from frontend
-          const resolvedUser = resolvedUserMap[cleanUsername || ''] || resolvedUserMap[assetData.assignedToAadId];
-          
+          // 5) Attempt to resolve via provided user map (trimmed key)
+          const resolvedUser = resolvedUserMap[normalizedUser];
+
           if (resolvedUser && resolvedUser.id) {
-            // Replace with GUID for consistent statistics
-            const originalUsername = assetData.assignedToAadId;
             assetData.assignedToAadId = resolvedUser.id;
-            // Resolve location from user's office location if available
+            // Resolve office location → locationId if missing
             if (resolvedUser.officeLocation && !assetData.locationId) {
               const resolvedLocationId = resolvedLocationMap[resolvedUser.officeLocation];
               if (resolvedLocationId) {
                 assetData.locationId = resolvedLocationId;
+                logger.debug(`Resolved location from user office: ${resolvedUser.officeLocation} → ${resolvedLocationId}`);
               }
             }
+          } else {
+            logger.warn(`Failed to resolve user "${normalizedUser}" – keeping original assignment for manual review`);
           }
         }
-        
-        // Remove the automatic user creation logic (keep disabled)
-        // The assignedToAadId field now contains either GUIDs or full usernames
-        delete assetData.assignedToId;
+      }
+      // --------------------------------------------------------------------
+
+      // Determine status AFTER normalization / resolution
+      if (assetData.assignedToId || assetData.assignedToAadId) {
+        assetData.status = 'ASSIGNED';
+      } else {
+        assetData.status = assetData.status || 'AVAILABLE';
       }
 
       // Detect workload category based on rules (only if not explicitly set)
@@ -402,6 +415,11 @@ async function processAssetBatch(
         } else if (conflictResolution === 'overwrite') {
           // Separate custom fields and workload category from asset data
           const { customFields, workloadCategoryId, ...assetDataWithoutCustomFields } = assetData;
+
+          // Remove null locationId to prevent foreign key constraint violations
+          if (assetDataWithoutCustomFields.locationId === null || assetDataWithoutCustomFields.locationId === undefined) {
+            delete assetDataWithoutCustomFields.locationId;
+          }
 
           // Update existing asset
           const updatedAsset = await prisma.asset.update({
@@ -480,6 +498,11 @@ async function processAssetBatch(
 
       // Separate custom fields and workload category from asset data
       const { customFields, workloadCategoryId, ...assetDataWithoutCustomFields } = assetData;
+
+      // Remove null locationId to prevent foreign key constraint violations
+      if (assetDataWithoutCustomFields.locationId === null || assetDataWithoutCustomFields.locationId === undefined) {
+        delete assetDataWithoutCustomFields.locationId;
+      }
 
       // Create new asset
       const newAsset = await prisma.asset.create({
@@ -626,6 +649,13 @@ router.get('/progress/:sessionId', (req: Request, res: Response) => {
   }, 1000);
 
   req.on('close', () => clearInterval(interval));
+  // Also schedule cleanup when client disconnects
+  req.on('close', () => {
+    const done = progressStore.get(sessionId);
+    if (done && done.processed >= done.total) {
+      setTimeout(() => progressStore.delete(sessionId), 60000); // purge after 1 min
+    }
+  });
 });
 
 router.use(authenticateJwt);
@@ -642,7 +672,37 @@ router.post('/resolve', async (req: Request, res: Response) => {
 
     logger.info('Resolving import payload', { usernames: usernames.length, locations: locations.length, serialNumbers: serialNumbers.length });
 
-    const userMap = await graphService.findUsersBySamAccount(Array.from(new Set(usernames)));
+    // Separate usernames from display names based on heuristics
+    const usernameList: string[] = [];
+    const displayNameList: string[] = [];
+    
+    usernames.forEach(user => {
+      const trimmed = user.trim();
+      if (!trimmed) return;
+      
+      // Heuristic: if contains space, likely a display name
+      // If camelCase or no spaces, likely a username
+      if (trimmed.includes(' ')) {
+        displayNameList.push(trimmed);
+      } else {
+        usernameList.push(trimmed);
+      }
+    });
+
+    logger.info('User resolution strategy', { 
+      usernames: usernameList.length, 
+      displayNames: displayNameList.length 
+    });
+
+    // Resolve both types
+    const [usernameMap, displayNameMap] = await Promise.all([
+      graphService.findUsersBySamAccount(usernameList),
+      graphService.findUsersByDisplayName(displayNameList)
+    ]);
+
+    // Combine results
+    const userMap = { ...usernameMap, ...displayNameMap };
+
     const locationMap = await matchLocations(Array.from(new Set(locations)));
     
     // Check for conflicts by serial number

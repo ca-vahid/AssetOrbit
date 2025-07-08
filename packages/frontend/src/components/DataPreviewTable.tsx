@@ -52,17 +52,45 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
 
   // Process all rows for preview
   const processedRows: ProcessedRow[] = csvData.rows.map((row, index) => {
-    const { directFields, specifications, processingNotes: initialProcessingNotes } = processNinjaRow(row);
-    const validationErrors = validateRequiredFields(directFields);
-    const processingNotes = [...initialProcessingNotes]; // Create mutable copy
+    let directFields: Record<string, any> = {};
+    let specifications: Record<string, any> = {};
+    let validationErrors: string[] = [];
+    let initialProcessingNotes: string[] = [];
+
+    if (sourceType === 'ninja') {
+      const ninjaResult = processNinjaRow(row);
+      directFields = ninjaResult.directFields;
+      specifications = ninjaResult.specifications;
+      initialProcessingNotes = ninjaResult.processingNotes;
+      validationErrors = validateRequiredFields(directFields);
+    } else {
+      // BGC or other sources – build directFields using provided mappings only for display
+      mappings.forEach(m => {
+        if (m.targetType === 'direct') {
+          let val: any = row[m.ninjaColumn];
+          if (m.processor) {
+            try { val = m.processor(val); } catch { /* ignore */ }
+          }
+          directFields[m.targetField] = val;
+        } else if (m.targetType === 'specifications') {
+          let val: any = row[m.ninjaColumn];
+          if (m.processor) {
+            try { val = m.processor(val); } catch { /* ignore */ }
+          }
+          specifications[m.targetField] = val;
+        }
+      });
+      // No validation errors for BGC (handled earlier)
+    }
 
     let assignedToDisplayName: string | undefined = undefined;
     let locationDisplayName: string | undefined = undefined;
 
     // Resolve username and update notes/errors
-    const usernameToResolve = directFields.assignedToAadId;
+    const usernameToResolve = directFields?.assignedToAadId;
     if (usernameToResolve) {
-      const userMatch = userMap[usernameToResolve];
+      const trimmedUsername = usernameToResolve.trim();
+      const userMatch = userMap[trimmedUsername];
       if (userMatch) {
         directFields.assignedToAadId = userMatch.id;
         assignedToDisplayName = userMatch.displayName;
@@ -70,34 +98,49 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
         if (userMatch.officeLocation) {
           locationDisplayName = userMatch.officeLocation;
         }
-        const noteIndex = processingNotes.findIndex(note => note.includes(`Username "${usernameToResolve}"`));
+        const noteIndex = initialProcessingNotes.findIndex(note => note.includes(`Username "${usernameToResolve}"`));
         if (noteIndex > -1) {
-          processingNotes.splice(noteIndex, 1);
+          initialProcessingNotes.splice(noteIndex, 1);
         }
       } else if (Object.keys(userMap).length > 0) {
-        validationErrors.push(`User '${usernameToResolve}' not found in Azure AD.`);
+        validationErrors.push(`User '${trimmedUsername}' not found in Azure AD.`);
       }
     }
     
     // NOTE: This assumes a 'location' field is mapped from CSV. 
     // A future step will be to get location from resolved user profile.
-    const locationStringToResolve = directFields.locationId; 
+    let locationStringToResolve = directFields?.locationId; 
     if (locationStringToResolve) {
-        const locId = locationMap[locationStringToResolve];
+        const trimmedLocation = locationStringToResolve.trim();
+        const locId = locationMap[trimmedLocation];
         if (locId) {
             directFields.locationId = locId;
-            locationDisplayName = locationStringToResolve; // show original string for now
-             const noteIndex = processingNotes.findIndex(note => note.includes(`Location "${locationStringToResolve}"`));
+            locationDisplayName = trimmedLocation; // excel-provided name
+             const noteIndex = initialProcessingNotes.findIndex(note => note.includes(`Location "${locationStringToResolve}"`));
             if (noteIndex > -1) {
-              processingNotes.splice(noteIndex, 1);
+              initialProcessingNotes.splice(noteIndex, 1);
             }
         } else if (Object.keys(locationMap).length > 0) {
-            validationErrors.push(`Location '${locationStringToResolve}' not found.`);
+            validationErrors.push(`Location '${trimmedLocation}' not found.`);
         }
     }
 
+    // If user has officeLocation and we haven't set location yet
+    if (!locationDisplayName && assignedToDisplayName) {
+      const trimmedUsername = usernameToResolve?.trim();
+      const userMatch = userMap[trimmedUsername];
+      if (userMatch?.officeLocation) {
+        const officeLoc = userMatch.officeLocation.trim();
+        locationDisplayName = officeLoc;
+        const locId = locationMap[officeLoc];
+        if (locId) {
+          directFields.locationId = locId;
+        }
+      }
+    }
+
     // Check for conflicts
-    const serialNumber = directFields.serialNumber;
+    const serialNumber = directFields?.serialNumber;
     if (serialNumber && conflicts[serialNumber]) {
       const conflict = conflicts[serialNumber];
       validationErrors.push(`Serial number conflict: Asset ${conflict.assetTag} (ID: ${conflict.id}) already exists with this serial number.`);
@@ -107,7 +150,7 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
       originalData: row,
       directFields,
       specifications,
-      processingNotes,
+      processingNotes: initialProcessingNotes,
       validationErrors,
       index,
       assignedToDisplayName,

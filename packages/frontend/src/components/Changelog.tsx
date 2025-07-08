@@ -19,6 +19,40 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.9',
+    date: 'July 8, 2025',
+    changes: {
+      features: [
+        'BGC Asset Template import source with automatic column mappings and sample files',
+        'Completed modular Import Wizard architecture (shell + step components + generic hooks)',
+        'Live import statistics overhaul – real-time success / failed / skipped counts, asset-type + status breakdown, workload-category detection',
+        'Automatic BGC prefix normalisation on asset tags (front- & back-end safety net)',
+        'Smarter asset status logic – laptops auto-marked ASSIGNED when an owner exists, never downgraded on lookup failure',
+        'Dual Azure AD user resolution: supports usernames *and* display names with corporate-account prioritisation',
+        'Multi-strategy location matcher with city / province parsing and abbreviation map',
+        'Enhanced Server-Sent Events pipeline with richer payload (unique users, locations, categorised assets)',
+        'New IMPORT_MODULE_GUIDE_V2.md documenting the modular import system and extension guidelines',
+      ],
+      improvements: [
+        'Unified username normalisation (trim spaces, strip DOMAIN\) and single-pass resolution – eliminates edge-case whitespace bugs',
+        'ColumnMapper now tolerant to trailing-space headers and suggests default mappings automatically',
+        'Extensive backend & frontend logging for user/location resolution and progress tracking',
+        'Conflict-safe asset-tag generation now adds suffix only when truly necessary',
+        'Removed redundant user-resolution branches for cleaner, faster import processing',
+        'Prisma insert/update now filters null locationId values to avoid foreign-key violations',
+        'Sample files updated & added: NinjaOne CSV, BGC endpoint template',
+      ],
+      bugFixes: [
+        'Fixed Brand column trailing-space mapping issue preventing make field population',
+        'Resolved numeric-only asset tags importing without BGC prefix',
+        'Fixed leading-space usernames being stored/imported incorrectly',
+        'Eliminated false AVAILABLE statuses when owner present but AD lookup transiently fails',
+        'Resolved foreign-key constraint crashes caused by null locationId',
+        'SSE progress now always streams final statistics snapshot',
+      ],
+    },
+  },
+  {
     version: 'v0.8',
     date: 'July 6, 2025',
     changes: {

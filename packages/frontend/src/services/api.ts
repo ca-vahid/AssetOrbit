@@ -267,6 +267,9 @@ export const assetsApi = {
   delete: (id: string) => api.delete(`/assets/${id}`).then(res => res.data),
   bulkUpdate: (assetIds: string[], updates: any) => 
     api.post('/assets/bulk', { operation: 'update', assetIds, updates }).then(res => res.data),
+  // NEW: Bulk delete assets in a single request
+  bulkDelete: (assetIds: string[]) =>
+    api.post('/assets/bulk', { operation: 'delete', assetIds }).then(res => res.data),
   export: (format: 'csv' | 'excel', params?: any) => 
     api.get('/assets/export', {
       params: { format, ...params },

@@ -61,48 +61,89 @@ export function useImportProgress(sessionId: string | null, onProgress?: (progre
   const [progress, setProgress] = React.useState<ImportProgress | null>(null);
   const [isConnected, setIsConnected] = React.useState(false);
   const eventSourceRef = React.useRef<EventSource | null>(null);
+  const isCompleteRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      // Clean up if no session ID
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      setIsConnected(false);
+      setProgress(null);
+      isCompleteRef.current = false;
+      return;
+    }
+
+    // Don't reconnect if import is already complete
+    if (isCompleteRef.current) {
+      console.log('Import already complete, not reconnecting');
+      return;
+    }
 
     console.log('Setting up EventSource for session:', sessionId);
 
-    const connect = () => {
-      console.log('Connecting to SSE');
-      const es = new EventSource(buildSseUrl(sessionId));
+    const es = new EventSource(buildSseUrl(sessionId));
+    eventSourceRef.current = es;
 
-      es.onopen = () => {
-        console.log('EventSource connected');
+    es.onopen = () => {
+      console.log('Connecting to SSE');
         setIsConnected(true);
       };
 
       es.onmessage = (event) => {
         try {
-          // console.debug('Progress data', event.data);
           const progressData: ImportProgress = JSON.parse(event.data);
+        console.log('📈 Progress update:', {
+          processed: progressData.processed,
+          total: progressData.total,
+          percentage: progressData.total > 0 ? Math.round((progressData.processed / progressData.total) * 100) : 0,
+          successful: progressData.successful,
+          failed: progressData.failed,
+          skipped: progressData.skipped
+        });
+        
           setProgress(progressData);
           onProgress?.(progressData);
-        } catch (err) {
-          console.error('Error parsing progress data', err);
+        
+        // Auto-close when import is complete (but only if we actually have work to do)
+        if (progressData.total > 0 && progressData.processed >= progressData.total) {
+          console.log('🏁 Import complete, closing EventSource');
+          isCompleteRef.current = true;
+          es.close();
+          eventSourceRef.current = null;
+          setIsConnected(false);
+        }
+      } catch (error) {
+        console.error('Error parsing progress data:', error);
         }
       };
 
-      es.onerror = () => {
-        console.error('EventSource error – attempting reconnect in 3s');
-        es.close();
+    es.onerror = (error) => {
+      console.error('EventSource error:', error);
         setIsConnected(false);
-        setTimeout(connect, 3000);
-      };
+      
+      // Don't attempt to reconnect if import is complete
+      if (isCompleteRef.current) {
+        console.log('Import complete, not attempting to reconnect');
+        return;
+      }
 
-      // Store reference so we can close on cleanup
-      eventSourceRef.current = es;
+      // Only attempt to reconnect if we haven't completed yet
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
     };
 
-    connect();
-
+    // Cleanup function
     return () => {
       console.log('Cleaning up EventSource');
-      eventSourceRef.current?.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
       setIsConnected(false);
     };
   }, [sessionId, onProgress]);
@@ -113,6 +154,8 @@ export function useImportProgress(sessionId: string | null, onProgress?: (progre
 export const useImportAssets = () => {
   return useMutation<ImportResponse, unknown, ImportPayload>({
     mutationFn: async (payload) => {
+      console.log('🚀 useImportAssets mutationFn called with payload:', payload);
+      
       // Set a timeout for large imports (5 minutes)
       const timeoutMs = 5 * 60 * 1000; // 5 minutes
       const controller = new AbortController();
@@ -122,15 +165,18 @@ export const useImportAssets = () => {
       }, timeoutMs);
 
       try {
+        console.log('📡 Making API call to /import/assets...');
         const response = await api.post('/import/assets', payload, {
           signal: controller.signal,
           timeout: timeoutMs,
         });
         
         clearTimeout(timeoutId);
+        console.log('✅ API call successful, response:', response.data);
         return response.data;
       } catch (error) {
         clearTimeout(timeoutId);
+        console.error('❌ API call failed:', error);
         
         if (controller.signal.aborted) {
           throw new Error('Import timeout - the operation took too long to complete. Please try importing fewer assets at once.');

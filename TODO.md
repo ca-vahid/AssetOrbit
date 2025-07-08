@@ -52,7 +52,7 @@
 - [x] Activities API (GET /api/activities/:entityType/:entityId)
 
 ### File Processing
-- [ ] POST /api/upload endpoint
+- [x] POST /api/upload endpoint
 - [ ] PDF parsing with pdf-parse
 - [ ] Excel parsing with ExcelJS
 - [ ] OCR integration for invoice processing
@@ -139,13 +139,16 @@
 - [x] Quick view and edit actions
 
 ### Bulk Upload
-- [ ] Create file upload component with drag-drop
-- [ ] Implement file type validation
-- [ ] Create preview interface for uploaded data
-- [ ] Build field mapping UI
-- [ ] Add validation summary before import
-- [ ] Implement progress indicator
-- [ ] Handle partial success scenarios
+- [x] Create file upload component with drag-drop
+- [x] Implement file type validation
+- [x] Create preview interface for uploaded data
+- [x] Build field mapping UI
+- [x] Add validation summary before import
+- [x] Implement progress indicator with real-time SSE updates
+- [x] Handle partial success scenarios (failed + skipped rows)
+- [x] Enhanced import results UI with clickable summary cards
+- [x] Complete error and skipped item details with copy functionality
+- [x] Asset name/identifier display in import feedback
 
 ## Phase 6: Dashboard & Analytics (Days 21-23)
 
@@ -361,3 +364,33 @@
 ### Technical
 - Updated version badge in TopNavigation and Sidebar to **v0.6**.
 - Added v0.6 entry to in-app Changelog modal.
+
+### Bulk Import Module
+- Implemented full Bulk Upload wizard with drag-and-drop upload, dynamic column mapping, validation preview, and confirmation step.
+- Added real-time progress tracking via SSE with auto-reconnect and live statistics (successful / failed / skipped).
+- Introduced batch processing (25 assets per batch) for performance and server load balancing.
+- Implemented serial-number & asset-tag conflict detection with "Skip" or "Overwrite" resolution strategies.
+- Automatic unique asset-tag generation when missing or conflicting.
+- User and location auto-resolution against Azure AD and existing DB records, with placeholder creation when needed.
+- Rows lacking serial numbers are now skipped instead of failing the import.
+- Comprehensive error handling converts technical errors to user-friendly messages.
+- Added import filters and custom validation hooks per source.
+- Added detailed progress endpoint and frontend hook.
+
+### Documentation & Developer Experience
+- Added complete `IMPORT_MODULE_GUIDE.md` covering architecture, mapping, processors, conflict resolution, progress tracking, and best practices.
+- Updated TODO checklist items for Bulk Upload to completed.
+
+### UI / UX Enhancements
+- Updated version badges in TopNavigation & Sidebar to **v0.7**.
+- Added v0.7 entry to in-app Changelog modal.
+
+### Technical Improvements
+- Refactored backend import route to support batch processing and SSE progress.
+- Added helper utilities for ISO date parsing, Excel serial conversion, and serial-number normalization.
+- Improved logging and error isolation in batch processing.
+
+### Bug Fixes
+- Fixed SSE endpoint auth placement preventing 401 errors on progress stream.
+- Resolved duplicate asset tag generation during repeated test imports.
+- Fixed assigned-user placeholder creation logic.

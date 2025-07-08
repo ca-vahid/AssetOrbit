@@ -1,5 +1,9 @@
 # Asset Import Module - Developer Guide
 
+> ⚠️ **DEPRECATED**: This guide documents the v1 architecture. For the current modular implementation, please see [IMPORT_MODULE_GUIDE_V2.md](./IMPORT_MODULE_GUIDE_V2.md).
+>
+> The system has been refactored from a monolithic design to a modular architecture. While the concepts below remain valid, the implementation details have changed significantly.
+
 ## Overview
 
 The Asset Import Module is a flexible, extensible system for importing assets from various sources into AssetOrbit. It supports multiple data sources, custom field mappings, data transformations, and source-specific processing features.
@@ -1288,7 +1292,7 @@ This comprehensive guide provides everything needed to understand, extend, and m
 ## Changelog
 
 ### v0.8 (Current) - User Management Overhaul
-**Date:** January 2025
+**Date:** July 2025
 
 **Major Changes:**
 - **🚫 Disabled automatic User record creation** during asset imports

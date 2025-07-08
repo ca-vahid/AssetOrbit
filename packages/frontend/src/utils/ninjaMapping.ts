@@ -79,9 +79,10 @@ export const NINJA_COLUMN_MAPPINGS: ColumnMapping[] = [
     targetType: 'direct',
     processor: (value: string) => {
       if (!value) return null;
-      // Extract username from "BGC\username" format
+      // Extract username from "BGC\\username" format
       const match = value.match(/BGC\\(.+)/);
-      return match ? match[1] : value;
+      const raw = match ? match[1] : value;
+      return raw.trim();
     },
     description: 'Assigned User (requires Azure AD lookup)'
   },
