@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Eye, X, Trash2, AlertTriangle, 
   Monitor, Users, MapPin, Calendar, MoreHorizontal,
@@ -14,7 +14,9 @@ import AssetDetailModal from '../components/AssetDetailModal';
 import AssetFilterPanel from '../components/AssetFilterPanel';
 import { useDebounce } from '../hooks/useDebounce';
 import ProfilePicture from '../components/ProfilePicture';
+import SourceBadge from '../components/SourceBadge';
 import { useStore } from '../store';
+import { AssetSource } from '@shared/types/Asset';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -93,6 +95,7 @@ const shouldShowSpecColumns = (currentFilter?: string) => {
 
 const AssetList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   // Items per page limit for pagination
   const [limit, setLimit] = useState(50);
@@ -104,7 +107,7 @@ const AssetList: React.FC = () => {
   // Bulk delete progress tracking
   const [deleteCompleted, setDeleteCompleted] = useState(0);
   const [deleteTotal, setDeleteTotal] = useState(0);
-  const [viewDensity, setViewDensity] = useState<'compact' | 'comfortable'>('comfortable');
+  const [viewDensity, setViewDensity] = useState<'compact' | 'comfortable'>('compact');
   const [focusedAssetIndex, setFocusedAssetIndex] = useState<number | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
@@ -449,30 +452,44 @@ const AssetList: React.FC = () => {
     }
   };
 
+  // Handler for navigating to staff detail page
+  const handleUserClick = (userId: string) => {
+    navigate(`/management/staff?user=${userId}`);
+  };
+
   return (
-    <div className="space-y-6 text-[15px] leading-relaxed">
+    <div className="space-y-4 text-sm leading-normal">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
-            Assets
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-base">
-            Manage your organization's assets inventory
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            <p className="text-2xl font-medium text-slate-900 dark:text-slate-100 tabular-nums">
-              {statsData?.total || 0}
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide font-medium">
-              Total Assets
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-600 rounded-lg shadow-sm">
+            <Monitor className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+              Assets
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Inventory Management
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/assets/bulk"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm border border-slate-200 dark:border-slate-600"
+          >
+            <div className="flex items-center">
+              <Plus className="w-4 h-4" />
+              <div className="w-3 h-3 bg-slate-400 dark:bg-slate-500 rounded-full ml-1 flex items-center justify-center">
+                <Plus className="w-2 h-2 text-white" />
+              </div>
+            </div>
+            Bulk Upload
+          </Link>
           <Link
             to="/assets/new"
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+            className="flex items-center gap-2 px-3 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
           >
             <Plus className="w-4 h-4" />
             Add Asset
@@ -480,135 +497,102 @@ const AssetList: React.FC = () => {
         </div>
       </div>
 
-      {/* Statistics Cards - Two Row Design */}
-      <div className="space-y-5">
-        {/* Asset Type Counts - Top Row */}
-        <div className="space-y-3">
-          <h2 className="text-base font-medium text-slate-700 dark:text-slate-300">Asset Types</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 group hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Monitor className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Assets</p>
-                <p className="text-lg font-medium text-slate-900 dark:text-slate-100 tabular-nums">{statsData?.total || 0}</p>
-              </div>
-            </div>
-          </div>
-
-          {Object.entries(ASSET_TYPES).map(([type, config]) => {
-            const IconComponent = config.icon;
-            const count = stats.assetTypeCounts[type] || 0;
-            const isActive = filters.assetType === type;
-            
-            return (
-              <button
-                key={type}
-                onClick={() => updateFilter('assetType', isActive ? undefined : type)}
-                className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border transition-all duration-200 p-4 text-left hover:shadow-md group ${
-                  isActive 
-                    ? 'border-brand-400 ring-1 ring-brand-400/30 bg-brand-25 dark:bg-brand-950/30' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <IconComponent className={`h-5 w-5 transition-colors ${
-                      isActive 
-                        ? 'text-brand-500 dark:text-brand-400' 
-                        : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'
-                    }`} />
+      {/* Statistics Overview */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 dark:bg-slate-700/50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider w-1/4">
+                  Overview
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider w-1/2">
+                  Asset Types
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider w-1/4">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              <tr>
+                {/* Total Assets Column */}
+                <td className="px-4 py-3">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Monitor className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <div className="ml-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Assets</p>
+                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{statsData?.total || 0}</p>
+                    </div>
                   </div>
-                  <div className="ml-3">
-                    <p className={`text-xs uppercase tracking-wide ${
-                      isActive 
-                        ? 'text-brand-600 dark:text-brand-300 font-medium' 
-                        : 'text-slate-500 dark:text-slate-400'
-                    }`}>
-                      {config.label}
-                    </p>
-                    <p className={`text-lg font-medium tabular-nums ${
-                      isActive 
-                        ? 'text-brand-700 dark:text-brand-200' 
-                        : 'text-slate-700 dark:text-slate-200'
-                    }`}>
-                      {count}
-                    </p>
+                </td>
+
+                {/* Asset Types Column */}
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(ASSET_TYPES).map(([type, config]) => {
+                      const IconComponent = config.icon;
+                      const count = stats.assetTypeCounts[type] || 0;
+                      const isActive = filters.assetType === type;
+                      
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => updateFilter('assetType', isActive ? undefined : type)}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 ring-1 ring-brand-400/30' 
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          }`}
+                        >
+                          <IconComponent className={`h-3 w-3 ${
+                            isActive 
+                              ? 'text-brand-500 dark:text-brand-400' 
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`} />
+                          <span className="font-medium">{type}</span>
+                          <span className="tabular-nums">{count}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              </button>
-            );
-          })}
-          </div>
-        </div>
+                </td>
 
-        {/* Status Counts - Bottom Row */}
-        <div className="space-y-3">
-          <h2 className="text-base font-medium text-slate-700 dark:text-slate-300">Asset Status</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 group hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CheckCircle className="h-5 w-5 text-green-500 dark:text-green-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Available
-                </p>
-                <p className="text-lg font-medium text-green-600 dark:text-green-400 tabular-nums">{stats.statusCounts.available}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 group hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Users className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Assigned
-                </p>
-                <p className="text-lg font-medium text-blue-600 dark:text-blue-400 tabular-nums">{stats.statusCounts.assigned}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 group hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Settings className="h-5 w-5 text-orange-500 dark:text-orange-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Spare
-                </p>
-                <p className="text-lg font-medium text-orange-600 dark:text-orange-400 tabular-nums">{stats.statusCounts.spare}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 group hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Retired
-                </p>
-                <p className="text-lg font-medium text-red-600 dark:text-red-400 tabular-nums">{stats.statusCounts.retired}</p>
-              </div>
-            </div>
-          </div>
-          </div>
+                {/* Status Column */}
+                <td className="px-4 py-3">
+                  <div className="grid grid-cols-2 gap-2 max-w-xs">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                      <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400" />
+                      <span className="font-medium">AVAILABLE</span>
+                      <span className="tabular-nums">{stats.statusCounts.available}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                      <Users className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+                      <span className="font-medium">ASSIGNED</span>
+                      <span className="tabular-nums">{stats.statusCounts.assigned}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                      <Settings className="h-3 w-3 text-orange-500 dark:text-orange-400" />
+                      <span className="font-medium">SPARE</span>
+                      <span className="tabular-nums">{stats.statusCounts.spare}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
+                      <span className="font-medium">RETIRED</span>
+                      <span className="tabular-nums">{stats.statusCounts.retired}</span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
@@ -616,7 +600,7 @@ const AssetList: React.FC = () => {
             placeholder="Search assets..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
           />
         </div>
         
@@ -830,26 +814,26 @@ const AssetList: React.FC = () => {
       )}
 
       {/* Assets Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-w-0">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-w-0">
         {isLoading ? (
           <div className="animate-pulse">
-            <div className="bg-slate-50 dark:bg-slate-700/50 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-4">
+            <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
                 <div className="w-4 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                <div className="w-24 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                <div className="w-32 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                <div className="w-20 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                <div className="w-14 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                <div className="w-28 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
               </div>
             </div>
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                <div className="flex items-center gap-4">
+              <div key={i} className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
                   <div className="w-4 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                  <div className="w-20 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                  <div className="w-16 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                  <div className="w-32 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                  <div className="w-24 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
-                  <div className="w-28 h-4 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                  <div className="w-18 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                  <div className="w-14 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                  <div className="w-28 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                  <div className="w-20 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
+                  <div className="w-24 h-3 bg-slate-200 dark:bg-slate-600 rounded"></div>
                 </div>
               </div>
             ))}
@@ -925,13 +909,17 @@ const AssetList: React.FC = () => {
                       />
                     </td>
                     <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
-                      <div className="min-w-0">
+                      <div className="min-w-0 relative">
+                        {/* Source Badge - positioned to the left of the asset tag */}
+                        <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
+                          <SourceBadge source={(asset.source as AssetSource) || AssetSource.MANUAL} size="overlay" />
+                        </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedAssetId(asset.id);
                           }}
-                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate max-w-[140px] transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 -mx-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
+                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate max-w-[140px] transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 ml-10 -mr-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
                         >
                           <div className="flex items-center gap-2">
                             <span className="relative">
@@ -946,12 +934,12 @@ const AssetList: React.FC = () => {
                           </div>
                         </button>
                         {asset.serialNumber && (
-                          <div className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[160px]">
+                          <div className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[160px] ml-10">
                             SN: {asset.serialNumber}
                           </div>
                         )}
                         {/* Show type on small screens */}
-                        <div className="sm:hidden">
+                        <div className="sm:hidden ml-10">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 mt-1">
                             {asset.assetType}
                           </span>
@@ -1050,7 +1038,7 @@ const AssetList: React.FC = () => {
                         </div>
                       </div>
                       {/* Show assigned user on small screens */}
-                      <div className="lg:hidden mt-1">
+                      <div className="lg:hidden mt-1 ml-10">
                         {asset.assignedToStaff ? (
                           <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                             → {asset.assignedToStaff.displayName}
@@ -1128,7 +1116,10 @@ const AssetList: React.FC = () => {
                         <Tooltip.Provider>
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
-                              <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
+                              <div 
+                                className="flex items-center gap-2 max-w-[140px] group cursor-pointer"
+                                onClick={() => asset.assignedToStaff && handleUserClick(asset.assignedToStaff.id)}
+                              >
                                 <div className="relative">
                           <ProfilePicture 
                             azureAdId={asset.assignedToStaff.id} 
@@ -1170,7 +1161,10 @@ const AssetList: React.FC = () => {
                         <Tooltip.Provider>
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
-                              <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
+                              <div 
+                                className="flex items-center gap-2 max-w-[140px] group cursor-pointer"
+                                onClick={() => asset.assignedTo && handleUserClick(asset.assignedTo.id)}
+                              >
                                 <div className="relative">
                           <ProfilePicture 
                             displayName={asset.assignedTo.displayName} 
@@ -1244,9 +1238,9 @@ const AssetList: React.FC = () => {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Showing <span className="font-medium text-slate-900 dark:text-slate-100">{((pagination.page - 1) * pagination.limit) + 1}</span> to <span className="font-medium text-slate-900 dark:text-slate-100">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-medium text-slate-900 dark:text-slate-100">{pagination.total}</span> results
               </p>
               {/* Page size selector */}
@@ -1257,25 +1251,25 @@ const AssetList: React.FC = () => {
                   setLimit(newLimit);
                   setPage(1); // Reset to first page when page size changes
                 }}
-                className="ml-3 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="ml-2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 {[50, 100, 250, 500].map((size) => (
                   <option key={size} value={size}>{size} / page</option>
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(1)}
                 disabled={page <= 1}
-                className="px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 First
               </button>
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page <= 1}
-                className="px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                className="px-2 py-1 text-xs font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Previous
               </button>
@@ -1289,7 +1283,7 @@ const AssetList: React.FC = () => {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
                         pageNum === page
                           ? 'bg-brand-600 text-white'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -1304,14 +1298,14 @@ const AssetList: React.FC = () => {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= pagination.totalPages}
-                className="px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                className="px-2 py-1 text-xs font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Next
               </button>
               <button
                 onClick={() => setPage(pagination.totalPages)}
                 disabled={page >= pagination.totalPages}
-                className="px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Last
               </button>

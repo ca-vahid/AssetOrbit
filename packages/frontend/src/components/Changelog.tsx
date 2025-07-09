@@ -19,6 +19,31 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.91',
+    date: 'January 14, 2025',
+    changes: {
+      features: [
+        'Asset Source Indicators: Added visual source badges to the assets table showing how each asset was imported (NinjaOne, Manual Entry, Excel, etc.)',
+        'Source Badge Component: Created reusable component that displays source logos with tooltips and fallback text',
+        'Clickable User Navigation: Made assigned user names in assets table clickable to navigate directly to staff detail pages',
+        'Logo Integration System: Established `/public/logos/` directory structure for custom source logos',
+      ],
+      improvements: [
+        'Enhanced Asset Table Layout: Source badges are positioned as overlays next to asset tags to save horizontal space',
+        'Responsive Source Display: Source badges adapt to screen size and viewing density settings',
+        'Professional Logo Display: Rectangular containers optimized for company logos with subtle borders',
+        'Staff Navigation Integration: Seamless navigation from assets to staff management with automatic detail modal opening',
+        'URL Parameter Support: Staff page now supports direct linking to specific users via URL parameters',
+      ],
+      bugFixes: [
+        'Fixed TypeScript compatibility issues with AssetSource enum imports',
+        'Resolved navigation routing for staff detail pages',
+        'Corrected source badge sizing and aspect ratio for better logo visibility',
+        'Fixed staff page URL parameter handling and cleanup',
+      ],
+    },
+  },
+  {
     version: 'v0.9',
     date: 'July 8, 2025',
     changes: {

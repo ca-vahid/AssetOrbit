@@ -216,41 +216,45 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-3 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-all duration-200 shadow-glass-sm"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 border border-slate-200 dark:border-slate-700"
               >
                 <ProfilePicture
                   azureAdId={currentUser?.azureAdId}
                   displayName={currentUser?.displayName || accounts[0]?.name || 'User'}
-                  size="sm"
-                  className="ring-2 ring-white/50 dark:ring-slate-700/50"
+                  size="xs"
+                  className="ring-1 ring-slate-300 dark:ring-slate-600"
                 />
-                <div className="hidden md:block text-left">
-                  <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                <div className="hidden md:flex items-center gap-2 text-left">
+                  <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-40">
                     {currentUser?.displayName || accounts[0]?.name || 'User'}
                   </div>
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="flex items-center">
                     {currentUser?.role === 'ADMIN' && (
-                      <Crown className="w-3 h-3 text-amber-500" />
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-medium">
+                        <Crown className="w-3 h-3" />
+                        <span>Admin</span>
+                      </div>
                     )}
                     {currentUser?.role === 'WRITE' && (
-                      <Shield className="w-3 h-3 text-blue-500" />
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
+                        <Shield className="w-3 h-3" />
+                        <span>Editor</span>
+                      </div>
                     )}
                     {currentUser?.role === 'READ' && (
-                      <Eye className="w-3 h-3 text-slate-500" />
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded text-xs font-medium">
+                        <Eye className="w-3 h-3" />
+                        <span>Viewer</span>
+                      </div>
                     )}
-                    <span className={clsx(
-                      "font-medium",
-                      currentUser?.role === 'ADMIN' && "text-amber-600 dark:text-amber-400",
-                      currentUser?.role === 'WRITE' && "text-blue-600 dark:text-blue-400",
-                      currentUser?.role === 'read' && "text-slate-500 dark:text-slate-400",
-                      !currentUser?.role && "text-slate-500 dark:text-slate-400"
-                    )}>
-                      {currentUser?.role === 'ADMIN' ? 'Administrator' : 
-                       currentUser?.role === 'WRITE' ? 'Editor' : 
-                       currentUser?.role === 'read' ? 'Viewer' : 'User'}
-                    </span>
+                    {!currentUser?.role && (
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded text-xs font-medium">
+                        <User className="w-3 h-3" />
+                        <span>User</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.button>

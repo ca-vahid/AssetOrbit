@@ -1,84 +1,87 @@
 import React from 'react';
-import { 
-  Zap, 
-  FileSpreadsheet, 
-  Shield, 
-  User, 
-  Cloud, 
-  Upload,
-  Building2
-} from 'lucide-react';
+import { AssetSource } from '@shared/types/Asset';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 interface SourceBadgeProps {
-  source: string;
-  size?: 'sm' | 'md' | 'lg';
-  showIcon?: boolean;
+  source: AssetSource;
+  size?: 'sm' | 'md' | 'overlay';
 }
 
 const SOURCE_CONFIG = {
   MANUAL: {
     label: 'Manual Entry',
-    icon: User,
-    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700',
+    color: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300',
+    logo: '/logos/manual.png', // User will replace with actual logo
   },
   NINJAONE: {
     label: 'NinjaOne',
-    icon: Zap,
-    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700',
+    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+    logo: '/logos/ninjaone.png', // User will replace with actual logo
   },
   INTUNE: {
     label: 'Microsoft Intune',
-    icon: Shield,
-    color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700',
+    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+    logo: '/logos/intune.png', // User will replace with actual logo
   },
   EXCEL: {
-    label: 'Excel/CSV',
-    icon: FileSpreadsheet,
-    color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700',
+    label: 'Excel Import',
+    color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+    logo: '/logos/excel.png', // User will replace with actual logo
   },
   BULK_UPLOAD: {
     label: 'Bulk Upload',
-    icon: Upload,
-    color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700',
+    color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+    logo: '/logos/bulk.png', // User will replace with actual logo
   },
   API: {
-    label: 'API Import',
-    icon: Cloud,
-    color: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600',
+    label: 'API',
+    color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
+    logo: '/logos/api.png', // User will replace with actual logo
   },
 } as const;
 
-const SourceBadge: React.FC<SourceBadgeProps> = ({ 
-  source, 
-  size = 'md', 
-  showIcon = true 
-}) => {
-  const config = SOURCE_CONFIG[source as keyof typeof SOURCE_CONFIG] || SOURCE_CONFIG.MANUAL;
-  const IconComponent = config.icon;
-
+const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {
+  const config = SOURCE_CONFIG[source] || SOURCE_CONFIG.MANUAL;
   const sizeClasses = {
-    sm: 'px-2 py-1 text-xs',
-    md: 'px-2.5 py-1.5 text-xs',
-    lg: 'px-3 py-2 text-sm',
+    sm: 'w-6 h-6',
+    md: 'w-8 h-8',
+    overlay: 'w-12 h-8',
   };
 
-  const iconSizes = {
-    sm: 'w-3 h-3',
-    md: 'w-3 h-3',
-    lg: 'w-4 h-4',
-  };
+  const isOverlay = size === 'overlay';
+  const containerClasses = isOverlay 
+    ? 'ring-2 ring-white dark:ring-slate-800 shadow-md hover:shadow-lg transition-shadow'
+    : '';
 
   return (
-    <span 
-      className={`
-        inline-flex items-center gap-1.5 rounded-full font-medium border
-        ${config.color} ${sizeClasses[size]}
-      `}
-      title={`Source: ${config.label}`}
-    >
-      {showIcon && <IconComponent className={iconSizes[size]} />}
-      <span>{config.label}</span>
-    </span>
+    <Tooltip.Provider>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <div className="flex items-center justify-center">
+            <div className={`${sizeClasses[size]} rounded-lg border border-slate-50 dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-800 flex items-center justify-center relative ${containerClasses}`}>
+              <img
+                src={config.logo}
+                alt={config.label}
+                className={`w-full h-full object-contain ${size === 'overlay' ? 'py-0.5 px-0.5 scale-100' : 'p-1'}`}
+                onError={(e) => {
+                  // Fallback to text if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    const textSize = size === 'overlay' ? 'text-sm' : 'text-xs';
+                    parent.innerHTML = `<span class="${textSize} font-semibold text-slate-600 dark:text-slate-400">${source.substring(0, 2)}</span>`;
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg z-50">
+          {config.label}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 };
 

@@ -4,6 +4,8 @@
 
 The Asset Import Module is a modular, extensible system for importing assets from various sources into the inventory system. It features a clean architecture with separated concerns, making it easy to add new import sources without modifying core logic.
 
+**Latest Version: v0.9** - Major improvements to user resolution, asset tag handling, and location matching.
+
 ## Architecture
 
 ### Frontend Architecture
@@ -35,11 +37,16 @@ packages/frontend/src/
 ### Backend Architecture
 
 ```
-packages/backend/src/routes/
-└── import.ts                       # Generic import endpoint
-    ├── POST /api/import/resolve    # Resolve users/locations/conflicts
-    ├── POST /api/import/assets     # Process asset import
-    └── GET  /api/import/progress/:id # SSE progress updates
+packages/backend/src/
+├── routes/
+│   └── import.ts                   # Generic import endpoint
+│       ├── POST /api/import/resolve    # Resolve users/locations/conflicts
+│       ├── POST /api/import/assets     # Process asset import
+│       └── GET  /api/import/progress/:id # SSE progress updates
+├── services/
+│   └── graphService.ts             # Enhanced Azure AD integration
+└── utils/
+    └── locationMatcher.ts          # Multi-strategy location matching
 ```
 
 ## Core Concepts
@@ -88,6 +95,117 @@ interface ColumnMapping {
 
 1. **Category Selection** → 2. **Source Selection** → 3. **File Upload & Parsing** → 4. **Column Mapping** → 5. **Resolution & Preview** → 6. **Import & Progress**
 
+## v0.9 Major Improvements
+
+### Enhanced User Resolution
+
+The user resolution system now supports both username and display name lookups:
+
+#### Username Resolution (existing)
+- Corporate email format (firstname.lastname@domain.com)
+- SAM account names (flastname, firstname.lastname)
+- Fuzzy username matching with domain stripping
+
+#### Display Name Resolution (NEW)
+- Exact display name matching ("John Smith")
+- Fuzzy display name matching with similarity scoring
+- Parallel resolution using both methods for maximum coverage
+
+#### Corporate Account Prioritization (NEW)
+All resolution methods now prioritize corporate accounts:
+- @bgcengineering.ca (primary)
+- @cambioearth.com (secondary)
+- Other domains deprioritized
+
+#### Trailing Space Handling (FIXED)
+- System now handles trailing spaces in user data
+- Results stored with both original and trimmed keys
+- Prevents lookup failures due to whitespace inconsistencies
+
+### BGC Asset Tag Normalization
+
+Enhanced asset tag processing for BGC imports:
+
+```typescript
+// Frontend processor
+processor: (value: string) => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  // Handle numeric-only tags
+  if (/^\d+$/.test(trimmed)) {
+    return `BGC${trimmed.padStart(6, '0')}`;
+  }
+  // Handle tags missing BGC prefix
+  if (!/^BGC/i.test(trimmed) && /^\d/.test(trimmed)) {
+    return `BGC${trimmed}`;
+  }
+  return trimmed.toUpperCase();
+}
+
+// Backend safety net
+if (asset.assetTag && /^\d+$/.test(asset.assetTag)) {
+  asset.assetTag = `BGC${asset.assetTag.padStart(6, '0')}`;
+}
+```
+
+### Improved Location Matching
+
+Multi-strategy location matching with abbreviation support:
+
+```typescript
+// Location abbreviations
+const locationAbbreviations: Record<string, string> = {
+  'CAL': 'Calgary',
+  'VAN': 'Vancouver', 
+  'TOR': 'Toronto',
+  'EDM': 'Edmonton',
+  'MTL': 'Montreal',
+  'OTT': 'Ottawa'
+};
+
+// Matching strategies
+1. Exact match
+2. Case-insensitive match
+3. Abbreviation expansion
+4. Fuzzy matching with similarity threshold
+```
+
+### Fixed Asset Status Logic
+
+Asset status determination now occurs AFTER user resolution:
+
+```typescript
+// OLD (incorrect)
+if (bgcAssetTag && assignedUser) {
+  status = 'ASSIGNED';
+} else if (bgcAssetTag) {
+  status = 'AVAILABLE';
+}
+
+// NEW (correct)
+// Status determined after user resolution
+if (resolvedUser || (assignedUser && !userResolutionFailed)) {
+  status = 'ASSIGNED';
+} else {
+  status = 'AVAILABLE';
+}
+```
+
+### Enhanced GraphService Methods
+
+New methods added to `graphService.ts`:
+
+```typescript
+// Find users by display name (exact match)
+async findUsersByDisplayName(displayName: string): Promise<User[]>
+
+// Find users by display name (fuzzy match)  
+async findUsersByDisplayNameFuzzy(displayName: string): Promise<User[]>
+
+// Corporate account prioritization
+private prioritizeCorporateAccounts(users: User[]): User[]
+```
+
 ## Adding a New Import Source
 
 ### Step 1: Define Column Mappings
@@ -98,34 +216,56 @@ Create a mapping function in `importSources.ts`:
 export const getBGCTemplateMappings = (): ColumnMapping[] => {
   return [
     {
-      sourceColumn: 'Asset Tag',
+      sourceColumn: 'BGC Asset Tag',
       targetField: 'assetTag',
       targetType: 'direct',
-      description: 'Unique asset identifier',
-      required: true
+      description: 'BGC asset identifier',
+      required: true,
+      processor: (value: string) => {
+        if (!value) return '';
+        const trimmed = value.trim();
+        // Handle numeric-only tags
+        if (/^\d+$/.test(trimmed)) {
+          return `BGC${trimmed.padStart(6, '0')}`;
+        }
+        // Handle tags missing BGC prefix
+        if (!/^BGC/i.test(trimmed) && /^\d/.test(trimmed)) {
+          return `BGC${trimmed}`;
+        }
+        return trimmed.toUpperCase();
+      }
     },
     {
-      sourceColumn: 'Serial Number',
-      targetField: 'serialNumber',
+      sourceColumn: 'Asset Tag', // Alternative column name
+      targetField: 'assetTag',
       targetType: 'direct',
-      description: 'Device serial number',
-      required: true
+      description: 'Asset identifier (will add BGC prefix if numeric)',
+      processor: (value: string) => {
+        if (!value) return '';
+        const trimmed = value.trim();
+        if (/^\d+$/.test(trimmed)) {
+          return `BGC${trimmed.padStart(6, '0')}`;
+        }
+        return trimmed.toUpperCase();
+      }
     },
     {
-      sourceColumn: 'Assigned User',
+      sourceColumn: 'Owner',
       targetField: 'assignedToAadId',
       targetType: 'direct',
       processor: (value: string) => {
-        // Extract username from BGC\username format
-        return value.includes('\\') ? value.split('\\').pop() : value;
+        if (!value) return null;
+        // Handle DOMAIN\username format
+        const normalized = value.trim();
+        return normalized.includes('\\') ? normalized.split('\\').pop() : normalized;
       },
-      description: 'User assignment'
+      description: 'User assignment (supports usernames and display names)'
     },
     {
       sourceColumn: 'Location',
       targetField: 'locationId',
       targetType: 'direct',
-      description: 'Asset location'
+      description: 'Asset location (supports abbreviations like CAL, VAN)'
     },
     // ... more mappings
   ];
@@ -140,7 +280,7 @@ Add to `IMPORT_SOURCES` array:
 {
   id: 'bgc-template',
   title: 'BGC Excel Template',
-  description: 'Import from standardized BGC asset spreadsheet',
+  description: 'Import from standardized BGC asset spreadsheet with enhanced user resolution',
   icon: FileSpreadsheet,
   category: 'endpoints',
   acceptedFormats: ['CSV', 'XLSX'],
@@ -161,92 +301,136 @@ Place sample file in `public/samples/bgc-asset-template.xlsx`
 
 ### Step 4: Test
 
-The import should now work! The system will:
-- Show BGC option in source selection
-- Parse Excel/CSV files
-- Apply mappings automatically
-- Resolve users/locations
-- Import with progress tracking
+The import should now work with all v0.9 enhancements!
 
 ## Import Processing Pipeline
 
 ### Frontend Processing
 
 1. **File Parsing** (`useFileParser`)
-   - CSV: Papa Parse
-   - Excel: SheetJS
+   - CSV: Papa Parse with header normalization
+   - Excel: SheetJS with trimmed headers
    - Returns: `{ headers, rows }`
 
-2. **Filtering** (`importFilters.ts`)
-   - Apply source-specific filters
-   - Example: NinjaOne excludes offline > 30 days
-
-3. **Column Mapping** (`StepMapping.tsx`)
+2. **Column Mapping** (`StepMapping.tsx`)
    - Auto-apply source mappings
-   - Allow manual override
-   - Validate required fields
+   - Handle header variations (trailing spaces, case differences)
+   - Allow manual override with debug logging
 
-4. **Resolution** (`useResolveImport`)
+3. **Resolution** (`useResolveImport`)
    - Extract usernames, locations, serial numbers
-   - Call `/api/import/resolve`
+   - Call `/api/import/resolve` with enhanced payload
    - Get Azure AD data, location IDs, conflicts
 
-5. **Import Execution** (`useImportAssets`)
+4. **Import Execution** (`useImportAssets`)
    - Send to `/api/import/assets`
-   - Track progress via SSE
+   - Track progress via SSE with detailed statistics
    - Handle errors/retries
 
 ### Backend Processing
 
-1. **Batch Processing**
-   - Process in batches of 25
-   - Parallel processing within batch
-   - Progress updates per batch
+1. **User Resolution** (Enhanced in v0.9)
+   ```typescript
+   // Detect username vs display name
+   const isDisplayName = value.includes(' ') && !value.includes('@');
+   
+   if (isDisplayName) {
+     // Try display name resolution
+     users = await graphService.findUsersByDisplayName(value);
+     if (users.length === 0) {
+       users = await graphService.findUsersByDisplayNameFuzzy(value);
+     }
+   } else {
+     // Try username resolution
+     users = await resolveUsernames([value]);
+   }
+   
+   // Prioritize corporate accounts
+   users = graphService.prioritizeCorporateAccounts(users);
+   ```
 
-2. **Data Transformation**
-   - Apply column mappings
-   - Run processors (date conversion, enum mapping)
-   - Normalize data (RAM/storage rounding)
+2. **Asset Tag Processing**
+   ```typescript
+   // Handle numeric-only BGC tags
+   if (asset.assetTag && /^\d+$/.test(asset.assetTag)) {
+     asset.assetTag = `BGC${asset.assetTag.padStart(6, '0')}`;
+   }
+   
+   // Add BGC prefix if missing
+   if (asset.assetTag && !/^BGC/i.test(asset.assetTag) && /^\d/.test(asset.assetTag)) {
+     asset.assetTag = `BGC${asset.assetTag}`;
+   }
+   ```
 
-3. **Business Logic**
-   - Asset tag generation
-   - Conflict resolution (skip/overwrite)
-   - Workload category detection
-   - Status assignment (ASSIGNED if user present)
+3. **Status Assignment** (Fixed in v0.9)
+   ```typescript
+   // Status determined AFTER user resolution
+   if (resolvedUser || (assignedUser && !userResolutionFailed)) {
+     transformedAsset.status = 'ASSIGNED';
+   } else {
+     transformedAsset.status = 'AVAILABLE';
+   }
+   ```
 
-4. **User Assignment**
-   - **v0.8+**: No automatic User record creation
-   - Store username/GUID in `assignedToAadId` only
-   - UI handles display with graceful fallbacks
+4. **Location Matching**
+   ```typescript
+   // Multi-strategy matching
+   const strategies = [
+     exactMatch,
+     caseInsensitiveMatch, 
+     abbreviationMatch,
+     fuzzyMatch
+   ];
+   ```
 
 ## Key Features
 
 ### Real-time Progress Tracking
 
-- Server-Sent Events (SSE) for live updates
-- Statistics: successful, failed, skipped, categorized
-- Asset type breakdown
-- User assignment tracking
-- Workload category detections
+Enhanced SSE payload with detailed statistics:
 
-### Conflict Resolution
+```typescript
+interface ProgressUpdate {
+  processed: number;
+  total: number;
+  successful: number;
+  failed: number;
+  skipped: number;
+  
+  // New in v0.9
+  userResolutionStats: {
+    resolved: number;
+    failed: number;
+    displayNameResolved: number;
+    usernameResolved: number;
+  };
+  
+  locationResolutionStats: {
+    resolved: number;
+    failed: number;
+    abbreviationMatched: number;
+    fuzzyMatched: number;
+  };
+  
+  assetTagStats: {
+    bgcPrefixAdded: number;
+    numericNormalized: number;
+  };
+}
+```
 
-- Serial number and asset tag checking
-- Skip or overwrite options
-- Detailed conflict reporting
+### Enhanced Error Handling
+
+- Graceful handling of trailing spaces
+- Corporate account prioritization
+- Detailed error messages for failed resolutions
+- Partial import success tracking
 
 ### Workload Category Detection
 
 - Rule-based automatic categorization
 - Runs after data transformation
 - Configurable via database rules
-
-### Error Handling
-
-- Graceful error recovery
-- Detailed error messages
-- Partial import success
-- Skip invalid records
 
 ## Configuration
 
@@ -263,153 +447,183 @@ BATCH_SIZE=25
 AZURE_AD_TENANT_ID=xxx
 AZURE_AD_CLIENT_ID=xxx
 AZURE_AD_CLIENT_SECRET=xxx
+
+# New in v0.9
+USER_RESOLUTION_TIMEOUT=30000
+LOCATION_FUZZY_THRESHOLD=0.7
 ```
 
 ## Best Practices
 
-### When Adding Sources
+### User Resolution
 
-1. **Start with sample data** - Understand the source format
-2. **Map conservatively** - Only map fields you're confident about
-3. **Add processors** - Transform data to expected format
-4. **Test edge cases** - Empty fields, invalid dates, special characters
-5. **Document mappings** - Clear descriptions help users
+1. **Support Both Formats**: Design mappings to handle both usernames and display names
+2. **Normalize Input**: Always trim whitespace and handle domain prefixes
+3. **Corporate Priority**: Ensure corporate accounts are prioritized
+4. **Fallback Strategy**: Use parallel resolution for maximum coverage
 
-### Column Mapping Tips
+### Asset Tag Handling
 
-- Use `processor` for data transformation
-- Mark truly required fields as `required`
-- Map to `specifications` for non-standard fields
-- Validate data types match database schema
+1. **Normalize Early**: Apply processors in column mapping
+2. **Handle Variations**: Support both prefixed and numeric-only formats
+3. **Backend Safety**: Add server-side validation as fallback
+4. **Consistent Format**: Always return uppercase, padded tags
 
-### Performance Considerations
+### Location Matching
 
-- Large files parse client-side (no server memory)
-- Batch processing prevents timeouts
-- SSE provides real-time feedback
-- 5-minute timeout for very large imports
+1. **Multi-Strategy**: Use exact, case-insensitive, abbreviation, and fuzzy matching
+2. **Abbreviation Support**: Maintain abbreviation dictionary for common locations
+3. **Fuzzy Threshold**: Set appropriate similarity threshold (0.7 recommended)
+4. **Graceful Fallback**: Handle unmatched locations gracefully
 
 ## Common Patterns
 
-### Date Processing
+### Enhanced User Processing
 
 ```typescript
 processor: (value: string) => {
   if (!value) return null;
-  // Handle Excel serial numbers
-  if (/^\d+$/.test(value)) {
-    const serial = parseInt(value, 10);
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    return new Date(excelEpoch.getTime() + serial * 86400000).toISOString();
+  
+  // Normalize: trim and remove domain prefix
+  let normalized = value.trim();
+  if (normalized.includes('\\')) {
+    normalized = normalized.split('\\').pop() || normalized;
   }
-  return new Date(value).toISOString();
+  
+  return normalized;
 }
 ```
 
-### Enum Mapping
+### BGC Asset Tag Processing
 
 ```typescript
 processor: (value: string) => {
-  const statusMap: Record<string, string> = {
-    'In Use': 'ASSIGNED',
-    'Available': 'AVAILABLE',
-    'Retired': 'RETIRED'
+  if (!value) return '';
+  
+  const trimmed = value.trim();
+  
+  // Handle numeric-only tags
+  if (/^\d+$/.test(trimmed)) {
+    return `BGC${trimmed.padStart(6, '0')}`;
+  }
+  
+  // Handle tags missing BGC prefix
+  if (!/^BGC/i.test(trimmed) && /^\d/.test(trimmed)) {
+    return `BGC${trimmed}`;
+  }
+  
+  return trimmed.toUpperCase();
+}
+```
+
+### Location Processing
+
+```typescript
+processor: (value: string) => {
+  if (!value) return null;
+  
+  const trimmed = value.trim();
+  
+  // Check for abbreviations
+  const locationAbbreviations: Record<string, string> = {
+    'CAL': 'Calgary',
+    'VAN': 'Vancouver',
+    'TOR': 'Toronto'
   };
-  return statusMap[value] || 'AVAILABLE';
-}
-```
-
-### Username Extraction
-
-```typescript
-processor: (value: string) => {
-  // Handle DOMAIN\username format
-  return value.includes('\\') ? value.split('\\').pop() : value;
+  
+  return locationAbbreviations[trimmed.toUpperCase()] || trimmed;
 }
 ```
 
 ## Troubleshooting
 
-### Import Fails Immediately
-- Check column mappings match actual headers
-- Verify required fields are mapped
-- Check date formats are parseable
+### User Resolution Issues
 
-### Progress Stuck
-- Check browser console for SSE errors
-- Verify `/api/import/progress` is accessible
-- Check for proxy configuration issues
+**Problem**: Low user resolution rates
+**Solution**: 
+- Check if data contains display names vs usernames
+- Verify Azure AD permissions for display name queries
+- Ensure corporate domain prioritization is working
 
-### Users Not Resolving
-- Verify Azure AD credentials
-- Check username format matches AD
-- Ensure Graph API permissions
+**Problem**: Trailing space failures
+**Solution**: 
+- Verify input normalization in processors
+- Check backend stores results with both trimmed and original keys
 
-### Locations Not Matching
-- Check location names in database
-- Verify exact spelling/case
-- Consider adding location aliases
+### Asset Tag Issues
+
+**Problem**: Missing BGC prefixes
+**Solution**:
+- Add processor to handle numeric-only tags
+- Implement backend safety net
+- Support alternative column names ("Asset Tag" vs "BGC Asset Tag")
+
+### Location Matching Issues
+
+**Problem**: Location abbreviations not resolving
+**Solution**:
+- Update abbreviation dictionary
+- Check fuzzy matching threshold
+- Verify location names in database
 
 ## Future Enhancements
 
+- **Machine Learning**: Improve fuzzy matching with ML models
+- **Bulk User Creation**: Option to create missing users automatically
+- **Location Aliases**: Database-stored location aliases
+- **Import Analytics**: Detailed success/failure analytics
 - **API Sources**: Direct integration (Intune, Jamf)
 - **Scheduled Imports**: Automated recurring imports
-- **Import Templates**: Save/reuse mappings
-- **Rollback**: Undo recent imports
-- **Webhooks**: Notify external systems
 
 ## Migration Notes
 
-### From v1 to v2
+### From v0.8 to v0.9
 
-The main changes from the original monolithic design:
+**Major Changes:**
+1. **Enhanced User Resolution**: Now supports display names
+2. **BGC Asset Tag Normalization**: Automatic prefix handling
+3. **Location Abbreviations**: CAL→Calgary, VAN→Vancouver, etc.
+4. **Fixed Status Logic**: Status determined after user resolution
+5. **Corporate Account Priority**: @bgcengineering.ca prioritized
 
-1. **Modular Components**: Each wizard step is now isolated
-2. **Registry-Driven**: No more hardcoded source logic
-3. **Generic Hooks**: Reusable import logic
-4. **Simplified State**: Wizard only manages navigation
-5. **Better Types**: Full TypeScript coverage
-
-### Breaking Changes
-
+**Breaking Changes:**
 - None for end users
-- Developers must use registry for new sources
-- No more direct modifications to BulkUpload.tsx
+- GraphService requires additional Azure AD permissions for display name queries
+
+**Migration Steps:**
+1. Update Azure AD app permissions
+2. Test user resolution with display names
+3. Verify BGC asset tag processing
+4. Update location abbreviations as needed
 
 ## Quick Reference
 
-### Add Source Checklist
+### v0.9 Checklist for New Sources
 
-- [ ] Create mapping function
-- [ ] Add to IMPORT_SOURCES
-- [ ] Add sample file
-- [ ] Test with real data
+- [ ] Support both username and display name formats
+- [ ] Implement asset tag normalization if needed
+- [ ] Add location abbreviation support
+- [ ] Test with trailing spaces in data
+- [ ] Verify corporate account prioritization
+- [ ] Add comprehensive error handling
+- [ ] Update sample files
 - [ ] Document special cases
-- [ ] Add to this guide
-
-### File Structure for New Source
-
-```
-public/samples/
-  └── your-source-template.xlsx
-packages/frontend/src/utils/
-  └── importSources.ts (add entry)
-  └── yourSourceMappings.ts (optional separate file)
-```
 
 ### Testing Commands
 
 ```bash
-# Frontend dev
-cd packages/frontend
-npm run dev
+# Test user resolution
+curl -X POST http://localhost:4000/api/import/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"usernames": ["John Smith", "jane.doe"]}'
 
-# Backend dev  
-cd packages/backend
-npm run dev
+# Test BGC asset tag processing
+# Input: "123456" → Output: "BGC123456"
+# Input: "BGC123456" → Output: "BGC123456"
 
-# Full test
-npm test
+# Test location matching
+# Input: "CAL" → Output: Calgary location ID
+# Input: "calgary" → Output: Calgary location ID
 ```
 
-This modular architecture makes adding new import sources a straightforward, low-risk operation that doesn't require understanding the entire system. 
+This v0.9 architecture provides robust, extensible import capabilities with significantly improved user resolution, asset tag handling, and location matching. The modular design makes adding new sources straightforward while maintaining backward compatibility. 

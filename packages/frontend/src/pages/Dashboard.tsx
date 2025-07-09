@@ -228,10 +228,26 @@ const Dashboard: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/assets/add')}
+            onClick={() => navigate('/assets/bulk')}
+            className="btn-secondary flex items-center gap-2 border border-slate-200 dark:border-slate-600"
+          >
+            <div className="flex items-center">
+              <Plus className="w-4 h-4" />
+              <div className="w-3 h-3 bg-slate-400 dark:bg-slate-500 rounded-full ml-1 flex items-center justify-center">
+                <Plus className="w-2 h-2 text-white" />
+              </div>
+            </div>
+            Bulk Upload
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/assets/new')}
             className="btn-primary flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" />
+            <div className="flex items-center justify-center w-4 h-4 bg-white/20 rounded-sm">
+              <Plus className="w-3 h-3" />
+            </div>
             Add Asset
           </motion.button>
         </div>
@@ -422,10 +438,15 @@ const Dashboard: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => navigate('/bulk-upload')}
+              onClick={() => navigate('/assets/bulk')}
               className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-success-500/10 to-success-600/10 hover:from-success-500/20 hover:to-success-600/20 border border-success-200/50 dark:border-success-700/50 transition-all text-left"
             >
-              <Upload className="w-5 h-5 text-success-600 dark:text-success-400" />
+              <div className="flex items-center">
+                <Upload className="w-5 h-5 text-success-600 dark:text-success-400" />
+                <div className="w-3 h-3 bg-success-600 dark:bg-success-400 rounded-full ml-1 flex items-center justify-center">
+                  <Plus className="w-2 h-2 text-white" />
+                </div>
+              </div>
               <div>
                 <div className="font-medium text-slate-900 dark:text-slate-100">
                   Bulk Import

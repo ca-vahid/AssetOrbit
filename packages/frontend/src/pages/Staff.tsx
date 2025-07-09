@@ -27,7 +27,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Select from '@radix-ui/react-select';
 import { usersApi, staffApi } from '../services/api';
 import { useStore } from '../store';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDebounce } from '../hooks/useDebounce';
 import clsx from 'clsx';
 
@@ -177,6 +177,7 @@ const Staff: React.FC = () => {
   const { currentUser } = useStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -242,6 +243,45 @@ const Staff: React.FC = () => {
       enrichStaffData();
     }
   }, [staffData]);
+
+  // Check for user parameter in URL and automatically open details
+  useEffect(() => {
+    const userId = searchParams.get('user');
+    if (userId && enrichedStaff.length > 0) {
+      const staffMember = enrichedStaff.find(staff => staff.azureAdId === userId);
+      if (staffMember?.details) {
+        setSelectedStaff(staffMember.details);
+        setDetailsDialogOpen(true);
+        // Clear the URL parameter after opening the modal
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('user');
+        setSearchParams(newSearchParams, { replace: true });
+      } else {
+        // User not found in current staff list, try to load their details directly
+        const loadUserDetails = async () => {
+          try {
+            const details = await staffApi.getById(userId);
+            setSelectedStaff({
+              ...details,
+              azureAdId: userId,
+            });
+            setDetailsDialogOpen(true);
+            // Clear the URL parameter after opening the modal
+            const newSearchParams = new URLSearchParams(searchParams);
+            newSearchParams.delete('user');
+            setSearchParams(newSearchParams, { replace: true });
+          } catch (error) {
+            console.error('Failed to load user details:', error);
+            // Clear the URL parameter even if we failed to load details
+            const newSearchParams = new URLSearchParams(searchParams);
+            newSearchParams.delete('user');
+            setSearchParams(newSearchParams, { replace: true });
+          }
+        };
+        loadUserDetails();
+      }
+    }
+  }, [enrichedStaff, searchParams, setSearchParams]);
 
   const handleViewDetails = (staff: EnrichedStaffMember) => {
     if (staff.details) {
