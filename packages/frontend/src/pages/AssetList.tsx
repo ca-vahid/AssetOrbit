@@ -93,6 +93,24 @@ const shouldShowSpecColumns = (currentFilter?: string) => {
   return currentFilter && currentFilter !== 'OTHER';
 };
 
+// Helper function to format phone numbers
+const formatPhoneNumber = (phoneNumber?: string) => {
+  if (!phoneNumber) return null;
+  // Remove all non-digits
+  const digits = phoneNumber.replace(/\D/g, '');
+  // Format as (XXX) XXX-XXXX for North American numbers
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  // Return original if not 10 digits
+  return phoneNumber;
+};
+
+// Check if we're viewing phones specifically
+const isPhoneView = (currentFilter?: string) => {
+  return currentFilter === 'PHONE';
+};
+
 const AssetList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -164,7 +182,7 @@ const AssetList: React.FC = () => {
     setSortBy(urlSortBy);
     setSortOrder(urlSortOrder);
     setFilters(urlFilters);
-  }, []); // Only run on mount
+  }, [searchParams]); // Rerun when URL search params change
 
   // Load saved column widths and sort preferences from localStorage
   useEffect(() => {
@@ -203,22 +221,22 @@ const AssetList: React.FC = () => {
 
 
 
-  // Update URL when filters change
+  // Update URL only for debounced search to avoid loops
   useEffect(() => {
-    const newParams = new URLSearchParams();
-    
-    if (debouncedSearch) newParams.set('search', debouncedSearch);
-    if (page > 1) newParams.set('page', page.toString());
-    if (limit !== 50) newParams.set('limit', limit.toString());
-    if (sortBy !== 'createdAt') newParams.set('sortBy', sortBy);
-    if (sortOrder !== 'desc') newParams.set('sortOrder', sortOrder);
-    
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) newParams.set(key, value);
-    });
+    const newParams = new URLSearchParams(searchParams);
+    const currentSearch = newParams.get('search') || '';
 
-    setSearchParams(newParams, { replace: true });
-  }, [debouncedSearch, page, limit, sortBy, sortOrder, filters, setSearchParams]);
+    if (debouncedSearch !== currentSearch) {
+      if (debouncedSearch) {
+        newParams.set('search', debouncedSearch);
+      } else {
+        newParams.delete('search');
+      }
+      // Reset page to 1 when search changes
+      newParams.delete('page');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [debouncedSearch, searchParams, setSearchParams]);
 
   // Build query parameters
   const queryParams = {
@@ -364,27 +382,49 @@ const AssetList: React.FC = () => {
   };
 
   const clearAllFilters = () => {
-    setFilters({});
-    setSearch('');
-    setPage(1);
+    // Keep sort and limit preferences, but clear everything else
+    const newParams = new URLSearchParams(searchParams);
+    const preservedKeys = ['sortBy', 'sortOrder', 'limit'];
+    for (const key of Array.from(newParams.keys())) {
+      if (!preservedKeys.includes(key)) {
+        newParams.delete(key);
+      }
+    }
+    setSearchParams(newParams, { replace: true });
   };
 
   const handleFiltersChange = (newFilters: AssetFilters) => {
-    setFilters(newFilters);
-    setPage(1); // Reset to first page when filters change
+    const newParams = new URLSearchParams(searchParams);
+
+    // Get all current filter keys (anything not in the preserved list)
+    const preservedKeys = ['search', 'page', 'limit', 'sortBy', 'sortOrder'];
+    const currentFilterKeys = Array.from(newParams.keys()).filter(k => !preservedKeys.includes(k));
+    
+    // Remove all old filter keys
+    currentFilterKeys.forEach(key => newParams.delete(key));
+    
+    // Add new filter keys
+    Object.entries(newFilters).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
+      }
+    });
+    
+    newParams.delete('page'); // Reset page
+    setSearchParams(newParams, { replace: true });
   };
 
   // Sorting functions
   const handleSort = (columnKey: string) => {
-    if (sortBy === columnKey) {
-      // Toggle sort order if same column
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    const newParams = new URLSearchParams(searchParams);
+    if (newParams.get('sortBy') === columnKey) {
+      newParams.set('sortOrder', newParams.get('sortOrder') === 'asc' ? 'desc' : 'asc');
     } else {
-      // New column, default to ascending
-      setSortBy(columnKey);
-      setSortOrder('asc');
+      newParams.set('sortBy', columnKey);
+      newParams.set('sortOrder', 'asc');
     }
-    setPage(1); // Reset to first page when sorting changes
+    newParams.delete('page');
+    setSearchParams(newParams, { replace: true });
   };
 
   const getSortIcon = (columnKey: string) => {
@@ -1127,26 +1167,43 @@ const AssetList: React.FC = () => {
                       className="w-4 h-4 text-brand-600 bg-white border-slate-300 rounded focus:ring-brand-500 focus:ring-2"
                     />
                   </th>
-                  <SortableHeader columnKey="assetTag" label="Asset" />
-                  <SortableHeader columnKey="assetType" label="Type" className="hidden sm:table-cell" />
-                  <SortableHeader columnKey="make" label="Make/Model" />
                   
-                  {/* Adaptive Specification Columns */}
-                  {shouldShowSpecColumns(filters.assetType) && 
-                    getAssetSpecColumns(filters.assetType!).map((column) => (
-                      <SortableHeader 
-                        key={column.key} 
-                        columnKey={column.key} 
-                        label={column.label}
-                        className={`hidden lg:table-cell px-3 ${column.width}`}
-                        sortable={false}
-                      />
-                    ))
-                  }
-                  
-                  <SortableHeader columnKey="status" label="Status" />
-                  <SortableHeader columnKey="assignedToAadId" label="Assigned To" className="hidden lg:table-cell" />
-                  <SortableHeader columnKey="locationId" label="Location" className="hidden xl:table-cell" />
+                  {isPhoneView(filters.assetType) ? (
+                    // Phone-specific headers
+                    <>
+                      <SortableHeader columnKey="assignedToAadId" label="User" />
+                      <SortableHeader columnKey="assetType" label="Type" className="hidden sm:table-cell" />
+                      <SortableHeader columnKey="make" label="Make/Model" />
+                      <SortableHeader columnKey="storage" label="Capacity" className="hidden md:table-cell" sortable={false} />
+                      <SortableHeader columnKey="phoneNumber" label="Phone #" className="hidden lg:table-cell" sortable={false} />
+                      <SortableHeader columnKey="locationId" label="Location" className="hidden xl:table-cell" />
+                      <SortableHeader columnKey="status" label="Status" />
+                    </>
+                  ) : (
+                    // Default headers
+                    <>
+                      <SortableHeader columnKey="assetTag" label="Asset" />
+                      <SortableHeader columnKey="assetType" label="Type" className="hidden sm:table-cell" />
+                      <SortableHeader columnKey="make" label="Make/Model" />
+                      
+                      {/* Adaptive Specification Columns */}
+                      {shouldShowSpecColumns(filters.assetType) && 
+                        getAssetSpecColumns(filters.assetType!).map((column) => (
+                          <SortableHeader 
+                            key={column.key} 
+                            columnKey={column.key} 
+                            label={column.label}
+                            className={`hidden lg:table-cell px-3 ${column.width}`}
+                            sortable={false}
+                          />
+                        ))
+                      }
+                      
+                      <SortableHeader columnKey="status" label="Status" />
+                      <SortableHeader columnKey="assignedToAadId" label="Assigned To" className="hidden lg:table-cell" />
+                      <SortableHeader columnKey="locationId" label="Location" className="hidden xl:table-cell" />
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
@@ -1169,345 +1226,653 @@ const AssetList: React.FC = () => {
                         className="w-4 h-4 text-brand-600 bg-white border-slate-300 rounded focus:ring-brand-500 focus:ring-2"
                       />
                     </td>
-                    <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetTag')}>
-                      <div className="min-w-0 relative">
-                        {/* Source Badge - positioned to the left of the asset tag */}
-                        <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
-                          <SourceBadge source={(asset.source as AssetSource) || AssetSource.MANUAL} size="overlay" />
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedAssetId(asset.id);
-                          }}
-                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 ml-10 -mr-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
-                          style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 80}px` : '140px' }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="relative">
-                              {asset.assetTag}
-                              <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-brand-500 scale-x-0 group-hover/asset:scale-x-100 transition-transform duration-200 origin-left"></div>
-                            </span>
-                            <div className="opacity-0 group-hover/asset:opacity-100 transition-opacity duration-200">
-                              <svg className="w-3 h-3 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
+                    
+                    {isPhoneView(filters.assetType) ? (
+                      // Phone-specific layout
+                      <>
+                        {/* User Column */}
+                        <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assignedToAadId')}>
+                          {asset.assignedToStaff ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                    onClick={() => asset.assignedToStaff && handleUserClick(asset.assignedToStaff.id)}
+                                  >
+                                    <div className="relative">
+                                      <ProfilePicture 
+                                        azureAdId={asset.assignedToStaff.id} 
+                                        displayName={asset.assignedToStaff.displayName} 
+                                        size="xs" 
+                                      />
+                                      <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 to-brand-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                                        {asset.assignedToStaff.displayName.split(' ').slice(0, 2).join(' ')}
+                                      </div>
+                                      {asset.assignedToStaff.jobTitle && (
+                                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                          {asset.assignedToStaff.jobTitle.length > 20 ? 
+                                            `${asset.assignedToStaff.jobTitle.substring(0, 20)}...` : 
+                                            asset.assignedToStaff.jobTitle
+                                          }
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg max-w-xs">
+                                  <div className="font-semibold">{asset.assignedToStaff.displayName}</div>
+                                  {asset.assignedToStaff.jobTitle && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.jobTitle}</div>
+                                  )}
+                                  {asset.assignedToStaff.department && (
+                                    <div className="text-slate-300 text-xs">{asset.assignedToStaff.department}</div>
+                                  )}
+                                  {asset.assignedToStaff.mail && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.mail}</div>
+                                  )}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : asset.assignedTo ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                    onClick={() => asset.assignedTo && handleUserClick(asset.assignedTo.id)}
+                                  >
+                                    <div className="relative">
+                                      <ProfilePicture 
+                                        displayName={asset.assignedTo.displayName} 
+                                        size="xs" 
+                                      />
+                                      <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                                        {asset.assignedTo.displayName.split(' ').slice(0, 2).join(' ')}
+                                      </div>
+                                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">IT Tech</div>
+                                    </div>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
+                                  <div className="font-semibold">{asset.assignedTo.displayName}</div>
+                                  <div className="text-emerald-300 text-xs mt-1">IT Technician</div>
+                                  {asset.assignedTo.email && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedTo.email}</div>
+                                  )}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : asset.assignedToAadId ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                  >
+                                    <div className="w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-full flex items-center justify-center">
+                                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">?</span>
+                                    </div>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400 truncate font-mono">
+                                      {asset.assignedToAadId.substring(0, 8)}...
+                                    </span>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
+                                  <div className="font-semibold">Azure AD User</div>
+                                  <div className="text-slate-300 text-xs mt-1 font-mono">{asset.assignedToAadId}</div>
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
+                                <span className="text-xs text-slate-400">—</span>
+                              </div>
+                              <span className="text-slate-500 dark:text-slate-400 text-sm">Unassigned</span>
                             </div>
-                          </div>
-                        </button>
-                        {asset.serialNumber && (
-                          <div 
-                            className="text-sm text-slate-500 dark:text-slate-400 truncate ml-10"
-                            style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 60}px` : '160px' }}
-                          >
-                            SN: {asset.serialNumber}
-                          </div>
-                        )}
-                        {/* Show type on small screens */}
-                        <div className="sm:hidden ml-10">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 mt-1">
-                            {asset.assetType}
-                          </span>
-                        </div>
-                      </div>
+                          )}
+                        </td>
 
-                      {/* Inline actions button – appears on row hover */}
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            className="p-2 absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenu.Trigger>
+                        {/* Type Column */}
+                        <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetType')}>
+                          <Tooltip.Provider>
+                            <Tooltip.Root>
+                              <Tooltip.Trigger asChild>
+                                <div className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm ${viewDensity === 'compact' ? 'w-8 h-8' : 'w-10 h-10'}`}>
+                                  {(() => {
+                                    const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
+                                    const iconColors = {
+                                      LAPTOP: 'text-blue-600 dark:text-blue-400',
+                                      DESKTOP: 'text-purple-600 dark:text-purple-400', 
+                                      TABLET: 'text-green-600 dark:text-green-400',
+                                      PHONE: 'text-orange-600 dark:text-orange-400',
+                                      OTHER: 'text-slate-600 dark:text-slate-400'
+                                    };
+                                    const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
+                                    return <IconComponent className={`${viewDensity === 'compact' ? 'w-4 h-4' : 'w-5 h-5'} ${colorClass}`} />;
+                                  })()}
+                                </div>
+                              </Tooltip.Trigger>
+                              <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
+                                {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
+                              </Tooltip.Content>
+                            </Tooltip.Root>
+                          </Tooltip.Provider>
+                        </td>
 
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            className="min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1 z-50"
-                            side="right"
-                            align="start"
-                            sideOffset={5}
-                          >
-                            {currentUser?.role !== 'READ' && (
-                              <DropdownMenu.Item
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.location.href = `/assets/${asset.id}/edit`;
-                                }}
-                              >
-                                <Edit className="w-4 h-4" />
-                                Edit Asset
-                              </DropdownMenu.Item>
-                            )}
-                            <DropdownMenu.Item
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                        {/* Make/Model Column */}
+                        <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('make')}>
+                          <div className="min-w-0">
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigator.clipboard.writeText(asset.assetTag);
+                                setSelectedAssetId(asset.id);
                               }}
+                              className="group/asset text-left w-full"
                             >
-                              <Copy className="w-4 h-4" />
-                              Copy Asset Tag
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Separator className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                            {currentUser?.role === 'ADMIN' && (
-                              <DropdownMenu.Item
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer outline-none"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete Asset
-                              </DropdownMenu.Item>
-                            )}
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    </td>
-                    <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetType')}>
-                      <Tooltip.Provider>
-                        <Tooltip.Root>
-                          <Tooltip.Trigger asChild>
-                            <div className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm ${viewDensity === 'compact' ? 'w-8 h-8' : 'w-10 h-10'}`}>
-                              {(() => {
-                                const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
-                                const iconColors = {
-                                  LAPTOP: 'text-blue-600 dark:text-blue-400',
-                                  DESKTOP: 'text-purple-600 dark:text-purple-400', 
-                                  TABLET: 'text-green-600 dark:text-green-400',
-                                  PHONE: 'text-orange-600 dark:text-orange-400',
-                                  OTHER: 'text-slate-600 dark:text-slate-400'
-                                };
-                                const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
-                                return <IconComponent className={`${viewDensity === 'compact' ? 'w-4 h-4' : 'w-5 h-5'} ${colorClass}`} />;
-                              })()}
-                            </div>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
-                            {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
-                          </Tooltip.Content>
-                        </Tooltip.Root>
-                      </Tooltip.Provider>
-                    </td>
-                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('make')}>
-                      <div className="min-w-0">
-                        <div 
-                          className="font-medium text-slate-900 dark:text-slate-100 truncate"
-                          style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
-                        >
-                          {asset.model}
-                        </div>
-                        <div 
-                          className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate"
-                          style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
-                        >
-                          {asset.make}
-                        </div>
-                      </div>
-                      {/* Show assigned user on small screens */}
-                      <div className="lg:hidden mt-1 ml-10">
-                        {asset.assignedToStaff ? (
-                          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            → {asset.assignedToStaff.displayName}
-                          </div>
-                        ) : asset.assignedTo ? (
-                          <div className="flex flex-col">
-                            <span className="text-sm text-slate-800 dark:text-slate-200 truncate">{asset.assignedTo.displayName}</span>
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">IT Tech</span>
-                          </div>
-                        ) : asset.assignedToAadId ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-600 dark:text-slate-400 truncate">{asset.assignedToAadId}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 dark:text-slate-400">Unassigned</span>
-                        )}
-                      </div>
-                    </td>
-                    
-                    {/* Adaptive Specification Cells */}
-                    {shouldShowSpecColumns(filters.assetType) && 
-                      getAssetSpecColumns(filters.assetType!).map((column) => {
-                        const specs = parseSpecifications(asset.specifications);
-                        const value = specs[column.key];
-                        
-                        return (
-                          <td key={column.key} className={`hidden lg:table-cell px-3 whitespace-nowrap ${column.width} ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle(column.key)}>
-                            <div 
-                              className="text-sm text-slate-900 dark:text-slate-100 truncate"
-                              style={{ maxWidth: columnWidths[column.key] ? `${columnWidths[column.key] - 24}px` : '100%' }}
-                            >
-                              {value || (
-                                <span className="text-slate-400 dark:text-slate-500">—</span>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })
-                    }
-                    
-                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('status')}>
-                      <div className="flex items-center justify-center">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full font-medium shadow-sm ${
-                          viewDensity === 'compact' ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                        } ${
-                          asset.status === 'AVAILABLE' 
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
-                            : asset.status === 'ASSIGNED'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
-                            : asset.status === 'SPARE'
-                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700'
-                            : asset.status === 'MAINTENANCE'
-                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
-                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'
-                        }`}>
-                          <div className={`rounded-full ${viewDensity === 'compact' ? 'w-1.5 h-1.5' : 'w-2 h-2'} ${
-                            asset.status === 'AVAILABLE' 
-                              ? 'bg-green-500'
-                              : asset.status === 'ASSIGNED'
-                              ? 'bg-blue-500'
-                              : asset.status === 'SPARE'
-                              ? 'bg-orange-500'
-                              : asset.status === 'MAINTENANCE'
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                          }`} />
-                          <span className="hidden sm:inline">
-                            {viewDensity === 'compact' 
-                              ? STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.short || asset.status
-                              : STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.label || asset.status
-                            }
-                          </span>
-                        </span>
-                      </div>
-                    </td>
-                    <td className={`hidden lg:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assignedToAadId')}>
-                      {asset.assignedToStaff ? (
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
                               <div 
-                                className="flex items-center gap-2 group cursor-pointer"
-                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
-                                onClick={() => asset.assignedToStaff && handleUserClick(asset.assignedToStaff.id)}
+                                className="font-medium text-slate-900 dark:text-slate-100 truncate hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                                style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
                               >
-                                <div className="relative">
-                          <ProfilePicture 
-                            azureAdId={asset.assignedToStaff.id} 
-                            displayName={asset.assignedToStaff.displayName} 
-                            size="xs" 
-                          />
-                                  <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 to-brand-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
-                                </div>
-                          <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                                    {asset.assignedToStaff.displayName.split(' ').slice(0, 2).join(' ')}
+                                {asset.model}
+                              </div>
+                              <div 
+                                className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate"
+                                style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
+                              >
+                                {asset.make}
+                              </div>
+                            </button>
                           </div>
-                                  {asset.assignedToStaff.jobTitle && (
-                                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                      {asset.assignedToStaff.jobTitle.length > 20 ? 
-                                        `${asset.assignedToStaff.jobTitle.substring(0, 20)}...` : 
-                                        asset.assignedToStaff.jobTitle
-                                      }
-                        </div>
+
+                          {/* Inline actions button – appears on row hover */}
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <button
+                                className="p-2 absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenu.Trigger>
+
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content
+                                className="min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1 z-50"
+                                side="right"
+                                align="start"
+                                sideOffset={5}
+                              >
+                                <DropdownMenu.Item
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssetId(asset.id);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  View Details
+                                </DropdownMenu.Item>
+                                {currentUser?.role !== 'READ' && (
+                                  <DropdownMenu.Item
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.location.href = `/assets/${asset.id}/edit`;
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Edit Asset
+                                  </DropdownMenu.Item>
+                                )}
+                                <DropdownMenu.Item
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(asset.assetTag);
+                                  }}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  Copy Asset Tag
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                                {currentUser?.role === 'ADMIN' && (
+                                  <DropdownMenu.Item
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer outline-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Asset
+                                  </DropdownMenu.Item>
+                                )}
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        </td>
+
+                        {/* Capacity Column */}
+                        <td className={`hidden md:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('storage')}>
+                          <div className="text-sm text-slate-900 dark:text-slate-100">
+                            {(() => {
+                              const specs = parseSpecifications(asset.specifications);
+                              return specs.storage || (
+                                <span className="text-slate-400 dark:text-slate-500">—</span>
+                              );
+                            })()}
+                          </div>
+                        </td>
+
+                        {/* Phone Number Column */}
+                        <td className={`hidden lg:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('phoneNumber')}>
+                          <div className="text-sm text-slate-900 dark:text-slate-100 font-mono">
+                            {(() => {
+                              const specs = parseSpecifications(asset.specifications);
+                              const phoneNumber = specs.phoneNumber;
+                              const formatted = formatPhoneNumber(phoneNumber);
+                              return formatted || (
+                                <span className="text-slate-400 dark:text-slate-500">—</span>
+                              );
+                            })()}
+                          </div>
+                        </td>
+
+                        {/* Location Column */}
+                        <td className={`hidden xl:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('locationId')}>
+                          {asset.location ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className={`text-slate-400 flex-shrink-0 ${viewDensity === 'compact' ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                              <span className="text-slate-900 dark:text-slate-100 truncate">
+                                {asset.location.city}, {asset.location.province}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-500">—</span>
+                          )}
+                        </td>
+
+                        {/* Minimized Status Column */}
+                        <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('status')}>
+                          <div className="flex items-center justify-center">
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div className={`rounded-full ${viewDensity === 'compact' ? 'w-3 h-3' : 'w-4 h-4'} ${
+                                    asset.status === 'AVAILABLE' 
+                                      ? 'bg-green-500'
+                                      : asset.status === 'ASSIGNED'
+                                      ? 'bg-blue-500'
+                                      : asset.status === 'SPARE'
+                                      ? 'bg-orange-500'
+                                      : asset.status === 'MAINTENANCE'
+                                      ? 'bg-yellow-500'
+                                      : 'bg-red-500'
+                                  }`} />
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
+                                  {STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.label || asset.status}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      // Default layout
+                      <>
+                        <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetTag')}>
+                          <div className="min-w-0 relative">
+                            {/* Source Badge - positioned to the left of the asset tag */}
+                            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
+                              <SourceBadge source={(asset.source as AssetSource) || AssetSource.MANUAL} size="overlay" />
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAssetId(asset.id);
+                              }}
+                              className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 ml-10 -mr-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
+                              style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 80}px` : '140px' }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="relative">
+                                  {asset.assetTag}
+                                  <div className="absolute inset-x-0 -bottom-0.5 h-0.5 bg-brand-500 scale-x-0 group-hover/asset:scale-x-100 transition-transform duration-200 origin-left"></div>
+                                </span>
+                                <div className="opacity-0 group-hover/asset:opacity-100 transition-opacity duration-200">
+                                  <svg className="w-3 h-3 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </div>
+                              </div>
+                            </button>
+                            {asset.serialNumber && (
+                              <div 
+                                className="text-sm text-slate-500 dark:text-slate-400 truncate ml-10"
+                                style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 60}px` : '160px' }}
+                              >
+                                SN: {asset.serialNumber}
+                              </div>
+                            )}
+                            {/* Show type on small screens */}
+                            <div className="sm:hidden ml-10">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 mt-1">
+                                {asset.assetType}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Inline actions button – appears on row hover */}
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <button
+                                className="p-2 absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenu.Trigger>
+
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content
+                                className="min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1 z-50"
+                                side="right"
+                                align="start"
+                                sideOffset={5}
+                              >
+                                {currentUser?.role !== 'READ' && (
+                                  <DropdownMenu.Item
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.location.href = `/assets/${asset.id}/edit`;
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Edit Asset
+                                  </DropdownMenu.Item>
+                                )}
+                                <DropdownMenu.Item
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md cursor-pointer outline-none"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(asset.assetTag);
+                                  }}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  Copy Asset Tag
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                                {currentUser?.role === 'ADMIN' && (
+                                  <DropdownMenu.Item
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md cursor-pointer outline-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmAsset({ id: asset.id, tag: asset.assetTag });
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Asset
+                                  </DropdownMenu.Item>
+                                )}
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        </td>
+                        <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetType')}>
+                          <Tooltip.Provider>
+                            <Tooltip.Root>
+                              <Tooltip.Trigger asChild>
+                                <div className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm ${viewDensity === 'compact' ? 'w-8 h-8' : 'w-10 h-10'}`}>
+                                  {(() => {
+                                    const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
+                                    const iconColors = {
+                                      LAPTOP: 'text-blue-600 dark:text-blue-400',
+                                      DESKTOP: 'text-purple-600 dark:text-purple-400', 
+                                      TABLET: 'text-green-600 dark:text-green-400',
+                                      PHONE: 'text-orange-600 dark:text-orange-400',
+                                      OTHER: 'text-slate-600 dark:text-slate-400'
+                                    };
+                                    const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
+                                    return <IconComponent className={`${viewDensity === 'compact' ? 'w-4 h-4' : 'w-5 h-5'} ${colorClass}`} />;
+                                  })()}
+                                </div>
+                              </Tooltip.Trigger>
+                              <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
+                                {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
+                              </Tooltip.Content>
+                            </Tooltip.Root>
+                          </Tooltip.Provider>
+                        </td>
+                        <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('make')}>
+                          <div className="min-w-0">
+                            <div 
+                              className="font-medium text-slate-900 dark:text-slate-100 truncate"
+                              style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
+                            >
+                              {asset.model}
+                            </div>
+                            <div 
+                              className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate"
+                              style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
+                            >
+                              {asset.make}
+                            </div>
+                          </div>
+                          {/* Show assigned user on small screens */}
+                          <div className="lg:hidden mt-1 ml-10">
+                            {asset.assignedToStaff ? (
+                              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                → {asset.assignedToStaff.displayName}
+                              </div>
+                            ) : asset.assignedTo ? (
+                              <div className="flex flex-col">
+                                <span className="text-sm text-slate-800 dark:text-slate-200 truncate">{asset.assignedTo.displayName}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">IT Tech</span>
+                              </div>
+                            ) : asset.assignedToAadId ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-600 dark:text-slate-400 truncate">{asset.assignedToAadId}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 dark:text-slate-400">Unassigned</span>
+                            )}
+                          </div>
+                        </td>
+                        
+                        {/* Adaptive Specification Cells */}
+                        {shouldShowSpecColumns(filters.assetType) && 
+                          getAssetSpecColumns(filters.assetType!).map((column) => {
+                            const specs = parseSpecifications(asset.specifications);
+                            const value = specs[column.key];
+                            
+                            return (
+                              <td key={column.key} className={`hidden lg:table-cell px-3 whitespace-nowrap ${column.width} ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle(column.key)}>
+                                <div 
+                                  className="text-sm text-slate-900 dark:text-slate-100 truncate"
+                                  style={{ maxWidth: columnWidths[column.key] ? `${columnWidths[column.key] - 24}px` : '100%' }}
+                                >
+                                  {value || (
+                                    <span className="text-slate-400 dark:text-slate-500">—</span>
                                   )}
                                 </div>
-                              </div>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg max-w-xs">
-                              <div className="font-semibold">{asset.assignedToStaff.displayName}</div>
-                              {asset.assignedToStaff.jobTitle && (
-                                <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.jobTitle}</div>
-                              )}
-                              {asset.assignedToStaff.department && (
-                                <div className="text-slate-300 text-xs">{asset.assignedToStaff.department}</div>
-                              )}
-                              {asset.assignedToStaff.mail && (
-                                <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.mail}</div>
-                              )}
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      ) : asset.assignedTo ? (
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
-                              <div 
-                                className="flex items-center gap-2 group cursor-pointer"
-                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
-                                onClick={() => asset.assignedTo && handleUserClick(asset.assignedTo.id)}
-                              >
-                                <div className="relative">
-                          <ProfilePicture 
-                            displayName={asset.assignedTo.displayName} 
-                            size="xs" 
-                          />
-                                  <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
-                                </div>
-                          <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                                    {asset.assignedTo.displayName.split(' ').slice(0, 2).join(' ')}
+                              </td>
+                            );
+                          })
+                        }
+                        
+                        <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('status')}>
+                          <div className="flex items-center justify-center">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full font-medium shadow-sm ${
+                              viewDensity === 'compact' ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                            } ${
+                              asset.status === 'AVAILABLE' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
+                                : asset.status === 'ASSIGNED'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                                : asset.status === 'SPARE'
+                                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700'
+                                : asset.status === 'MAINTENANCE'
+                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'
+                            }`}>
+                              <div className={`rounded-full ${viewDensity === 'compact' ? 'w-1.5 h-1.5' : 'w-2 h-2'} ${
+                                asset.status === 'AVAILABLE' 
+                                  ? 'bg-green-500'
+                                  : asset.status === 'ASSIGNED'
+                                  ? 'bg-blue-500'
+                                  : asset.status === 'SPARE'
+                                  ? 'bg-orange-500'
+                                  : asset.status === 'MAINTENANCE'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`} />
+                              <span className="hidden sm:inline">
+                                {viewDensity === 'compact' 
+                                  ? STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.short || asset.status
+                                  : STATUS_CONFIG[asset.status as keyof typeof STATUS_CONFIG]?.label || asset.status
+                                }
+                              </span>
+                            </span>
                           </div>
-                                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">IT Tech</div>
-                        </div>
+                        </td>
+                        <td className={`hidden lg:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assignedToAadId')}>
+                          {asset.assignedToStaff ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                    onClick={() => asset.assignedToStaff && handleUserClick(asset.assignedToStaff.id)}
+                                  >
+                                    <div className="relative">
+                              <ProfilePicture 
+                                azureAdId={asset.assignedToStaff.id} 
+                                displayName={asset.assignedToStaff.displayName} 
+                                size="xs" 
+                              />
+                                      <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-500 to-brand-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
+                                    </div>
+                              <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                                        {asset.assignedToStaff.displayName.split(' ').slice(0, 2).join(' ')}
                               </div>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
-                              <div className="font-semibold">{asset.assignedTo.displayName}</div>
-                              <div className="text-emerald-300 text-xs mt-1">IT Technician</div>
-                              {asset.assignedTo.email && (
-                                <div className="text-slate-300 text-xs mt-1">{asset.assignedTo.email}</div>
-                              )}
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      ) : asset.assignedToAadId ? (
-                        <Tooltip.Provider>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
-                              <div 
-                                className="flex items-center gap-2 group cursor-pointer"
-                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
-                              >
-                                <div className="w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-full flex items-center justify-center">
-                                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">?</span>
-                        </div>
-                                <span className="text-sm text-slate-600 dark:text-slate-400 truncate font-mono">
-                                  {asset.assignedToAadId.substring(0, 8)}...
-                                </span>
+                                      {asset.assignedToStaff.jobTitle && (
+                                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                          {asset.assignedToStaff.jobTitle.length > 20 ? 
+                                            `${asset.assignedToStaff.jobTitle.substring(0, 20)}...` : 
+                                            asset.assignedToStaff.jobTitle
+                                          }
+                            </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg max-w-xs">
+                                  <div className="font-semibold">{asset.assignedToStaff.displayName}</div>
+                                  {asset.assignedToStaff.jobTitle && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.jobTitle}</div>
+                                  )}
+                                  {asset.assignedToStaff.department && (
+                                    <div className="text-slate-300 text-xs">{asset.assignedToStaff.department}</div>
+                                  )}
+                                  {asset.assignedToStaff.mail && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedToStaff.mail}</div>
+                                  )}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : asset.assignedTo ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                    onClick={() => asset.assignedTo && handleUserClick(asset.assignedTo.id)}
+                                  >
+                                    <div className="relative">
+                              <ProfilePicture 
+                                displayName={asset.assignedTo.displayName} 
+                                size="xs" 
+                              />
+                                      <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
+                                    </div>
+                              <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                                        {asset.assignedTo.displayName.split(' ').slice(0, 2).join(' ')}
                               </div>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
-                              <div className="font-semibold">Azure AD User</div>
-                              <div className="text-slate-300 text-xs mt-1 font-mono">{asset.assignedToAadId}</div>
-                            </Tooltip.Content>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
-                            <span className="text-xs text-slate-400">—</span>
-                          </div>
-                          <span className="text-slate-500 dark:text-slate-400 text-sm">Unassigned</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className={`hidden xl:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('locationId')}>
-                      {asset.location ? (
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`text-slate-400 flex-shrink-0 ${viewDensity === 'compact' ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                          <span className="text-slate-900 dark:text-slate-100 truncate">
-                            {asset.location.city}, {asset.location.province}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 dark:text-slate-500">—</span>
-                      )}
-                    </td>
+                                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">IT Tech</div>
+                            </div>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
+                                  <div className="font-semibold">{asset.assignedTo.displayName}</div>
+                                  <div className="text-emerald-300 text-xs mt-1">IT Technician</div>
+                                  {asset.assignedTo.email && (
+                                    <div className="text-slate-300 text-xs mt-1">{asset.assignedTo.email}</div>
+                                  )}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : asset.assignedToAadId ? (
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div 
+                                    className="flex items-center gap-2 group cursor-pointer"
+                                    style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                                  >
+                                    <div className="w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-full flex items-center justify-center">
+                                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">?</span>
+                            </div>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400 truncate font-mono">
+                                      {asset.assignedToAadId.substring(0, 8)}...
+                                    </span>
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-3 py-2 text-sm bg-slate-900 text-white rounded-lg shadow-lg">
+                                  <div className="font-semibold">Azure AD User</div>
+                                  <div className="text-slate-300 text-xs mt-1 font-mono">{asset.assignedToAadId}</div>
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
+                                <span className="text-xs text-slate-400">—</span>
+                              </div>
+                              <span className="text-slate-500 dark:text-slate-400 text-sm">Unassigned</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className={`hidden xl:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('locationId')}>
+                          {asset.location ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className={`text-slate-400 flex-shrink-0 ${viewDensity === 'compact' ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                              <span className="text-slate-900 dark:text-slate-100 truncate">
+                                {asset.location.city}, {asset.location.province}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-500">—</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -1528,8 +1893,10 @@ const AssetList: React.FC = () => {
                 value={limit}
                 onChange={(e) => {
                   const newLimit = parseInt(e.target.value);
-                  setLimit(newLimit);
-                  setPage(1); // Reset to first page when page size changes
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.set('limit', String(newLimit));
+                  newParams.delete('page'); // Reset to first page
+                  setSearchParams(newParams, { replace: true });
                 }}
                 className="ml-2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
@@ -1540,14 +1907,22 @@ const AssetList: React.FC = () => {
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setPage(1)}
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.set('page', '1');
+                  setSearchParams(newParams, { replace: true });
+                }}
                 disabled={page <= 1}
                 className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 First
               </button>
               <button
-                onClick={() => setPage(page - 1)}
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.set('page', String(page - 1));
+                  setSearchParams(newParams, { replace: true });
+                }}
                 disabled={page <= 1}
                 className="px-2 py-1 text-xs font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
@@ -1562,7 +1937,11 @@ const AssetList: React.FC = () => {
                   return (
                     <button
                       key={pageNum}
-                      onClick={() => setPage(pageNum)}
+                      onClick={() => {
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.set('page', String(pageNum));
+                        setSearchParams(newParams, { replace: true });
+                      }}
                       className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
                         pageNum === page
                           ? 'bg-brand-600 text-white'
@@ -1576,14 +1955,22 @@ const AssetList: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setPage(page + 1)}
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.set('page', String(page + 1));
+                  setSearchParams(newParams, { replace: true });
+                }}
                 disabled={page >= pagination.totalPages}
                 className="px-2 py-1 text-xs font-medium border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Next
               </button>
               <button
-                onClick={() => setPage(pagination.totalPages)}
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.set('page', String(pagination.totalPages));
+                  setSearchParams(newParams, { replace: true });
+                }}
                 disabled={page >= pagination.totalPages}
                 className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >

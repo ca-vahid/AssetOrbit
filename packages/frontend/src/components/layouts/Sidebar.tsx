@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as Collapsible from '@radix-ui/react-collapsible';
@@ -21,7 +21,10 @@ import {
   Sliders,
   UserCheck,
   UserCog,
-  Workflow
+  Workflow,
+  Laptop,
+  Smartphone,
+  Monitor as Desktop
 } from 'lucide-react';
 import { useStore } from '../../store';
 import clsx from 'clsx';
@@ -29,7 +32,6 @@ import clsx from 'clsx';
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
-  currentPath: string;
 }
 
 interface NavigationItem {
@@ -55,6 +57,9 @@ const navigation: NavigationItem[] = [
     icon: Server,
     children: [
       { name: 'All Assets', href: '/assets', icon: Server },
+      { name: 'Laptops', href: '/assets?assetType=LAPTOP', icon: Laptop },
+      { name: 'Desktops', href: '/assets?assetType=DESKTOP', icon: Desktop },
+      { name: 'Phones', href: '/assets?assetType=PHONE', icon: Smartphone },
       { name: 'Add Asset', href: '/assets/new', icon: Plus, requiresWrite: true },
       { name: 'Bulk Upload', href: '/assets/bulk', icon: Upload, requiresWrite: true },
       { name: 'Export', href: '/assets/export', icon: Download },
@@ -94,13 +99,27 @@ const navigation: NavigationItem[] = [
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, currentPath }) => {
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { currentUser } = useStore();
+  const location = useLocation();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
 
   const isActive = (path: string) => {
-    if (path === '/' && currentPath !== '/') return false;
-    return currentPath.startsWith(path);
+    const [pathname, search] = path.split('?');
+    
+    // Exact match for paths with query strings
+    if (search) {
+      return location.pathname === pathname && location.search === `?${search}`;
+    }
+    
+    // For "All Assets", it should only be active when there's no assetType filter
+    if (path === '/assets') {
+      return location.pathname === '/assets' && !location.search.includes('assetType=');
+    }
+    
+    // Default check for other paths
+    if (path === '/' && location.pathname !== '/') return false;
+    return location.pathname.startsWith(path);
   };
 
   const hasPermission = (item: NavigationItem) => {
