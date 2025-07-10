@@ -1,0 +1,11 @@
+Report name,Subscriber Export
+BAN(s),20300776
+Created by,Stephen Wiese
+Date Generated,07/07/2025 16:36 EST
+Data last updated,07/07/2025 17:35 EST
+Organization,BGC ENGINEERING INC
+
+Subscriber Name,BAN,Phone Number,Status,Rate Plan,Service Category,Device Name,IMEI,Sim Serial Number,Upgrade eligible,Remaining balance due,Domestic Usage(MB),Domestic Allowance(MB),Domestic Overage(MB),Domestic tiered charges ($),Domestic Overage Charge,Roaming Usage(MB),Roaming Allowance(MB),Roaming Overage(MB),Roaming tiered charges ($),Roaming Overage charge,Days left,Contract end date
+John Smith,20300776,604-555-0123,Active,Business 50GB,Wireless,IPHONE 14 PRO 128GB SPACE BLACK,123456789012345,89014103211118510720,Yes,0.00,2048,50000,0,0.00,0.00,0,0,0,0.00,0.00,365,2025-12-31
+Jane Doe,20300776,604-555-0124,Active,Business 20GB,Wireless,SAMSUNG GALAXY S25 256GB NAVY ANDROID SMARTPHONE,234567890123456,89014103211118510721,No,25.50,1024,20000,0,0.00,0.00,0,0,0,0.00,0.00,180,2024-08-15
+Bob Johnson,20300776,604-555-0125,Active,Business 10GB,Wireless,IPHONE 16 PRO 128GB BLACK TTNM,345678901234567,89014103211118510722,Yes,0.00,512,10000,0,0.00,0.00,0,0,0,0.00,0.00,90,2024-06-30 

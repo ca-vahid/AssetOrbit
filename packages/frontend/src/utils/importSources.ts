@@ -1,8 +1,18 @@
 import { FileSpreadsheet, FileText, Zap, Shield, Cloud, Building2 } from 'lucide-react';
 import { ColumnMapping } from './ninjaMapping';
 
-export type UploadCategory = 'endpoints' | 'servers';
-export type UploadSource = 'ninjaone' | 'bgc-template' | 'invoice' | 'intune' | 'custom-excel';
+export type UploadCategory = 'endpoints' | 'servers' | 'phones';
+export type UploadSource =
+  | 'ninjaone'
+  | 'bgc-template'
+  | 'invoice'
+  | 'intune'
+  | 'custom-excel'
+  | 'telus'
+  | 'rogers'
+  | 'bell'
+  | 'verizon'
+  | 'excetel';
 
 export interface ImportSourceConfig {
   id: UploadSource;
@@ -50,9 +60,21 @@ export const getBGCTemplateMappings = (): ColumnMapping[] => {
       required: true,
       processor: (val: string) => val?.trim() || null,
     },
-    // Brand → Make
+    // Brand → Make (with trailing space in header)
     {
       ninjaColumn: 'Brand ',
+      targetField: 'make',
+      targetType: 'direct',
+      description: 'Manufacturer (Dell, Lenovo, etc.)',
+      required: false,
+      processor: (val: string) => {
+        const clean = val?.trim();
+        return clean && clean.length > 0 ? clean : 'Dell';
+      },
+    },
+    // Alternate header without trailing space (observed in some CSVs)
+    {
+      ninjaColumn: 'Brand',
       targetField: 'make',
       targetType: 'direct',
       description: 'Manufacturer (Dell, Lenovo, etc.)',
@@ -154,6 +176,224 @@ export const getBGCTemplateMappings = (): ColumnMapping[] => {
       targetType: 'specifications',
       description: 'Related ticket reference',
       processor: (val: string) => val?.trim() || null,
+    },
+  ];
+};
+
+// Telus Mappings (extract phone details)
+export const getTelusMappings = (): ColumnMapping[] => {
+  const parseDeviceName = (value: string) => {
+    if (!value) return { make: '', model: '', storage: '' };
+    // Remove SWAP prefix and normalize
+    let upper = value.toUpperCase().trim();
+    if (upper.startsWith('SWAP ')) upper = upper.substring(5);
+
+    // Extract storage (e.g., 128GB)
+    const capMatch = upper.match(/(\d+)\s*GB/);
+    const storage = capMatch ? `${capMatch[1]}GB` : '';
+    if (capMatch) upper = upper.replace(capMatch[0], '');
+
+    let make = 'Other';
+    let remainder = upper;
+
+    if (upper.startsWith('IPHONE') || upper.startsWith('IPAD') || upper.startsWith('APPLE IPAD') || upper.startsWith('APPLE WATCH') || upper.startsWith('WATCH')) {
+      make = 'Apple';
+    } else if (upper.startsWith('APPLE')) {
+      make = 'Apple';
+      remainder = remainder.replace(/^APPLE\s+/, '');
+    } else if (upper.startsWith('SAMSUNG')) {
+      make = 'Samsung';
+      remainder = remainder.replace(/^SAMSUNG\s+/, '');
+    }
+
+    // Remove make tokens
+    remainder = remainder
+      .replace(/^IPHONE\s+/, '')
+      .replace(/^IPAD\s+/, '')
+      .replace(/^WATCH\s+/, '')
+      .replace(/^GALAXY\s+/, '')
+      .replace(/ANDROID SMARTPHONE/i, '')
+      .replace(/SMARTPHONE/i, '')
+      .replace(/ARTL/i, '')
+      .replace(/TTNM/i, '')
+      .replace(/SPACE|SPC|GRAY|GRY|GREY|BLACK|BLK|MID|SILVER|SLV|TI|AL|ARTL|TL|ML|GPS|CELL/g, '')
+      .trim();
+
+    // Remove capacity token from model string
+    if (capMatch) {
+      remainder = remainder.replace(capMatch[0], '').trim();
+    }
+
+    // Title-case model for readability
+    const model = remainder
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    return { make, model, storage };
+  };
+
+  return [
+    {
+      ninjaColumn: 'Subscriber Name',
+      targetField: 'assignedToAadId',
+      targetType: 'direct',
+      description: 'Subscriber name (attempt Azure AD resolution)',
+      processor: (v: string) => v?.trim() || null,
+    },
+    {
+      ninjaColumn: 'Phone Number',
+      targetField: 'phoneNumber',
+      targetType: 'specifications',
+      description: 'Phone number',
+      processor: (v: string) => v?.replace(/[^\d]+/g, ''),
+    },
+    {
+      ninjaColumn: 'Rate Plan',
+      targetField: 'planType',
+      targetType: 'specifications',
+      description: 'Plan type',
+    },
+    {
+      ninjaColumn: 'Device Name',
+      targetField: 'model',
+      targetType: 'direct',
+      description: 'Device model (make will be auto-extracted)',
+      processor: (v: string) => parseDeviceName(v).model,
+      required: true,
+    },
+    {
+      ninjaColumn: 'Device Name',
+      targetField: 'storage',
+      targetType: 'specifications',
+      description: 'Storage capacity extracted from device name',
+      processor: (v: string) => parseDeviceName(v).storage,
+    },
+    {
+      ninjaColumn: 'IMEI',
+      targetField: 'imei',
+      targetType: 'specifications',
+      description: 'IMEI number',
+      required: true,
+    },
+    {
+      ninjaColumn: 'Contract end date',
+      targetField: 'contractEndDate',
+      targetType: 'specifications',
+      description: 'Contract end date',
+      processor: (v: string) => {
+        if (!v) return null;
+        const date = new Date(v);
+        return isNaN(date.getTime()) ? null : date.toISOString();
+      },
+    },
+    // Use Billing Account Number (BAN) column as a dummy to set assetType → PHONE
+    {
+      ninjaColumn: 'BAN',
+      targetField: 'assetType',
+      targetType: 'direct',
+      required: true,
+      description: 'Set assetType to PHONE',
+      processor: () => 'PHONE',
+    },
+    // Ignore columns not needed
+    {
+      ninjaColumn: 'Status',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Status (ignored)',
+    },
+    {
+      ninjaColumn: 'Service Category',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Service category (ignored)',
+    },
+    {
+      ninjaColumn: 'Upgrade eligible',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Upgrade eligible (ignored)',
+    },
+    {
+      ninjaColumn: 'Remaining balance due',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Remaining balance (ignored)',
+    },
+    {
+      ninjaColumn: 'Sim Serial Number',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'SIM serial number (ignored)',
+    },
+    {
+      ninjaColumn: 'Domestic Usage(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Domestic usage (ignored)',
+    },
+    {
+      ninjaColumn: 'Domestic Allowance(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Domestic allowance (ignored)',
+    },
+    {
+      ninjaColumn: 'Domestic Overage(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Domestic overage (ignored)',
+    },
+    {
+      ninjaColumn: 'Domestic tiered charges ($)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Domestic charges (ignored)',
+    },
+    {
+      ninjaColumn: 'Domestic Overage Charge',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Domestic overage charge (ignored)',
+    },
+    {
+      ninjaColumn: 'Roaming Usage(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Roaming usage (ignored)',
+    },
+    {
+      ninjaColumn: 'Roaming Allowance(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Roaming allowance (ignored)',
+    },
+    {
+      ninjaColumn: 'Roaming Overage(MB)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Roaming overage (ignored)',
+    },
+    {
+      ninjaColumn: 'Roaming tiered charges ($)',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Roaming charges (ignored)',
+    },
+    {
+      ninjaColumn: 'Roaming Overage charge',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Roaming overage charge (ignored)',
+    },
+    {
+      ninjaColumn: 'Days left',
+      targetField: '',
+      targetType: 'ignore',
+      description: 'Days left (ignored)',
     },
   ];
 };
@@ -398,6 +638,88 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
         conflictDetection: true
       }
     }
+  ],
+  phones: [
+    {
+      id: 'telus',
+      title: 'Telus (Canada)',
+      description: 'Import from Telus Mobility corporate accounts',
+      icon: Building2,
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: '/samples/telus-export.csv',
+      enabled: true,
+      category: 'phones',
+      features: ['User assignments', 'Device details', 'Plan information'],
+      getMappings: () => getTelusMappings(),
+      requiredOverrides: ['assetTag', 'make', 'assetType'], // Phones don't need BGC asset tags, explicit make, or assetType (all auto-set in backend)
+      customProcessing: {
+        userResolution: true,
+        locationResolution: false,
+        conflictDetection: true,
+      },
+    },
+    {
+      id: 'rogers',
+      title: 'Rogers (Canada)',
+      description: 'Import from Rogers for Business corporate accounts',
+      icon: Building2,
+      iconColor: 'text-red-600 dark:text-red-400',
+      iconBg: 'bg-red-100 dark:bg-red-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: null,
+      enabled: false,
+      comingSoon: true,
+      category: 'phones',
+      features: [],
+      getMappings: () => [],
+    },
+    {
+      id: 'bell',
+      title: 'Bell (Canada)',
+      description: 'Import from Bell Mobility business accounts',
+      icon: Building2,
+      iconColor: 'text-sky-600 dark:text-sky-400',
+      iconBg: 'bg-sky-100 dark:bg-sky-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: null,
+      enabled: false,
+      comingSoon: true,
+      category: 'phones',
+      features: [],
+      getMappings: () => [],
+    },
+    {
+      id: 'verizon',
+      title: 'Verizon (US)',
+      description: 'Import from Verizon Business accounts',
+      icon: Building2,
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      iconBg: 'bg-rose-100 dark:bg-rose-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: null,
+      enabled: false,
+      comingSoon: true,
+      category: 'phones',
+      features: [],
+      getMappings: () => [],
+    },
+    {
+      id: 'excetel',
+      title: 'Excetel (Australia)',
+      description: 'Import from Excetel Business accounts',
+      icon: Building2,
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      iconBg: 'bg-indigo-100 dark:bg-indigo-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: null,
+      enabled: false,
+      comingSoon: true,
+      category: 'phones',
+      features: [],
+      getMappings: () => [],
+    },
   ]
 };
 

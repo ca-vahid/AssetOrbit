@@ -19,8 +19,61 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.93',
+    date: 'July 9, 2025',
+    changes: {
+      features: [
+        'BambooHR Integration: Added direct links to employee HR profiles using Employee ID from Azure AD',
+        'Enhanced Staff Information Display: Comprehensive employee details across all view modes (Large, Medium, Compact)',
+        'Advanced Staff Data Integration: Added mobile phone, business phone, email, office location, and employee ID to all staff views',
+        'Subtle HR Profile Access: Integrated BambooHR links as unobtrusive external link icons within employee information',
+      ],
+      improvements: [
+        'Large View Enhancement: Added detailed contact information cards with mobile phone, business phone, email, and office location',
+        'Medium View Expansion: Included job title, department, office location, employee ID, and mobile phone in card layout',
+        'Compact View Redesign: Restructured table columns to show job title, contact information (email, phone, employee ID), and optimized space allocation',
+        'Staff Details Modal: Enhanced employee information display with comprehensive contact and organizational details',
+        'Backend Azure AD Integration: Updated Microsoft Graph API calls to retrieve employeeId field from Azure AD user profiles',
+        'Consistent Styling: Maintained existing design language while integrating new functionality seamlessly',
+        'BambooHR Link Subtlety: Changed from prominent orange styling to subtle gray external link icons for better visual hierarchy',
+      ],
+      bugFixes: [
+        'Fixed staff information display to show all available Azure AD fields consistently across view modes',
+        'Resolved type definitions to include employeeId in staff member interfaces',
+        'Corrected compact view column layout to properly display contact information without overflow',
+        'Fixed BambooHR link generation to handle missing employee IDs gracefully',
+      ],
+    },
+  },
+  {
+    version: 'v0.92',
+    date: 'July 9, 2025',
+    changes: {
+      features: [
+        'Telus Bulk Import Feature: Added comprehensive Telus phone import with device name parsing and automatic make/model extraction',
+        'Enhanced Phone Asset Management: Added Contract End Date and Balance fields to phone specifications',
+        'Phone Model Field Enhancement: Renamed "Operating System" to "Phone" for better data representation (e.g., "iPhone 16 Pro Max")',
+        'BGC CSV Import Fix: Resolved Brand column mapping issue that was causing "unknown" manufacturers',
+        'Smartphone Icon Integration: Added Smartphone icon from Lucide React for better phone field representation',
+      ],
+      improvements: [
+        'Phone Asset Type Configuration: Updated PHONE asset type with new contractEndDate and balance specification fields',
+        'Backend Field Support: Added contractEndDate and balance to canonical asset fields and workload category rules',
+        'Import Source Flexibility: Enhanced BGC template mapping to handle both "Brand" and "Brand " (with trailing space) column headers',
+        'Device Name Parser: Intelligent parsing of Telus device names to extract make, model, and storage capacity',
+        'Phone Specifications Enhancement: Expanded phone asset specifications to include contract management and billing information',
+      ],
+      bugFixes: [
+        'Fixed BGC CSV import Brand column mapping causing all assets to show "unknown" manufacturer',
+        'Resolved TypeScript error in BulkUpload component with StepSelectCategory selectedCategory prop',
+        'Fixed header matching logic to handle CSV columns with trailing spaces',
+        'Corrected phone asset form field configuration for better data entry',
+      ],
+    },
+  },
+  {
     version: 'v0.91',
-    date: 'January 14, 2025',
+    date: 'July 8, 2025',
     changes: {
       features: [
         'Asset Source Indicators: Added visual source badges to the assets table showing how each asset was imported (NinjaOne, Manual Entry, Excel, etc.)',

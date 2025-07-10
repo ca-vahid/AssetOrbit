@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { assetsApi, activitiesApi, staffApi, type Asset as ApiAsset } from '../services/api';
 import { useCustomFields } from '../hooks/useCustomFields';
 import type { Activity } from '@ats/shared';
+import { AssetSource } from '@shared/types/Asset';
 import EditAsset from '../pages/EditAsset';
 import SourceBadge from './SourceBadge';
 
@@ -462,7 +463,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                               </div>
                               <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
                                 <span className="text-slate-600 dark:text-slate-400 font-medium">Source</span>
-                                {asset.source ? <SourceBadge source={asset.source} size="sm" /> : <span className="text-slate-500">—</span>}
+                                {asset.source ? <SourceBadge source={asset.source as AssetSource} size="lg" /> : <span className="text-slate-500">—</span>}
                               </div>
                               <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
                                 <span className="text-slate-600 dark:text-slate-400 font-medium">Location</span>

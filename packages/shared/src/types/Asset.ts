@@ -28,7 +28,8 @@ export enum AssetSource {
   INTUNE = 'INTUNE',
   EXCEL = 'EXCEL',
   BULK_UPLOAD = 'BULK_UPLOAD',
-  API = 'API'
+  API = 'API',
+  TELUS = 'TELUS'
 }
 
 export interface Asset {

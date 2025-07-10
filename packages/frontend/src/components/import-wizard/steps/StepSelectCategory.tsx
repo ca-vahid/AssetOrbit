@@ -3,7 +3,7 @@ import { Monitor, Smartphone, Server, AlertCircle, Check } from 'lucide-react';
 import type { UploadCategory } from '../../../utils/importSources';
 
 interface Props {
-  selectedCategory: UploadCategory;
+  selectedCategory: UploadCategory | null;
   onSelectCategory: (category: UploadCategory) => void;
 }
 
@@ -21,7 +21,7 @@ const StepSelectCategory: React.FC<Props> = ({ selectedCategory, onSelectCategor
       </div>
 
       {/* Category Options */}
-      <div className="flex gap-4 max-w-2xl">
+      <div className="flex gap-4 max-w-3xl flex-wrap">
         {/* Endpoint Devices */}
         <button
           onClick={() => onSelectCategory('endpoints')}
@@ -45,6 +45,33 @@ const StepSelectCategory: React.FC<Props> = ({ selectedCategory, onSelectCategor
                 )}
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Laptops, desktops, tablets, phones</p>
+            </div>
+          </div>
+        </button>
+
+        {/* Phones */}
+        <button
+          onClick={() => onSelectCategory('phones')}
+          className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+            selectedCategory === 'phones'
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg flex-shrink-0">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold text-slate-900 dark:text-slate-100">Phones</h4>
+                {selectedCategory === 'phones' && (
+                  <div className="p-1 bg-brand-500 text-white rounded-full">
+                    <Check className="w-3 h-3" />
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Mobile phones &amp; smartphones</p>
             </div>
           </div>
         </button>

@@ -129,6 +129,7 @@ export interface Asset {
     jobTitle?: string;
     department?: string;
     officeLocation?: string;
+    employeeId?: string;
   };
   department?: {
     id: string;
@@ -219,6 +220,7 @@ export interface StaffMember {
   jobTitle?: string;
   department?: string;
   officeLocation?: string;
+  employeeId?: string;
 }
 
 export interface WorkloadCategory {

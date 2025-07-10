@@ -18,6 +18,7 @@ import Staff from './pages/Staff';
 import WorkloadCategories from './pages/WorkloadCategories';
 import WorkloadRules from './pages/WorkloadRules';
 import Locations from './pages/Locations';
+import { PhotoBatchProvider } from './contexts/PhotoBatchContext';
 
 // Create a query client for React Query
 const queryClient = new QueryClient({
@@ -246,7 +247,9 @@ const App: React.FC = () => {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <Layout />
+                      <PhotoBatchProvider>
+                        <Layout />
+                      </PhotoBatchProvider>
                     </ProtectedRoute>
                   }
                 >

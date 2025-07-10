@@ -9,11 +9,13 @@ import type { ColumnMapping } from '../../../utils/ninjaMapping';
 import type { AssetFieldMeta } from '../../../services/api';
 import type { CustomField } from '@ats/shared';
 import { getImportSource } from '../../../utils/importSources';
+import type { UploadCategory, UploadSource } from '../../../utils/importSources';
 
 interface Props {
   csvHeaders: string[];
   sampleRows: Record<string, string>[];
-  sourceType: 'ninja' | 'bgc';
+  selectedCategory: UploadCategory;
+  selectedSource: UploadSource;
   assetFields: AssetFieldMeta[];
   customFields: CustomField[];
   columnMappings: ColumnMapping[];
@@ -26,12 +28,15 @@ interface Props {
   enableLastOnlineFilter: boolean;
   lastOnlineMaxDays: number;
   getFilterDescription: (key: string, days: number) => string;
+  onBack?: () => void;
+  onNext?: () => void;
 }
 
 const StepMapping: React.FC<Props> = ({
   csvHeaders,
   sampleRows,
-  sourceType,
+  selectedCategory,
+  selectedSource,
   assetFields,
   customFields,
   columnMappings,
@@ -44,32 +49,49 @@ const StepMapping: React.FC<Props> = ({
   enableLastOnlineFilter,
   lastOnlineMaxDays,
   getFilterDescription,
+  onBack,
+  onNext,
 }) => {
   const [mappingExpanded, setMappingExpanded] = useState(true);
   // Preview has moved to StepConfirm; no expanded state needed here
   // Excluded items section moved to StepConfirm
 
-  const {
-    resolvedUserMap,
-    resolvedLocationMap,
-    conflicts,
-  } = useImportPreview({
+  const { resolvedUserMap, resolvedLocationMap, conflicts } = useImportPreview({
     rows: sampleRows,
     headers: csvHeaders,
     columnMappings,
-    selectedSource: sourceType === 'ninja' ? 'ninjaone' : 'bgc-template',
-    selectedCategory: 'endpoints',
+    selectedSource,
+    selectedCategory,
     enableLastOnlineFilter,
     lastOnlineMaxDays,
   });
 
-  const selectedSourceConfig = getImportSource('endpoints', sourceType === 'ninja' ? 'ninjaone' : 'bgc-template');
+  const selectedSourceConfig = getImportSource(selectedCategory, selectedSource);
   const requiredOverrides = selectedSourceConfig?.requiredOverrides || [];
 
   // handleMappingChange no longer needed (handled within ColumnMapper)
 
   return (
     <div className="space-y-6">
+      {/* Top Navigation */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={onBack}
+            className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+          >
+            ← Back
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!mappingValid}
+            className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            Next: Confirm Import
+          </button>
+        </div>
+      </div>
+
       {/* Column Mapping Section */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
         <Collapsible.Root open={mappingExpanded} onOpenChange={setMappingExpanded}>
@@ -103,7 +125,8 @@ const StepMapping: React.FC<Props> = ({
               <ColumnMapper
                 csvHeaders={csvHeaders}
                 sampleData={sampleRows}
-                sourceType={sourceType}
+                selectedCategory={selectedCategory}
+                selectedSource={selectedSource}
                 onMappingChange={onMappingChange}
                 onValidationChange={onValidationChange}
                 assetFields={assetFields}

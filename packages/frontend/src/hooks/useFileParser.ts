@@ -23,8 +23,23 @@ export function useFileParser() {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
           if (jsonData.length === 0) throw new Error('Empty file');
-          const headers = jsonData[0] as string[];
-          const rows = (jsonData.slice(1) as unknown[]).map(row => {
+
+          // Detect header row. Telus exports often include a preamble; we look for a row that contains "Subscriber Name".
+          let headerRowIndex = 0;
+          const headerKeywords = ['Subscriber Name', 'Phone Number', 'Device Name'];
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!Array.isArray(row)) continue;
+            const hasKeyword = headerKeywords.some(kw => row.includes(kw));
+            if (hasKeyword) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+
+          const headers = (jsonData[headerRowIndex] as string[]).map(h => String(h).trim());
+
+          const rows = (jsonData.slice(headerRowIndex + 1) as unknown[]).map(row => {
             const arr = Array.isArray(row) ? row : [];
             const obj: Record<string, string> = {};
             headers.forEach((h, idx) => {

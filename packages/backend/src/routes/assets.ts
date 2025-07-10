@@ -126,6 +126,8 @@ const CANONICAL_ASSET_FIELDS = [
   { key: 'processor', label: 'Processor', required: false },
   { key: 'storage', label: 'Storage', required: false },
   { key: 'operatingSystem', label: 'Operating System', required: false },
+  { key: 'contractEndDate', label: 'Contract End Date', required: false },
+  { key: 'balance', label: 'Balance', required: false },
 ];
 
 // GET /api/assets/fields - canonical list of direct asset fields
@@ -216,7 +218,12 @@ router.get('/', async (req: Request, res: Response) => {
       if (uuidRegex.test(assignedToStr)) {
         where.assignedToAadId = assignedToStr;
       } else {
-        where.assignedToId = assignedToStr;
+        // It's not a UUID, so it could be a non-AD user identifier or a legacy internal ID.
+        // For backward compatibility, we check both fields.
+        where.OR = [
+          { assignedToAadId: assignedToStr },
+          { assignedToId: assignedToStr }
+        ];
       }
     }
 
@@ -734,6 +741,10 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     const { id } = req.params;
     const updates = req.body;
 
+    console.log('=== ASSET UPDATE DEBUG ===');
+    console.log('Asset ID:', id);
+    console.log('Raw update data:', JSON.stringify(updates, null, 2));
+
     // Find existing asset
     const existingAsset = await prisma.asset.findUnique({
       where: { id },
@@ -742,6 +753,10 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
     if (!existingAsset) {
       return res.status(404).json({ error: 'Asset not found' });
     }
+
+    console.log('Current asset type:', existingAsset.assetType);
+    console.log('Current specifications (raw):', existingAsset.specifications);
+    console.log('Current specifications (parsed):', existingAsset.specifications ? JSON.parse(existingAsset.specifications) : null);
 
     // Fetch previous custom field values for change tracking
     const prevCustomFieldValues = await prisma.customFieldValue.findMany({
@@ -903,6 +918,9 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       ...categoryPromises,
     ]);
 
+    console.log('After update - specifications (raw):', updatedAsset.specifications);
+    console.log('After update - specifications (parsed):', updatedAsset.specifications ? JSON.parse(updatedAsset.specifications) : null);
+
     // Build changes object for activity log
     const changes: any = {};
     Object.keys(updates).forEach((key) => {
@@ -954,6 +972,9 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
       // @ts-ignore workloadCategories relation
       workloadCategories: (updatedAsset as any).workloadCategories?.map((link: any) => link.category) || [],
     };
+
+    console.log('Final response specifications:', JSON.stringify(assetWithParsedSpecs.specifications, null, 2));
+    console.log('=== END ASSET UPDATE DEBUG ===');
 
     res.json(assetWithParsedSpecs);
   } catch (error) {

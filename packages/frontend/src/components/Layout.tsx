@@ -40,7 +40,7 @@ const Layout: React.FC = () => {
         {/* Main Content Area */}
         <main 
           className={`
-            flex-1 transition-all duration-300 ease-spring relative
+            flex-1 transition-all duration-300 ease-spring relative overflow-x-hidden
             ${sidebarCollapsed ? 'ml-16' : 'ml-48'}
           `}
         >
@@ -48,7 +48,7 @@ const Layout: React.FC = () => {
           <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-l border-white/20 dark:border-slate-700/50 pointer-events-none" />
           
           {/* Main content container */}
-          <div className="relative h-full overflow-auto">
+          <div className="relative h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

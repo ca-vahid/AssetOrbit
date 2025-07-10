@@ -24,6 +24,8 @@ interface DataPreviewTableProps {
   conflicts?: Record<string, { id: string; assetTag: string; serialNumber: string }>;
   onRemoveItem?: (index: number) => void;
   showRemoveOption?: boolean;
+  onFilterChange?: (filter: 'all' | 'ready' | 'conflicts' | 'excluded' | 'errors' | 'warnings') => void;
+  currentFilter?: 'all' | 'ready' | 'conflicts' | 'excluded' | 'errors' | 'warnings';
 }
 
 interface ProcessedRow {
@@ -45,10 +47,13 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
   locationMap, 
   conflicts = {},
   onRemoveItem,
-  showRemoveOption = false
+  showRemoveOption = false,
+  onFilterChange,
+  currentFilter = 'all'
 }) => {
   const [showProcessedData, setShowProcessedData] = useState(true);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [internalFilter, setInternalFilter] = useState<'all' | 'ready' | 'errors' | 'warnings'>('all');
 
   // Process all rows for preview
   const processedRows: ProcessedRow[] = csvData.rows.map((row, index) => {
@@ -158,8 +163,37 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
     };
   });
 
-  const totalErrors = processedRows.reduce((count, row) => count + row.validationErrors.length, 0);
-  const totalWarnings = processedRows.reduce((count, row) => count + row.processingNotes.length, 0);
+  // Calculate stats from original data (never changes)
+  const totalReady = processedRows.filter(row => row.validationErrors.length === 0 && row.processingNotes.length === 0).length;
+  const totalErrors = processedRows.filter(row => row.validationErrors.length > 0).length;
+  const totalWarnings = processedRows.filter(row => row.validationErrors.length === 0 && row.processingNotes.length > 0).length;
+
+  // Filter processed rows based on internal filter
+  const getFilteredRows = () => {
+    const activeFilter = currentFilter !== 'all' ? currentFilter : internalFilter;
+    switch (activeFilter) {
+      case 'ready':
+        return processedRows.filter(row => row.validationErrors.length === 0 && row.processingNotes.length === 0);
+      case 'errors':
+        return processedRows.filter(row => row.validationErrors.length > 0);
+      case 'warnings':
+        return processedRows.filter(row => row.validationErrors.length === 0 && row.processingNotes.length > 0);
+      case 'conflicts':
+        // Show rows that have serial number conflicts
+        return processedRows.filter(row => {
+          const serialNumber = row.directFields?.serialNumber;
+          return serialNumber && conflicts[serialNumber];
+        });
+      case 'excluded':
+        // This filter is not applicable at the DataPreviewTable level
+        // It's handled by StepConfirm showing excluded items
+        return processedRows;
+      default:
+        return processedRows;
+    }
+  };
+
+  const filteredRows = getFilteredRows();
 
   const getRowStatusIcon = (row: ProcessedRow) => {
     if (row.validationErrors.length > 0) {
@@ -197,27 +231,54 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
           
           {/* Inline Stats */}
           <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const newFilter = (currentFilter === 'ready' || internalFilter === 'ready') ? 'all' : 'ready';
+                setInternalFilter(newFilter);
+                onFilterChange?.(newFilter);
+              }}
+              className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors ${
+                (currentFilter === 'ready' || internalFilter === 'ready') ? 'bg-green-100 dark:bg-green-900/20 ring-1 ring-green-500' : ''
+              }`}
+            >
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span className="text-green-700 dark:text-green-300 font-medium">
-                {processedRows.filter(r => r.validationErrors.length === 0).length} Ready
+                {totalReady} Ready
               </span>
-            </div>
+            </button>
             {totalWarnings > 0 && (
-              <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const newFilter = (currentFilter === 'warnings' || internalFilter === 'warnings') ? 'all' : 'warnings';
+                  setInternalFilter(newFilter);
+                  onFilterChange?.(newFilter);
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors ${
+                  (currentFilter === 'warnings' || internalFilter === 'warnings') ? 'bg-amber-100 dark:bg-amber-900/20 ring-1 ring-amber-500' : ''
+                }`}
+              >
                 <Info className="w-4 h-4 text-amber-500" />
                 <span className="text-amber-700 dark:text-amber-300 font-medium">
                   {totalWarnings} Warnings
                 </span>
-              </div>
+              </button>
             )}
             {totalErrors > 0 && (
-              <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const newFilter = (currentFilter === 'errors' || internalFilter === 'errors') ? 'all' : 'errors';
+                  setInternalFilter(newFilter);
+                  onFilterChange?.(newFilter);
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors ${
+                  (currentFilter === 'errors' || internalFilter === 'errors') ? 'bg-red-100 dark:bg-red-900/20 ring-1 ring-red-500' : ''
+                }`}
+              >
                 <AlertTriangle className="w-4 h-4 text-red-500" />
                 <span className="text-red-700 dark:text-red-300 font-medium">
                   {totalErrors} Errors
                 </span>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -248,7 +309,7 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
         </div>
 
         <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-80 overflow-y-auto">
-          {processedRows.map((row) => (
+          {filteredRows.map((row) => (
             <React.Fragment key={row.index}>
               <div className="px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800">
                 <div className={`grid gap-2 items-center ${showRemoveOption ? 'grid-cols-10' : 'grid-cols-9'}`}>

@@ -17,7 +17,8 @@
     min-height: 100vh;
     background: theme('colors.slate.50');
     color: theme('colors.slate.900');
-    overflow-x: hidden;
+    /* Allow horizontal scroll when needed */
+    /* overflow-x removed to enable tables wider than viewport */
   }
 
   body.dark {
@@ -31,21 +32,25 @@
 
   /* Custom scrollbars */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: theme('colors.slate.100');
   }
 
   ::-webkit-scrollbar-thumb {
     background: theme('colors.slate.300');
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
     background: theme('colors.slate.400');
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: theme('colors.slate.800');
   }
 
   .dark ::-webkit-scrollbar-thumb {

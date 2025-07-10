@@ -7,7 +7,7 @@ import {
   Edit, Edit2, CheckCircle, XCircle, Clock, Settings,
   Laptop, Smartphone, Tablet, Monitor as Desktop,
   List, LayoutGrid, Copy, Archive, Share2, Keyboard,
-  HelpCircle
+  HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown
 } from 'lucide-react';
 import { assetsApi, usersApi, customFieldsApi } from '../services/api';
 import AssetDetailModal from '../components/AssetDetailModal';
@@ -101,6 +101,13 @@ const AssetList: React.FC = () => {
   const [limit, setLimit] = useState(50);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<AssetFilters>({});
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeColumn, setResizeColumn] = useState<string | null>(null);
+  const [showLeftScroll, setShowLeftScroll] = useState(false);
+  const [showRightScroll, setShowRightScroll] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [deleteConfirmAsset, setDeleteConfirmAsset] = useState<{ id: string; tag: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -140,11 +147,13 @@ const AssetList: React.FC = () => {
     const urlSearch = searchParams.get('search') || '';
     const urlPage = parseInt(searchParams.get('page') || '1');
     const urlLimit = parseInt(searchParams.get('limit') || '50');
+    const urlSortBy = searchParams.get('sortBy') || 'createdAt';
+    const urlSortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
     
     // Extract filter parameters
     const urlFilters: AssetFilters = {};
     searchParams.forEach((value, key) => {
-      if (key !== 'search' && key !== 'page' && key !== 'limit') {
+      if (key !== 'search' && key !== 'page' && key !== 'limit' && key !== 'sortBy' && key !== 'sortOrder') {
         urlFilters[key] = value;
       }
     });
@@ -152,8 +161,47 @@ const AssetList: React.FC = () => {
     setSearch(urlSearch);
     setPage(urlPage);
     setLimit(urlLimit);
+    setSortBy(urlSortBy);
+    setSortOrder(urlSortOrder);
     setFilters(urlFilters);
   }, []); // Only run on mount
+
+  // Load saved column widths and sort preferences from localStorage
+  useEffect(() => {
+    const savedWidths = localStorage.getItem('assetTableColumnWidths');
+    if (savedWidths) {
+      try {
+        setColumnWidths(JSON.parse(savedWidths));
+      } catch (error) {
+        console.warn('Failed to parse saved column widths:', error);
+      }
+    }
+
+    const savedSortBy = localStorage.getItem('assetTableSortBy');
+    const savedSortOrder = localStorage.getItem('assetTableSortOrder');
+    
+    if (savedSortBy && !searchParams.get('sortBy')) {
+      setSortBy(savedSortBy);
+    }
+    if (savedSortOrder && !searchParams.get('sortOrder')) {
+      setSortOrder(savedSortOrder as 'asc' | 'desc');
+    }
+  }, []);
+
+  // Save column widths to localStorage
+  useEffect(() => {
+    if (Object.keys(columnWidths).length > 0) {
+      localStorage.setItem('assetTableColumnWidths', JSON.stringify(columnWidths));
+    }
+  }, [columnWidths]);
+
+  // Save sort preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('assetTableSortBy', sortBy);
+    localStorage.setItem('assetTableSortOrder', sortOrder);
+  }, [sortBy, sortOrder]);
+
+
 
   // Update URL when filters change
   useEffect(() => {
@@ -162,19 +210,23 @@ const AssetList: React.FC = () => {
     if (debouncedSearch) newParams.set('search', debouncedSearch);
     if (page > 1) newParams.set('page', page.toString());
     if (limit !== 50) newParams.set('limit', limit.toString());
+    if (sortBy !== 'createdAt') newParams.set('sortBy', sortBy);
+    if (sortOrder !== 'desc') newParams.set('sortOrder', sortOrder);
     
     Object.entries(filters).forEach(([key, value]) => {
       if (value) newParams.set(key, value);
     });
 
     setSearchParams(newParams, { replace: true });
-  }, [debouncedSearch, page, limit, filters, setSearchParams]);
+  }, [debouncedSearch, page, limit, sortBy, sortOrder, filters, setSearchParams]);
 
   // Build query parameters
   const queryParams = {
     page,
     limit,
     search: debouncedSearch,
+    sortBy,
+    sortOrder,
     ...filters,
   };
 
@@ -192,6 +244,24 @@ const AssetList: React.FC = () => {
 
   const assets = assetsData?.data || [];
   const pagination = assetsData?.pagination;
+
+  // Check scroll state when data changes
+  useEffect(() => {
+    const tableContainer = document.querySelector('.overflow-x-auto') as HTMLDivElement;
+    // Use a small delay to ensure the table is fully rendered
+    setTimeout(() => checkScrollState(tableContainer), 100);
+  }, [assetsData, filters.assetType, columnWidths]);
+
+  // Handle window resize to update scroll indicators
+  useEffect(() => {
+    const handleResize = () => {
+      const tableContainer = document.querySelector('.overflow-x-auto') as HTMLDivElement;
+      checkScrollState(tableContainer);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -302,6 +372,80 @@ const AssetList: React.FC = () => {
   const handleFiltersChange = (newFilters: AssetFilters) => {
     setFilters(newFilters);
     setPage(1); // Reset to first page when filters change
+  };
+
+  // Sorting functions
+  const handleSort = (columnKey: string) => {
+    if (sortBy === columnKey) {
+      // Toggle sort order if same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to ascending
+      setSortBy(columnKey);
+      setSortOrder('asc');
+    }
+    setPage(1); // Reset to first page when sorting changes
+  };
+
+  const getSortIcon = (columnKey: string) => {
+    if (sortBy !== columnKey) {
+      return <ChevronsUpDown className="w-4 h-4 text-slate-400" />;
+    }
+    return sortOrder === 'asc' ? 
+      <ChevronUp className="w-4 h-4 text-brand-600" /> : 
+      <ChevronDown className="w-4 h-4 text-brand-600" />;
+  };
+
+  // Column resizing functions
+  const handleMouseDown = (columnKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeColumn(columnKey);
+    
+    const startX = e.clientX;
+    const startWidth = columnWidths[columnKey] || 150;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(80, startWidth + (e.clientX - startX));
+      setColumnWidths(prev => ({
+        ...prev,
+        [columnKey]: newWidth
+      }));
+    };
+    
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      setResizeColumn(null);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle scroll indicators
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const { scrollLeft, scrollWidth, clientWidth } = element;
+    
+    const canScrollLeft = scrollLeft > 0;
+    const canScrollRight = scrollLeft < scrollWidth - clientWidth - 5;
+    
+    setShowLeftScroll(canScrollLeft);
+    setShowRightScroll(canScrollRight);
+  };
+
+  // Check initial scroll state
+  const checkScrollState = (element: HTMLDivElement | null) => {
+    if (!element) return;
+    
+    const { scrollLeft, scrollWidth, clientWidth } = element;
+    const canScrollLeft = scrollLeft > 0;
+    const canScrollRight = scrollLeft < scrollWidth - clientWidth - 5;
+    
+    setShowLeftScroll(canScrollLeft);
+    setShowRightScroll(canScrollRight);
   };
 
   const handleDeleteAsset = async () => {
@@ -457,6 +601,76 @@ const AssetList: React.FC = () => {
     navigate(`/management/staff?user=${userId}`);
   };
 
+  // Get column width style for table cells
+  const getColumnStyle = (columnKey: string) => {
+    const width = columnWidths[columnKey];
+    return width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : {};
+  };
+
+  // Sortable column header component
+  const SortableHeader = ({ 
+    columnKey, 
+    label, 
+    className = '',
+    sortable = true,
+    resizable = true 
+  }: { 
+    columnKey: string; 
+    label: string; 
+    className?: string;
+    sortable?: boolean;
+    resizable?: boolean;
+  }) => {
+    const isCurrentSort = sortBy === columnKey;
+    const width = columnWidths[columnKey];
+    
+    const thStyle = width ? { width: `${width}px`, minWidth: `${width}px` } : {};
+
+    if (!sortable) {
+      return (
+        <th 
+          className={`px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'} ${className} relative`}
+          style={thStyle}
+        >
+          <div className="flex items-center justify-between">
+            <span>{label}</span>
+            {resizable && (
+              <div
+                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-300 dark:hover:bg-brand-600 transition-colors"
+                onMouseDown={(e) => handleMouseDown(columnKey, e)}
+              />
+            )}
+          </div>
+        </th>
+      );
+    }
+
+    return (
+      <th 
+        className={`px-4 text-left text-xs font-medium ${isCurrentSort ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'} uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'} ${className} relative`}
+        style={thStyle}
+      >
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => handleSort(columnKey)}
+            className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
+          >
+            <span>{label}</span>
+            <span className={`transition-opacity ${isCurrentSort ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              {getSortIcon(columnKey)}
+            </span>
+          </button>
+          {resizable && (
+            <div
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-300 dark:hover:bg-brand-600 transition-colors"
+              onMouseDown={(e) => handleMouseDown(columnKey, e)}
+            />
+          )}
+        </div>
+      </th>
+    );
+  };
+
   return (
     <div className="space-y-4 text-sm leading-normal">
       {/* Header */}
@@ -498,7 +712,7 @@ const AssetList: React.FC = () => {
       </div>
 
       {/* Statistics Overview */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-visible">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-700/50">
@@ -814,7 +1028,7 @@ const AssetList: React.FC = () => {
       )}
 
       {/* Assets Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-w-0">
+      <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-visible min-w-0 ${isResizing ? 'select-none' : ''}`}>
         {isLoading ? (
           <div className="animate-pulse">
             <div className="bg-slate-50 dark:bg-slate-700/50 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
@@ -839,13 +1053,40 @@ const AssetList: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative">
+            {/* Left scroll indicator */}
+            <div className={`absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-slate-800 via-white/90 dark:via-slate-800/90 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${showLeftScroll ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-lg border border-slate-200 dark:border-slate-600">
+                  <svg className="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </div>
+            </div>
+            
+            {/* Right scroll indicator */}
+            <div className={`absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-slate-800 via-white/90 dark:via-slate-800/90 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${showRightScroll ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-lg border border-slate-200 dark:border-slate-600">
+                  <svg className="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+            </div>
+            
+            <div 
+              className="overflow-x-auto w-full scrollbar-thin"
+              onScroll={handleScroll}
+              ref={(el) => {
+                if (el) {
+                  setTimeout(() => checkScrollState(el), 500);
+                }
+              }}
+            >
             <table 
-              className="w-full" 
+                className="min-w-max" 
               style={{ 
                 minWidth: shouldShowSpecColumns(filters.assetType) 
-                  ? `${800 + (getAssetSpecColumns(filters.assetType!).length * 100)}px` // better fit smaller screens
-                  : '640px' 
+                    ? `${1200 + (getAssetSpecColumns(filters.assetType!).length * 150)}px` 
+                    : '1200px'
               }}
             >
               <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
@@ -858,34 +1099,26 @@ const AssetList: React.FC = () => {
                       className="w-4 h-4 text-brand-600 bg-white border-slate-300 rounded focus:ring-brand-500 focus:ring-2"
                     />
                   </th>
-                  <th className={`px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Asset
-                  </th>
-                  <th className={`hidden sm:table-cell px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Type
-                  </th>
-                  <th className={`px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Make/Model
-                  </th>
+                  <SortableHeader columnKey="assetTag" label="Asset" />
+                  <SortableHeader columnKey="assetType" label="Type" className="hidden sm:table-cell" />
+                  <SortableHeader columnKey="make" label="Make/Model" />
                   
                   {/* Adaptive Specification Columns */}
                   {shouldShowSpecColumns(filters.assetType) && 
                     getAssetSpecColumns(filters.assetType!).map((column) => (
-                      <th key={column.key} className={`hidden lg:table-cell px-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${column.width} ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                        {column.label}
-                      </th>
+                      <SortableHeader 
+                        key={column.key} 
+                        columnKey={column.key} 
+                        label={column.label}
+                        className={`hidden lg:table-cell px-3 ${column.width}`}
+                        sortable={false}
+                      />
                     ))
                   }
                   
-                  <th className={`px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Status
-                  </th>
-                  <th className={`hidden lg:table-cell px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Assigned To
-                  </th>
-                  <th className={`hidden xl:table-cell px-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${viewDensity === 'compact' ? 'py-3' : 'py-4'}`}>
-                    Location
-                  </th>
+                  <SortableHeader columnKey="status" label="Status" />
+                  <SortableHeader columnKey="assignedToAadId" label="Assigned To" className="hidden lg:table-cell" />
+                  <SortableHeader columnKey="locationId" label="Location" className="hidden xl:table-cell" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
@@ -908,7 +1141,7 @@ const AssetList: React.FC = () => {
                         className="w-4 h-4 text-brand-600 bg-white border-slate-300 rounded focus:ring-brand-500 focus:ring-2"
                       />
                     </td>
-                    <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`px-4 whitespace-nowrap relative pr-12 ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetTag')}>
                       <div className="min-w-0 relative">
                         {/* Source Badge - positioned to the left of the asset tag */}
                         <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
@@ -919,7 +1152,8 @@ const AssetList: React.FC = () => {
                             e.stopPropagation();
                             setSelectedAssetId(asset.id);
                           }}
-                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate max-w-[140px] transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 ml-10 -mr-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
+                          className="group/asset text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 truncate transition-all duration-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 px-2 py-1 ml-10 -mr-2 -my-1 rounded-lg border border-transparent hover:border-brand-200 dark:hover:border-brand-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
+                          style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 80}px` : '140px' }}
                         >
                           <div className="flex items-center gap-2">
                             <span className="relative">
@@ -934,7 +1168,10 @@ const AssetList: React.FC = () => {
                           </div>
                         </button>
                         {asset.serialNumber && (
-                          <div className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-[160px] ml-10">
+                          <div 
+                            className="text-sm text-slate-500 dark:text-slate-400 truncate ml-10"
+                            style={{ maxWidth: columnWidths['assetTag'] ? `${columnWidths['assetTag'] - 60}px` : '160px' }}
+                          >
                             SN: {asset.serialNumber}
                           </div>
                         )}
@@ -1003,7 +1240,7 @@ const AssetList: React.FC = () => {
                         </DropdownMenu.Portal>
                       </DropdownMenu.Root>
                     </td>
-                    <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetType')}>
                       <Tooltip.Provider>
                         <Tooltip.Root>
                           <Tooltip.Trigger asChild>
@@ -1028,12 +1265,18 @@ const AssetList: React.FC = () => {
                         </Tooltip.Root>
                       </Tooltip.Provider>
                     </td>
-                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('make')}>
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
+                        <div 
+                          className="font-medium text-slate-900 dark:text-slate-100 truncate"
+                          style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
+                        >
                           {asset.model}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate max-w-[200px]">
+                        <div 
+                          className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate"
+                          style={{ maxWidth: columnWidths['make'] ? `${columnWidths['make'] - 32}px` : '200px' }}
+                        >
                           {asset.make}
                         </div>
                       </div>
@@ -1065,8 +1308,11 @@ const AssetList: React.FC = () => {
                         const value = specs[column.key];
                         
                         return (
-                          <td key={column.key} className={`hidden lg:table-cell px-3 whitespace-nowrap ${column.width} ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
-                            <div className="text-sm text-slate-900 dark:text-slate-100 truncate">
+                          <td key={column.key} className={`hidden lg:table-cell px-3 whitespace-nowrap ${column.width} ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle(column.key)}>
+                            <div 
+                              className="text-sm text-slate-900 dark:text-slate-100 truncate"
+                              style={{ maxWidth: columnWidths[column.key] ? `${columnWidths[column.key] - 24}px` : '100%' }}
+                            >
                               {value || (
                                 <span className="text-slate-400 dark:text-slate-500">—</span>
                               )}
@@ -1076,7 +1322,7 @@ const AssetList: React.FC = () => {
                       })
                     }
                     
-                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('status')}>
                       <div className="flex items-center justify-center">
                         <span className={`inline-flex items-center gap-1.5 rounded-full font-medium shadow-sm ${
                           viewDensity === 'compact' ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
@@ -1111,13 +1357,14 @@ const AssetList: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    <td className={`hidden lg:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`hidden lg:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assignedToAadId')}>
                       {asset.assignedToStaff ? (
                         <Tooltip.Provider>
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
                               <div 
-                                className="flex items-center gap-2 max-w-[140px] group cursor-pointer"
+                                className="flex items-center gap-2 group cursor-pointer"
+                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
                                 onClick={() => asset.assignedToStaff && handleUserClick(asset.assignedToStaff.id)}
                               >
                                 <div className="relative">
@@ -1162,7 +1409,8 @@ const AssetList: React.FC = () => {
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
                               <div 
-                                className="flex items-center gap-2 max-w-[140px] group cursor-pointer"
+                                className="flex items-center gap-2 group cursor-pointer"
+                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
                                 onClick={() => asset.assignedTo && handleUserClick(asset.assignedTo.id)}
                               >
                                 <div className="relative">
@@ -1193,7 +1441,10 @@ const AssetList: React.FC = () => {
                         <Tooltip.Provider>
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
-                              <div className="flex items-center gap-2 max-w-[140px] group cursor-pointer">
+                              <div 
+                                className="flex items-center gap-2 group cursor-pointer"
+                                style={{ maxWidth: columnWidths['assignedToAadId'] ? `${columnWidths['assignedToAadId'] - 32}px` : '140px' }}
+                              >
                                 <div className="w-6 h-6 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 rounded-full flex items-center justify-center">
                                   <span className="text-xs font-medium text-slate-600 dark:text-slate-300">?</span>
                         </div>
@@ -1217,7 +1468,7 @@ const AssetList: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className={`hidden xl:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`}>
+                    <td className={`hidden xl:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('locationId')}>
                       {asset.location ? (
                         <div className="flex items-center gap-2">
                           <MapPin className={`text-slate-400 flex-shrink-0 ${viewDensity === 'compact' ? 'w-3 h-3' : 'w-4 h-4'}`} />
@@ -1233,6 +1484,7 @@ const AssetList: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

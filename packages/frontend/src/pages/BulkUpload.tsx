@@ -27,7 +27,7 @@ const BulkUpload: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState<UploadCategory>('endpoints');
+  const [selectedCategory, setSelectedCategory] = useState<UploadCategory | null>(null);
   const [selectedSource, setSelectedSource] = useState<UploadSource | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [csvData, setCsvData] = useState<{
@@ -57,6 +57,14 @@ const BulkUpload: React.FC = () => {
   const [resolvedUserMap, setResolvedUserMap] = useState<Record<string, { id: string; displayName: string; officeLocation?: string } | null>>({});
   const [resolvedLocationMap, setResolvedLocationMap] = useState<Record<string, string | null>>({});
   const [conflicts, setConflicts] = useState<Record<string, { id: string; assetTag: string; serialNumber: string }>>({});
+  
+  // Progress tracking for resolve process
+  const [resolveProgress, setResolveProgress] = useState<{
+    currentBatch: number;
+    totalBatches: number;
+    currentPhase: string;
+    percentage: number;
+  } | null>(null);
 
   // Hook to call backend resolver
   const resolveImportMutation = useResolveImport();
@@ -141,52 +149,120 @@ const BulkUpload: React.FC = () => {
         setCurrentStep(3);
     } else if (currentStep === 3) {
       if (!mappingValid) return;
-
-      // Trigger backend resolve to fetch usernames, locations & conflicts before moving to confirm step
+      
+      // Immediately move to step 4
+      setCurrentStep(4);
+      
+      // Trigger resolve process in the background
       const payload = buildResolvePayload();
-
+      
       // If nothing to resolve, skip API call
       if (payload.usernames.length === 0 && payload.locations.length === 0 && payload.serialNumbers.length === 0) {
-        setCurrentStep(4);
-            return;
-          }
+        return;
+      }
+      
+      // Only trigger if we don't already have resolved data
+      const hasResolvedData = Object.keys(resolvedUserMap).length > 0 || Object.keys(resolvedLocationMap).length > 0 || Object.keys(conflicts).length > 0;
+      if (!hasResolvedData && !resolveImportMutation.isLoading) {
+        // Calculate estimated batches (backend processes in batches of 50)
+        const totalUsers = payload.usernames.length;
+        const totalLocations = payload.locations.length;
+        const totalSerials = payload.serialNumbers.length;
+        const batchSize = 50;
+        
+        const userBatches = Math.ceil(totalUsers / batchSize);
+        const locationBatches = Math.ceil(totalLocations / batchSize);
+        const estimatedTotalBatches = userBatches + locationBatches + 1; // +1 for serial number conflict check
+        
+        // Initialize progress
+        setResolveProgress({
+          currentBatch: 0,
+          totalBatches: estimatedTotalBatches,
+          currentPhase: 'Starting user resolution...',
+          percentage: 0
+        });
+        
+        // Start resolve with progress simulation
+        const startTime = Date.now();
+        const progressInterval = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const estimatedDuration = estimatedTotalBatches * 1500; // Estimate 1.5 seconds per batch
+          const progressPercent = Math.min(85, (elapsed / estimatedDuration) * 100); // Cap at 85% until complete
+          const currentBatch = Math.min(estimatedTotalBatches - 1, Math.floor((progressPercent / 100) * estimatedTotalBatches));
           
-      resolveImportMutation.mutate(payload, {
-        onSuccess: ({ userMap, locationMap, conflicts }) => {
-          setResolvedUserMap(userMap);
-          setConflicts(conflicts);
+          setResolveProgress(prev => prev ? {
+            ...prev,
+            currentBatch: currentBatch,
+            percentage: progressPercent,
+            currentPhase: progressPercent < 25 ? 'Resolving usernames...' :
+                         progressPercent < 50 ? 'Processing user data...' :
+                         progressPercent < 75 ? 'Resolving locations...' :
+                         'Checking for conflicts...'
+          } : null);
+        }, 300);
+        
+        resolveImportMutation.mutate(payload, {
+          onSuccess: ({ userMap, locationMap, conflicts }) => {
+            clearInterval(progressInterval);
+            setResolvedUserMap(userMap);
+            setConflicts(conflicts);
 
-          // Gather unique office locations from resolved Azure AD users
-          const azureAdLocations = Object.values(userMap)
-            .filter((u): u is { id: string; displayName: string; officeLocation: string } => !!u && !!u.officeLocation)
-            .map(u => u.officeLocation!);
+            // Update progress for second phase
+            setResolveProgress(prev => prev ? {
+              ...prev,
+              currentBatch: estimatedTotalBatches - 1,
+              percentage: 90,
+              currentPhase: 'Processing office locations...'
+            } : null);
 
-          const uniqueAzureLocations = Array.from(new Set(azureAdLocations));
+            // Gather unique office locations from resolved Azure AD users
+            const azureAdLocations = Object.values(userMap)
+              .filter((u): u is { id: string; displayName: string; officeLocation: string } => !!u && !!u.officeLocation)
+              .map(u => u.officeLocation!);
 
-          // If we have additional locations to resolve, make a second call; otherwise, finish
-          if (uniqueAzureLocations.length > 0) {
-            resolveImportMutation.mutate({ usernames: [], locations: uniqueAzureLocations, serialNumbers: [] }, {
-              onSuccess: ({ locationMap: azureLocMap }) => {
-                setResolvedLocationMap({ ...locationMap, ...azureLocMap });
-                setCurrentStep(4);
-              },
-              onError: () => {
-                // Fallback to original locationMap on error
-                setResolvedLocationMap(locationMap);
-                setCurrentStep(4);
-              }
-          });
-      } else {
-            setResolvedLocationMap(locationMap);
-            setCurrentStep(4);
+            const uniqueAzureLocations = Array.from(new Set(azureAdLocations));
+
+            // If we have additional locations to resolve, make a second call; otherwise, finish
+            if (uniqueAzureLocations.length > 0) {
+              resolveImportMutation.mutate({ usernames: [], locations: uniqueAzureLocations, serialNumbers: [] }, {
+                onSuccess: ({ locationMap: azureLocMap }) => {
+                  setResolvedLocationMap({ ...locationMap, ...azureLocMap });
+                  setResolveProgress({
+                    currentBatch: estimatedTotalBatches,
+                    totalBatches: estimatedTotalBatches,
+                    currentPhase: 'Complete!',
+                    percentage: 100
+                  });
+                  // Clear progress after a short delay
+                  setTimeout(() => setResolveProgress(null), 1000);
+                },
+                onError: () => {
+                  // Fallback to original locationMap on error
+                  setResolvedLocationMap(locationMap);
+                  setResolveProgress(null);
+                }
+              });
+            } else {
+              setResolvedLocationMap(locationMap);
+              setResolveProgress({
+                currentBatch: estimatedTotalBatches,
+                totalBatches: estimatedTotalBatches,
+                currentPhase: 'Complete!',
+                percentage: 100
+              });
+              // Clear progress after a short delay
+              setTimeout(() => setResolveProgress(null), 1000);
+            }
+          },
+          onError: (err) => {
+            clearInterval(progressInterval);
+            setResolveProgress(null);
+            console.error('Failed to resolve import payload:', err);
+            // Allow user to continue with empty maps - they can still import
+            // but won't have username/location resolution
           }
-        },
-        onError: (err) => {
-          console.error('Failed to resolve import payload:', err);
-          // Still allow user to continue but with empty maps
-          setCurrentStep(4);
-        }
-      });
+        });
+      }
     } else if (currentStep === 4) {
       // Import is handled by StepConfirm component
       setCurrentStep(5);
@@ -215,16 +291,17 @@ const BulkUpload: React.FC = () => {
   const getNextButtonDisabled = () => {
     if (currentStep === 1) return !selectedCategory;
     if (currentStep === 2) return !selectedSource || (uploadedFiles.length > 0 && !csvData);
-    if (currentStep === 3) return !mappingValid || resolveImportMutation.isLoading;
+    if (currentStep === 3) return !mappingValid;
     if (currentStep === 4) return importMutation.isLoading;
     return false;
   };
 
-  const selectedSourceConfig = selectedSource 
-    ? getImportSource(selectedCategory || 'endpoints', selectedSource)
+  const selectedSourceConfig = selectedSource && selectedCategory
+    ? getImportSource(selectedCategory, selectedSource)
     : null;
 
   const handleFileUploaded = (data: { headers: string[]; rows: Record<string, string>[] }) => {
+    if (!selectedCategory) return;
     // Apply filtering based on selected category and source
     const filterKey = getFilterKey(selectedSource || '', selectedCategory);
     const { filteredData, excludedData, filterStats } = applyImportFilter(
@@ -320,7 +397,7 @@ const BulkUpload: React.FC = () => {
   // Helper to reset the wizard after a finished import
   const resetWizard = () => {
     setCurrentStep(1);
-    setSelectedCategory('endpoints');
+    setSelectedCategory(null);
     setSelectedSource(null);
     setUploadedFiles([]);
     setCsvData(null);
@@ -429,14 +506,14 @@ const BulkUpload: React.FC = () => {
           )}
 
         {/* Step 2: Source Selection */}
-        {currentStep === 2 && (
+        {currentStep === 2 && selectedCategory && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <StepSelectSource
-              category={selectedCategory}
+              category={selectedCategory!}
               selectedSource={selectedSource}
               onSelectSource={setSelectedSource}
               uploadSources={uploadSources}
@@ -453,17 +530,18 @@ const BulkUpload: React.FC = () => {
         {currentStep === 3 && csvData && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }}>
             <StepMapping
-                  csvHeaders={csvData.headers}
+              csvHeaders={csvData.headers}
               sampleRows={csvData.rows.slice(0, 5)}
-                  sourceType={selectedSource === 'ninjaone' ? 'ninja' : 'bgc'}
-                  assetFields={assetFields}
-                  customFields={customFields}
+              selectedCategory={selectedCategory!}
+              selectedSource={selectedSource!}
+              assetFields={assetFields}
+              customFields={customFields}
               columnMappings={columnMappings}
-                  onMappingChange={setColumnMappings}
+              onMappingChange={setColumnMappings}
               onValidationChange={(valid, errors) => {
                 setMappingValid(valid);
-                    setMappingErrors(errors);
-                  }}
+                setMappingErrors(errors);
+              }}
               mappingValid={mappingValid}
               filterStats={filterStats}
               excludedItems={excludedItems}
@@ -471,6 +549,8 @@ const BulkUpload: React.FC = () => {
               enableLastOnlineFilter={enableLastOnlineFilter}
               lastOnlineMaxDays={lastOnlineMaxDays}
               getFilterDescription={(key, days) => getFilterDescription(key, days)}
+              onBack={() => setCurrentStep(2)}
+              onNext={handleNext}
             />
             </motion.div>
           )}
@@ -492,13 +572,16 @@ const BulkUpload: React.FC = () => {
               csvHeaders={csvData.headers}
               previewRows={getFilteredItemsToImport()}
               columnMappings={columnMappings}
-                  userMap={resolvedUserMap}
-                  locationMap={resolvedLocationMap}
-                  conflicts={conflicts}
+              userMap={resolvedUserMap}
+              locationMap={resolvedLocationMap}
+              conflicts={conflicts}
               excludedItems={excludedItems}
-                  onRemoveItem={removeItem}
+              onRemoveItem={removeItem}
               onConfirmImport={confirmAndStartImport}
+              onGoBack={() => setCurrentStep(3)}
               isImporting={importMutation.isLoading}
+              resolveImportMutation={resolveImportMutation}
+              resolveProgress={resolveProgress}
             />
             </motion.div>
           )}
@@ -522,7 +605,7 @@ const BulkUpload: React.FC = () => {
       </div>
               
       {/* Footer */}
-      {currentStep < 5 && (
+      {currentStep < 4 && (
       <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-6 mt-6">
         <div className="flex justify-between">
           <button
@@ -532,7 +615,6 @@ const BulkUpload: React.FC = () => {
           >
             Cancel
           </button>
-            {currentStep < 4 && (
           <button
             onClick={handleNext}
             disabled={getNextButtonDisabled()}
@@ -540,7 +622,6 @@ const BulkUpload: React.FC = () => {
           >
             {getNextButtonText()}
           </button>
-            )}
           </div>
         </div>
       )}

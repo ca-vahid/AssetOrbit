@@ -155,6 +155,141 @@ function aggregateVolumes(value: string): string | null {
   return totalGib > 0 ? roundToCommonStorageSize(totalGib) : null;
 }
 
+// Phone device name parser for extracting make, model, and storage
+function parseDeviceName(deviceName: string): { make: string; model: string; storage?: string } {
+  if (!deviceName) {
+    return { make: 'Unknown', model: 'Unknown' };
+  }
+
+  // Strip common noise prefixes first
+  let normalized = deviceName.trim().toUpperCase();
+  if (normalized.startsWith('SWAP ')) {
+    normalized = normalized.substring(5);
+  }
+
+  // Helper to extract storage token and remove it from the string
+  const storageMatch = normalized.match(/(\d+)(?:GB|TB)/);
+  const storage = storageMatch ? `${storageMatch[1]}GB` : undefined;
+  if (storageMatch) {
+    normalized = normalized.replace(storageMatch[0], '').trim();
+  }
+
+  // Apple iPhone patterns
+  if (normalized.includes('IPHONE')) {
+    const make = 'Apple';
+    
+    // Extract iPhone model (e.g., "IPHONE 14 PRO 128GB SPACE BLACK" -> "iPhone 14 Pro")
+    const iphoneMatch = normalized.match(/IPHONE\s+(\d+(?:\s+(?:PRO|PLUS|MINI|MAX))*)/);
+    if (iphoneMatch) {
+      const modelPart = iphoneMatch[1];
+      const model = `iPhone ${modelPart.split(' ').map(word => 
+        word.charAt(0) + word.slice(1).toLowerCase()
+      ).join(' ')}`;
+      
+      // Use storage extracted at the top level
+      return { make, model, storage };
+    }
+    
+    return { make, model: 'iPhone', storage };
+  }
+  
+  // Apple iPad patterns
+  if (normalized.includes('IPAD')) {
+    const make = 'Apple';
+
+    // Remove APPLE prefix if present
+    normalized = normalized.replace(/^APPLE\s+/, '');
+
+    // Example variants: "IPAD PRO 10.5", "IPAD 6TH GEN", "IPAD AIR2"
+    let modelPart = normalized;
+
+    // Remove color / misc tokens
+    modelPart = modelPart.replace(/SPACE|SPC|GRAY|GRY|GREY|SILVER|SLV|ARTL|TL|ML|AL|TI|BLK|MID|ROSE|GOLD/g, '').trim();
+
+    // Title-case
+    const model = modelPart.split(' ').filter(Boolean).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+
+    return { make, model, storage };
+  }
+
+  // Apple Watch patterns
+  if (normalized.includes('WATCH')) {
+    const make = 'Apple';
+
+    normalized = normalized.replace(/^APPLE\s+/, '');
+
+    let modelPart = normalized;
+    modelPart = modelPart.replace(/ULTRA|SERIES|S\d|SE|TI|AL|MID|GPS|CELL|ARTL|TL|ML/g, match => {
+      // Keep main identifiers like ULTRA or S7
+      return match;
+    });
+
+    // Remove color tokens
+    modelPart = modelPart.replace(/SPACE|SPC|GRAY|GRY|GREY|BLACK|BLK|MID|BLUE|RED|PINK|ORANGE|YELLOW|WHITE|SILVER|STAINLESS/g, '').trim();
+
+    const model = modelPart.split(' ').filter(Boolean).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+
+    return { make, model, storage };
+  }
+
+  // Samsung prefixes "SS" or explicit SAMSUNG GALAXY
+  if (normalized.startsWith('SS ')) {
+    normalized = 'SAMSUNG ' + normalized.substring(3);
+  }
+
+  // Samsung Galaxy patterns
+  if (normalized.includes('SAMSUNG') && normalized.includes('GALAXY')) {
+    const make = 'Samsung';
+    
+    // Extract Galaxy model (e.g., "SAMSUNG GALAXY S25 256GB NAVY ANDROID SMARTPHONE" -> "Galaxy S25")
+    const galaxyMatch = normalized.match(/GALAXY\s+([A-Z]\d+(?:\s+(?:PLUS|ULTRA|FE))*)/);
+    if (galaxyMatch) {
+      const modelPart = galaxyMatch[1];
+      const model = `Galaxy ${modelPart.split(' ').map(word => 
+        word.charAt(0) + word.slice(1).toLowerCase()
+      ).join(' ')}`;
+      
+      // Use storage extracted at the top level
+      return { make, model, storage };
+    }
+    
+    return { make, model: 'Galaxy', storage };
+  }
+  
+  // Google Pixel patterns
+  if (normalized.includes('PIXEL')) {
+    const make = 'Google';
+    
+    const pixelMatch = normalized.match(/PIXEL\s+(\d+(?:\s+(?:PRO|XL|A))*)/);
+    if (pixelMatch) {
+      const modelPart = pixelMatch[1];
+      const model = `Pixel ${modelPart.split(' ').map(word => 
+        word.charAt(0) + word.slice(1).toLowerCase()
+      ).join(' ')}`;
+      
+      // Use storage extracted at the top level
+      return { make, model, storage };
+    }
+    
+    return { make, model: 'Pixel', storage };
+  }
+  
+  // Generic fallback - try to extract make from first word
+  const words = normalized.split(' ');
+  if (words.length > 0) {
+    const make = words[0].charAt(0) + words[0].slice(1).toLowerCase();
+    const model = deviceName.trim(); // Keep original casing for model
+    
+    // storage already extracted earlier
+ 
+    const result = { make, model, storage };
+    return result;
+  }
+
+  const fallbackResult = { make: 'Unknown', model: deviceName.trim() };
+  return fallbackResult;
+}
+
 // Process a batch of assets in parallel
 async function processAssetBatch(
   assetBatch: Array<{ asset: Record<string, string>; index: number }>,
@@ -232,8 +367,19 @@ async function processAssetBatch(
       // Apply column mappings
       for (const mapping of columnMappings) {
         const csvValue = csvRow[mapping.ninjaColumn];
+        
+        console.log(`🔧 Processing mapping: ${mapping.ninjaColumn} → ${mapping.targetField}`);
+        console.log(`   CSV value: "${csvValue}"`);
+        console.log(`   Processor: ${mapping.processor}`);
+        
+        // Handle required field validation – allow graceful fallback for certain cases
         if (!csvValue && mapping.isRequired) {
-          throw new Error(`Required field ${mapping.targetField} is missing`);
+          // Relax requirement for `model` so that phone imports without Device Name still proceed
+          if (mapping.targetField === 'model') {
+            // Skip the missing value – will fallback to "Unknown" later
+          } else {
+            throw new Error(`Required field ${mapping.targetField} is missing`);
+          }
         }
 
         if (csvValue) {
@@ -246,13 +392,25 @@ async function processAssetBatch(
               if (mapping.ninjaColumn === 'Role') {
                 const upper = String(csvValue).toUpperCase().trim();
                 transformedValue = roleToAssetTypeMap[upper] || 'OTHER';
+              } else if (mapping.ninjaColumn === 'BAN') {
+                // Telus phone imports map BAN → assetType = PHONE (constant)
+                console.log(`   → Setting assetType to PHONE for Telus import`);
+                transformedValue = ASSET_TYPES.PHONE;
               }
               break;
             case 'ram':
               transformedValue = simplifyRam(csvValue);
               break;
             case 'storage':
-              transformedValue = aggregateVolumes(csvValue);
+              // For Telus imports, use the frontend processor if available
+              if (mapping.processor) {
+                console.log(`   Using frontend processor for storage`);
+                // Note: Frontend processor is a string, not a function
+                // We'll need to handle this differently
+                transformedValue = csvValue; // Keep original value for now
+              } else {
+                transformedValue = aggregateVolumes(csvValue);
+              }
               break;
             case 'lastOnline':
               transformedValue = toISO(csvValue);
@@ -282,20 +440,29 @@ async function processAssetBatch(
             if (!assetData.specifications) {
               assetData.specifications = {};
             }
+            console.log(`   → Adding to specifications: ${mapping.targetField} = "${transformedValue}"`);
             assetData.specifications[mapping.targetField] = transformedValue;
           }
         }
       }
 
-      // Require serial number
-      if (!assetData.serialNumber || !assetData.serialNumber.trim()) {
+      // If this is a phone import and serialNumber is empty, fallback to specifications.imei
+      if ((!assetData.serialNumber || !assetData.serialNumber.trim()) &&
+          assetData.assetType === ASSET_TYPES.PHONE &&
+          assetData.specifications?.imei) {
+        assetData.serialNumber = String(assetData.specifications.imei).trim();
+      }
+
+      // Require serial number after fallback attempt
+      if (!assetData.serialNumber || !String(assetData.serialNumber).trim()) {
         return { success: false, index, skipped: true, error: 'Missing serial number' };
       }
 
       // Generate asset tag if not provided or ensure uniqueness
       if (!assetData.assetTag) {
         const prefix = assetData.assetType === 'LAPTOP' ? 'LT' : 
-                      assetData.assetType === 'DESKTOP' ? 'DT' : 'AS';
+                      assetData.assetType === 'DESKTOP' ? 'DT' : 
+                      assetData.assetType === 'PHONE' ? 'PH' : 'AS';
         const timestamp = Date.now().toString().slice(-6);
         const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
         assetData.assetTag = `${prefix}-${timestamp}-${randomSuffix}-${(index + 1).toString().padStart(3, '0')}`;
@@ -311,12 +478,14 @@ async function processAssetBatch(
         }
       }
 
-      // Ensure BGC prefix on asset tags that are purely numeric or missing prefix
-      if (assetData.assetTag && /^[0-9]+$/.test(assetData.assetTag.trim())) {
-        assetData.assetTag = `BGC${assetData.assetTag.trim().toUpperCase()}`;
-      } else if (assetData.assetTag && !assetData.assetTag.toUpperCase().startsWith('BGC') && /^[A-Z0-9]+$/.test(assetData.assetTag.trim())) {
-        // Covers cases like "4315" or "bgc4315" (lowercase)
-        assetData.assetTag = `BGC${assetData.assetTag.trim().replace(/^bgc/i, '').toUpperCase()}`;
+      // Ensure BGC prefix on asset tags that are purely numeric or missing prefix (except for phones)
+      if (assetData.assetType !== ASSET_TYPES.PHONE) {
+        if (assetData.assetTag && /^[0-9]+$/.test(assetData.assetTag.trim())) {
+          assetData.assetTag = `BGC${assetData.assetTag.trim().toUpperCase()}`;
+        } else if (assetData.assetTag && !assetData.assetTag.toUpperCase().startsWith('BGC') && /^[A-Z0-9]+$/.test(assetData.assetTag.trim())) {
+          // Covers cases like "4315" or "bgc4315" (lowercase)
+          assetData.assetTag = `BGC${assetData.assetTag.trim().replace(/^bgc/i, '').toUpperCase()}`;
+        }
       }
 
       // Set default values and ensure required fields are present
@@ -325,6 +494,102 @@ async function processAssetBatch(
       assetData.make = assetData.make || 'Unknown';
       assetData.model = assetData.model || 'Unknown';
       assetData.source = source;
+
+      // Phone-specific processing
+      console.log(`🔍 Asset type check: ${assetData.assetType} (PHONE = ${ASSET_TYPES.PHONE})`);
+      if (assetData.assetType === ASSET_TYPES.PHONE) {
+        console.log(`📱 Phone processing triggered for asset type: ${assetData.assetType}`);
+        // Extract make and storage from device name if model is available
+        if (assetData.model && assetData.model !== 'Unknown') {
+          console.log(`📱 Processing device name: "${assetData.model}"`);
+          const parsedDevice = parseDeviceName(assetData.model);
+          console.log(`📱 Parsed device result:`, parsedDevice);
+          
+          // Only override make if it wasn't explicitly set or is 'Unknown'
+          if (!assetData.make || assetData.make === 'Unknown') {
+            assetData.make = parsedDevice.make;
+          }
+          
+          // Update model to the cleaned version
+          assetData.model = parsedDevice.model;
+          
+          // Add storage to specifications if extracted
+          if (parsedDevice.storage) {
+            if (!assetData.specifications) {
+              assetData.specifications = {};
+            }
+            console.log(`📱 Phone processing: Adding storage "${parsedDevice.storage}" to specifications`);
+            assetData.specifications.storage = parsedDevice.storage;
+          } else {
+            console.log(`📱 No storage extracted from device name`);
+          }
+
+          // Save full raw device descriptor into specifications.operatingSystem so it appears in the "Phone" field of the form
+          if (!assetData.specifications) assetData.specifications = {};
+          if (!assetData.specifications.operatingSystem) {
+            assetData.specifications.operatingSystem = String(csvRow['Device Name'] || assetData.model);
+          }
+        } else {
+          console.log(`📱 No device name to process (model: "${assetData.model}")`);
+        }
+        
+        // Build phone-specific asset tag (always override generic tag)
+        {
+          let phoneAssetTag = 'PH-';
+          
+          // Try to get owner name from resolved user data
+          if (assetData.assignedToAadId) {
+            const normalizedUser = String(assetData.assignedToAadId).trim();
+            const resolvedUser = resolvedUserMap[normalizedUser];
+            
+            if (resolvedUser && resolvedUser.displayName) {
+              // Extract first and last name from display name
+              const nameParts = resolvedUser.displayName.trim().split(' ');
+              if (nameParts.length >= 2) {
+                const firstName = nameParts[0];
+                const lastName = nameParts[nameParts.length - 1]; // Take last word as last name
+                phoneAssetTag += `${firstName} ${lastName}`;
+              } else {
+                // If only one name part, use it as is
+                phoneAssetTag += resolvedUser.displayName.trim();
+              }
+            } else {
+              // Fallback: try to extract name from the original assignedToAadId if it looks like a display name
+              if (normalizedUser.includes(' ')) {
+                const nameParts = normalizedUser.split(' ');
+                if (nameParts.length >= 2) {
+                  const firstName = nameParts[0];
+                  const lastName = nameParts[nameParts.length - 1];
+                  phoneAssetTag += `${firstName} ${lastName}`;
+                } else {
+                  phoneAssetTag += normalizedUser;
+                }
+              } else {
+                // No user name available, use generic format
+                const timestamp = Date.now().toString().slice(-6);
+                const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+                phoneAssetTag += `${timestamp}-${randomSuffix}`;
+              }
+            }
+          } else {
+            // No assigned user, use generic format
+            const timestamp = Date.now().toString().slice(-6);
+            const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+            phoneAssetTag += `${timestamp}-${randomSuffix}`;
+          }
+          
+          assetData.assetTag = phoneAssetTag;
+        }
+
+        // Ensure carrier information
+        if (!assetData.specifications) assetData.specifications = {};
+        assetData.specifications.carrier = assetData.specifications.carrier || 'Telus';
+
+        // If serialNumber missing but IMEI present in specifications, copy it
+        if (!assetData.serialNumber && assetData.specifications.imei) {
+          assetData.serialNumber = String(assetData.specifications.imei);
+        }
+      }
 
       // --- USER ASSIGNMENT NORMALIZATION & RESOLUTION ---------------------
       if (assetData.assignedToAadId) {
@@ -601,6 +866,7 @@ function normalizeImportSource(src: string | undefined): string {
   if (lower === 'ninjaone') return 'NINJAONE';
   if (lower === 'intune') return 'INTUNE';
   if (lower === 'bgc-template' || lower === 'custom-excel' || lower === 'invoice') return 'EXCEL';
+  if (lower === 'telus') return 'TELUS';
   // Already in canonical form or unknown – default to upper-case for safety
   return src.toUpperCase();
 }

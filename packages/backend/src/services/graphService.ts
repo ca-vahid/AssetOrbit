@@ -12,6 +12,7 @@ interface StaffMember {
   officeLocation?: string;
   mobilePhone?: string;
   businessPhones: string[];
+  employeeId?: string;
 }
 
 interface LocationData {
@@ -179,7 +180,7 @@ class GraphService {
       
       const user = await client
         .api(`/users/${aadId}`)
-        .select(['id', 'displayName', 'mail', 'jobTitle', 'department', 'officeLocation', 'mobilePhone', 'businessPhones'])
+        .select(['id', 'displayName', 'mail', 'jobTitle', 'department', 'officeLocation', 'mobilePhone', 'businessPhones', 'employeeId'])
         .get();
 
       const staffMember: StaffMember = {
@@ -191,6 +192,7 @@ class GraphService {
         officeLocation: user.officeLocation,
         mobilePhone: user.mobilePhone,
         businessPhones: user.businessPhones || [],
+        employeeId: user.employeeId,
       };
 
       // Cache the result
@@ -245,9 +247,23 @@ class GraphService {
     if (!usernames.length) return result;
 
     const client = await this.getClient();
-
-    await Promise.all(
-      usernames.map(async (rawUname) => {
+    
+    // Process users in batches of 50 to avoid hitting API rate limits
+    const batchSize = 50;
+    const batches = [];
+    
+    for (let i = 0; i < usernames.length; i += batchSize) {
+      batches.push(usernames.slice(i, i + batchSize));
+    }
+    
+    logger.info(`Processing ${usernames.length} usernames in ${batches.length} batches of ${batchSize}`);
+    
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      logger.info(`Processing username batch ${batchIndex + 1}/${batches.length} (${batch.length} users)`);
+      
+      await Promise.all(
+        batch.map(async (rawUname) => {
         const uname = (rawUname || '').trim();
         if (!uname) {
           return;
@@ -370,8 +386,14 @@ class GraphService {
             result[uname] = null;
           }
         }
-      })
-    );
+        })
+      );
+      
+      // Small delay between batches to avoid overwhelming the API
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
     // DEBUG: Log the final resolution results
     const resolved = Object.entries(result).filter(([_, user]) => user !== null).length;
@@ -386,9 +408,23 @@ class GraphService {
     if (!displayNames.length) return result;
 
     const client = await this.getClient();
-
-    await Promise.all(
-      displayNames.map(async (rawName) => {
+    
+    // Process display names in batches of 50 to avoid hitting API rate limits
+    const batchSize = 50;
+    const batches = [];
+    
+    for (let i = 0; i < displayNames.length; i += batchSize) {
+      batches.push(displayNames.slice(i, i + batchSize));
+    }
+    
+    logger.info(`Processing ${displayNames.length} display names in ${batches.length} batches of ${batchSize}`);
+    
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      logger.info(`Processing display name batch ${batchIndex + 1}/${batches.length} (${batch.length} names)`);
+      
+      await Promise.all(
+        batch.map(async (rawName) => {
         const name = (rawName || '').trim();
         if (!name) {
           return;
@@ -520,8 +556,14 @@ class GraphService {
             result[name] = null;
           }
         }
-      })
-    );
+        })
+      );
+      
+      // Small delay between batches to avoid overwhelming the API
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
     // DEBUG: Log the final resolution results
     const resolved = Object.entries(result).filter(([_, user]) => user !== null).length;

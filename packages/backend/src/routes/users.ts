@@ -173,6 +173,7 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
       department,
       limit = '50',
       page = '1',
+      userType,
     } = req.query;
 
     const limitNum = parseInt(limit as string);
@@ -227,7 +228,7 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
     // If we have search or department filters, we need to get staff details to filter
     let filteredStaffAadIds = staffAadIds;
     
-    if (search || department) {
+    if (search || department || (userType && userType !== 'all')) {
       try {
         // Import graphService instance to get staff details
         const { graphService } = await import('../services/graphService');
@@ -247,26 +248,38 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
         
         // Apply filters
         filteredStaffAadIds = staffDetailsResults
-          .filter(({ staff }) => {
-            if (!staff) return true; // Keep if we can't get details
-            
+          .filter(({ staff, aadId }) => {
+            // UserType filter
+            if (userType && userType !== 'all') {
+              const isFoundInAD = !!staff;
+              if (userType === 'non_ad' && isFoundInAD) return false;
+              if (userType === 'staff' && !isFoundInAD) return false;
+            }
+
+            const searchLower = search ? (search as string).toLowerCase() : null;
+
+            if (!staff) {
+              // No details from Graph. Only match against the ID string itself.
+              // If only a department filter is active, we can't match, so drop it.
+              return searchLower ? aadId.toLowerCase().includes(searchLower) : !department;
+            }
+
+            // We have staff details from Graph.
             let matchesSearch = true;
-            let matchesDepartment = true;
-            
-            if (search) {
-              const searchLower = (search as string).toLowerCase();
-              matchesSearch = 
+            if (searchLower) {
+              matchesSearch =
                 staff.displayName?.toLowerCase().includes(searchLower) ||
                 staff.mail?.toLowerCase().includes(searchLower) ||
                 staff.jobTitle?.toLowerCase().includes(searchLower) ||
-                staff.department?.toLowerCase().includes(searchLower) ||
-                false;
+                // Also check the original ID in case it's different (e.g., for service accounts)
+                aadId.toLowerCase().includes(searchLower);
             }
-            
+
+            let matchesDepartment = true;
             if (department) {
               matchesDepartment = staff.department?.toLowerCase().includes((department as string).toLowerCase()) || false;
             }
-            
+
             return matchesSearch && matchesDepartment;
           })
           .map(({ aadId }) => aadId);

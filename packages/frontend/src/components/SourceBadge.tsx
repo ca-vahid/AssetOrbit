@@ -4,7 +4,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 
 interface SourceBadgeProps {
   source: AssetSource;
-  size?: 'sm' | 'md' | 'overlay';
+  size?: 'sm' | 'md' | 'lg' | 'overlay';
 }
 
 const SOURCE_CONFIG = {
@@ -38,6 +38,11 @@ const SOURCE_CONFIG = {
     color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
     logo: '/logos/api.png', // User will replace with actual logo
   },
+  TELUS: {
+    label: 'Telus',
+    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+    logo: '/logos/telus.png',
+  },
 } as const;
 
 const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {
@@ -45,6 +50,7 @@ const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {
   const sizeClasses = {
     sm: 'w-6 h-6',
     md: 'w-8 h-8',
+    lg: 'w-16 h-16',
     overlay: 'w-12 h-8',
   };
 
@@ -69,7 +75,7 @@ const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {
                   target.style.display = 'none';
                   const parent = target.parentElement;
                   if (parent) {
-                    const textSize = size === 'overlay' ? 'text-sm' : 'text-xs';
+                    const textSize = size === 'overlay' ? 'text-sm' : size === 'lg' ? 'text-base' : 'text-xs';
                     parent.innerHTML = `<span class="${textSize} font-semibold text-slate-600 dark:text-slate-400">${source.substring(0, 2)}</span>`;
                   }
                 }}

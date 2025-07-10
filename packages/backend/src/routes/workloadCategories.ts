@@ -22,6 +22,7 @@ const VALID_SOURCE_FIELDS = [
   'specifications.operatingSystem', 'specifications.graphics', 'specifications.osVersion',
   'specifications.batteryHealth', 'specifications.connectivity', 'specifications.imei',
   'specifications.carrier', 'specifications.phoneNumber', 'specifications.planType',
+  'specifications.contractEndDate', 'specifications.balance',
   'specifications.lastOnline', 'specifications.complianceState',
   // Relations (IDs)
   'departmentId', 'locationId', 'vendorId'

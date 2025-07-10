@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Save, X, ChevronDown, ChevronUp, Check, Tag, User, MapPin, Package, Calendar, DollarSign, FileText, Settings, Monitor, Cpu, HardDrive, Copy } from 'lucide-react';
+import { Save, X, ChevronDown, ChevronUp, Check, Tag, User, MapPin, Package, Calendar, DollarSign, FileText, Settings, Monitor, Cpu, HardDrive, Copy, Smartphone } from 'lucide-react';
 import { categoriesApi, locationsApi, vendorsApi, type StaffMember, type WorkloadCategory } from '../services/api';
 import { useCustomFields } from '../hooks/useCustomFields';
 import { useQuery } from '@tanstack/react-query';
@@ -257,12 +257,15 @@ const ASSET_TYPE_CONFIGS = {
   },
   PHONE: {
     specFields: [
-      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: ['iOS 16', 'iOS 17', 'Android 12', 'Android 13', 'Android 14'], required: false },
+      // Renamed label to better reflect desired data (phone model) and switched to free-text with Smartphone icon
+      { key: 'operatingSystem', label: 'Phone', icon: Smartphone, options: [], required: false },
       { key: 'storage', label: 'Storage Capacity', icon: HardDrive, options: ['64GB', '128GB', '256GB', '512GB', '1TB'], required: false },
       { key: 'phoneNumber', label: 'Phone Number', icon: Settings, options: [], required: false },
       { key: 'imei', label: 'IMEI', icon: Settings, options: [], required: true },
       { key: 'carrier', label: 'Carrier', icon: Settings, options: ['Rogers', 'Bell', 'Telus', 'Freedom', 'Unlocked'], required: false },
       { key: 'planType', label: 'Plan Type', icon: Settings, options: ['Corporate', 'BYOD', 'Personal', 'Prepaid'], required: false },
+      { key: 'contractEndDate', label: 'Contract End Date', icon: Calendar, options: [], required: false },
+      { key: 'balance', label: 'Balance', icon: DollarSign, options: [], required: false },
     ],
     title: 'Device & Service Details',
     description: 'Phone specifications and service information'
@@ -504,11 +507,22 @@ const AssetForm: React.FC<AssetFormProps> = ({
     console.log('🎯 Asset type changed to:', watchedAssetType);
   }, [watchedAssetType]);
 
+  // Debug storage value changes
+  useEffect(() => {
+    console.log('💾 Storage value changed to:', watchedStorage);
+  }, [watchedStorage]);
+
   // Reset form when initial data changes (only if we have initial data)
   useEffect(() => {
     if (Object.keys(initialData).length > 0) {
       // Extract specifications into individual fields for all asset types
       const specs = initialData.specifications || {};
+      
+      console.log('🔄 FORM RESET DEBUG:');
+      console.log('Initial data:', initialData);
+      console.log('Specifications:', specs);
+      console.log('Storage in specs:', specs.storage);
+      
       const formData = {
         assetType: 'LAPTOP',
         status: 'AVAILABLE',
@@ -517,6 +531,9 @@ const AssetForm: React.FC<AssetFormProps> = ({
         // Add all possible specification fields
         ...specs,
       };
+      
+      console.log('Final form data:', formData);
+      console.log('Storage in form data:', formData.storage);
       
       reset(formData);
       setSelectedStaff(initialStaff);

@@ -11,15 +11,17 @@ import {
   FileText,
   Settings
 } from 'lucide-react';
-import { ColumnMapping, getMappingForColumn, getIgnoredColumns } from '../utils/ninjaMapping';
-import { getBGCTemplateMappings } from '../utils/importSources';
+import { ColumnMapping, getMappingForColumn } from '../utils/ninjaMapping';
+import { getImportSource } from '../utils/importSources';
+import type { UploadCategory, UploadSource } from '../utils/importSources';
 import type { AssetFieldMeta } from '../services/api';
 import type { CustomField } from '@ats/shared';
 
 interface ColumnMapperProps {
   csvHeaders: string[];
   sampleData: Record<string, string>[];
-  sourceType: 'ninja' | 'bgc';
+  selectedCategory: UploadCategory;
+  selectedSource: UploadSource;
   onMappingChange: (mappings: ColumnMapping[]) => void;
   onValidationChange: (isValid: boolean, errors: string[]) => void;
   assetFields: AssetFieldMeta[];
@@ -35,7 +37,8 @@ interface MappingState extends ColumnMapping {
 const ColumnMapper: React.FC<ColumnMapperProps> = ({ 
   csvHeaders, 
   sampleData, 
-  sourceType, 
+  selectedCategory,
+  selectedSource,
   onMappingChange,
   onValidationChange,
   assetFields,
@@ -67,23 +70,27 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
   const directFieldKeys = assetFields.map(f => f.key);
   const specKeys = BASE_SPEC_KEYS.filter(key => !directFieldKeys.includes(key));
 
-  // Initialize mappings when headers change
+  // Initialize mappings when headers or source change
   useEffect(() => {
-    let bgcMappings: ColumnMapping[] = [];
-    if (sourceType === 'bgc') {
-      try {
-        bgcMappings = getBGCTemplateMappings();
-      } catch (_) {
-        bgcMappings = [];
+    let isMounted = true;
+
+    const init = async () => {
+      let templateMappings: ColumnMapping[] = [];
+
+      // NinjaOne special handling (built-in mapping list)
+      if (selectedSource === 'ninjaone') {
+        // use getMappingForColumn per column, no template list needed.
+      } else {
+        const config = getImportSource(selectedCategory, selectedSource);
+        if (config?.getMappings) {
+          const m = await config.getMappings();
+          templateMappings = m || [];
       }
     }
 
     const findDefault = (header: string): ColumnMapping | undefined => {
-      if (sourceType === 'ninja') return getMappingForColumn(header);
-      if (sourceType === 'bgc') {
-        return bgcMappings.find(m => m.ninjaColumn === header);
-      }
-      return undefined;
+        if (selectedSource === 'ninjaone') return getMappingForColumn(header);
+        return templateMappings.find(m => m.ninjaColumn === header);
     };
 
     const initialMappings: MappingState[] = csvHeaders.map(header => {
@@ -105,8 +112,15 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
       } as MappingState;
     });
 
-    setMappings(initialMappings);
-  }, [csvHeaders, sourceType]);
+      if (isMounted) setMappings(initialMappings);
+    };
+
+    init();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [csvHeaders, selectedCategory, selectedSource]);
 
   // Validate mappings and notify parent
   useEffect(() => {
@@ -118,8 +132,17 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
     if (requiredOverrides.length) {
       requiredFields = requiredFields.filter(f => !requiredOverrides.includes(f));
     }
+    
+    // Add source-specific required fields from mappings
+    const sourceRequiredFields = activeMappings
+      .filter(m => m.required === true)
+      .map(m => m.targetField);
+    
+    // Combine both sets of required fields
+    const allRequiredFields = [...new Set([...requiredFields, ...sourceRequiredFields])];
+    
     const mappedFields = activeMappings.map(m => m.targetField);
-    requiredFields.forEach(reqKey => {
+    allRequiredFields.forEach(reqKey => {
       if (!mappedFields.includes(reqKey)) {
         const label = assetFields.find(f => f.key === reqKey)?.label || reqKey;
         errors.push(`Required field "${label}" is not mapped`);
