@@ -777,26 +777,54 @@ const AssetList: React.FC = () => {
                 {/* Status Column */}
                 <td className="px-4 py-3">
                   <div className="grid grid-cols-2 gap-2 max-w-xs">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                    <button
+                      onClick={() => updateFilter('status', filters.status === 'AVAILABLE' ? undefined : 'AVAILABLE')}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                        filters.status === 'AVAILABLE'
+                          ? 'bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-200 ring-2 ring-green-400/50 shadow-sm'
+                          : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50 hover:shadow-sm'
+                      }`}
+                    >
                       <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400" />
                       <span className="font-medium">AVAILABLE</span>
                       <span className="tabular-nums">{stats.statusCounts.available}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                    </button>
+                    <button
+                      onClick={() => updateFilter('status', filters.status === 'ASSIGNED' ? undefined : 'ASSIGNED')}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                        filters.status === 'ASSIGNED'
+                          ? 'bg-blue-200 dark:bg-blue-800/50 text-blue-800 dark:text-blue-200 ring-2 ring-blue-400/50 shadow-sm'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 hover:shadow-sm'
+                      }`}
+                    >
                       <Users className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                       <span className="font-medium">ASSIGNED</span>
                       <span className="tabular-nums">{stats.statusCounts.assigned}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                    </button>
+                    <button
+                      onClick={() => updateFilter('status', filters.status === 'SPARE' ? undefined : 'SPARE')}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                        filters.status === 'SPARE'
+                          ? 'bg-orange-200 dark:bg-orange-800/50 text-orange-800 dark:text-orange-200 ring-2 ring-orange-400/50 shadow-sm'
+                          : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50 hover:shadow-sm'
+                      }`}
+                    >
                       <Settings className="h-3 w-3 text-orange-500 dark:text-orange-400" />
                       <span className="font-medium">SPARE</span>
                       <span className="tabular-nums">{stats.statusCounts.spare}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                    </button>
+                    <button
+                      onClick={() => updateFilter('status', filters.status === 'RETIRED' ? undefined : 'RETIRED')}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${
+                        filters.status === 'RETIRED'
+                          ? 'bg-red-200 dark:bg-red-800/50 text-red-800 dark:text-red-200 ring-2 ring-red-400/50 shadow-sm'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/50 hover:shadow-sm'
+                      }`}
+                    >
                       <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
                       <span className="font-medium">RETIRED</span>
                       <span className="tabular-nums">{stats.statusCounts.retired}</span>
-                    </div>
+                    </button>
                   </div>
                 </td>
               </tr>
