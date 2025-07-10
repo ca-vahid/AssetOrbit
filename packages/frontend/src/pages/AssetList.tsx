@@ -10,7 +10,7 @@ import {
   HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown
 } from 'lucide-react';
 import { assetsApi, usersApi, customFieldsApi } from '../services/api';
-import AssetDetailModal from '../components/AssetDetailModal';
+import AssetDetailView from '../components/AssetDetailView';
 import AssetFilterPanel from '../components/AssetFilterPanel';
 import { useDebounce } from '../hooks/useDebounce';
 import ProfilePicture from '../components/ProfilePicture';
@@ -1343,31 +1343,37 @@ const AssetList: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Type Column */}
+                        {/* Type Column with Source Badge */}
                         <td className={`hidden sm:table-cell px-4 whitespace-nowrap ${viewDensity === 'compact' ? 'py-2' : 'py-3'}`} style={getColumnStyle('assetType')}>
-                          <Tooltip.Provider>
-                            <Tooltip.Root>
-                              <Tooltip.Trigger asChild>
-                                <div className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm ${viewDensity === 'compact' ? 'w-8 h-8' : 'w-10 h-10'}`}>
-                                  {(() => {
-                                    const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
-                                    const iconColors = {
-                                      LAPTOP: 'text-blue-600 dark:text-blue-400',
-                                      DESKTOP: 'text-purple-600 dark:text-purple-400', 
-                                      TABLET: 'text-green-600 dark:text-green-400',
-                                      PHONE: 'text-orange-600 dark:text-orange-400',
-                                      OTHER: 'text-slate-600 dark:text-slate-400'
-                                    };
-                                    const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
-                                    return <IconComponent className={`${viewDensity === 'compact' ? 'w-4 h-4' : 'w-5 h-5'} ${colorClass}`} />;
-                                  })()}
-                                </div>
-                              </Tooltip.Trigger>
-                              <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
-                                {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
-                              </Tooltip.Content>
-                            </Tooltip.Root>
-                          </Tooltip.Provider>
+                          <div className="flex items-center justify-center gap-2">
+                            {/* Source Badge */}
+                            <SourceBadge source={(asset.source as AssetSource) || AssetSource.MANUAL} size="overlay" />
+                            
+                            {/* Type Icon */}
+                            <Tooltip.Provider>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <div className={`flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm ${viewDensity === 'compact' ? 'w-8 h-8' : 'w-10 h-10'}`}>
+                                    {(() => {
+                                      const IconComponent = ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.icon || Monitor;
+                                      const iconColors = {
+                                        LAPTOP: 'text-blue-600 dark:text-blue-400',
+                                        DESKTOP: 'text-purple-600 dark:text-purple-400', 
+                                        TABLET: 'text-green-600 dark:text-green-400',
+                                        PHONE: 'text-orange-600 dark:text-orange-400',
+                                        OTHER: 'text-slate-600 dark:text-slate-400'
+                                      };
+                                      const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
+                                      return <IconComponent className={`${viewDensity === 'compact' ? 'w-4 h-4' : 'w-5 h-5'} ${colorClass}`} />;
+                                    })()}
+                                  </div>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content side="top" className="px-2 py-1 text-xs bg-slate-900 text-white rounded shadow-lg">
+                                  {ASSET_TYPES[asset.assetType as keyof typeof ASSET_TYPES]?.label || asset.assetType}
+                                </Tooltip.Content>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          </div>
                         </td>
 
                         {/* Make/Model Column */}
@@ -2076,7 +2082,7 @@ const AssetList: React.FC = () => {
 
       {/* Asset Detail Modal */}
       {selectedAssetId && (
-        <AssetDetailModal
+        <AssetDetailView
           assetId={selectedAssetId}
           isOpen={!!selectedAssetId}
           onClose={() => setSelectedAssetId(null)}

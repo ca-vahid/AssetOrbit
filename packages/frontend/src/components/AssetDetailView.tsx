@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck, Laptop, Smartphone, Tablet } from 'lucide-react';
+import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck, Laptop, Smartphone, Tablet, Activity, Settings, FileText, ExternalLink, Plus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Tab } from '@headlessui/react';
 import clsx from 'clsx';
 import { assetsApi, activitiesApi, staffApi, type Asset as ApiAsset } from '../services/api';
 import { useCustomFields } from '../hooks/useCustomFields';
-import type { Activity } from '@ats/shared';
+import type { Activity as ActivityType } from '@ats/shared';
 import { AssetSource } from '@shared/types/Asset';
 import EditAsset from '../pages/EditAsset';
 import SourceBadge from './SourceBadge';
 
-interface AssetDetailModalProps {
+interface AssetDetailViewProps {
   assetId: string;
   isOpen: boolean;
   onClose: () => void;
@@ -37,7 +38,6 @@ const useProfilePhoto = (azureAdId: string | undefined) => {
         setPhotoUrl(url);
       } catch (err: any) {
         if (err.response?.status === 404) {
-          // No photo available - this is normal, don't set as error
           setPhotoUrl(null);
           setError(null);
         } else {
@@ -51,7 +51,6 @@ const useProfilePhoto = (azureAdId: string | undefined) => {
 
     loadPhoto();
 
-    // Cleanup function to revoke object URL
     return () => {
       if (photoUrl) {
         URL.revokeObjectURL(photoUrl);
@@ -59,7 +58,6 @@ const useProfilePhoto = (azureAdId: string | undefined) => {
     };
   }, [azureAdId, hasAttempted]);
 
-  // Reset when azureAdId changes
   useEffect(() => {
     setHasAttempted(false);
     setPhotoUrl(null);
@@ -79,9 +77,9 @@ const ProfilePicture: React.FC<{
   const { photoUrl, isLoading } = useProfilePhoto(azureAdId);
   
   const sizeClasses = {
-    sm: 'w-10 h-10 text-sm',
-    md: 'w-14 h-14 text-lg',
-    lg: 'w-20 h-20 text-xl',
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
   };
 
   const getInitials = (name?: string): string => {
@@ -99,39 +97,37 @@ const ProfilePicture: React.FC<{
         alt={`${displayName || 'User'} profile`}
         className={clsx(
           sizeClasses[size],
-          'rounded-full object-cover border-3 border-white shadow-lg flex-shrink-0 ring-2 ring-slate-200 dark:ring-slate-600',
+          'rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0 ring-1 ring-slate-200 dark:ring-slate-600',
           className
         )}
         onError={() => {
-          // If image fails to load, we'll fall back to initials
           console.log('Profile image failed to load for:', displayName);
         }}
       />
     );
   }
 
-  // Fallback to initials
   return (
     <div className={clsx(
       sizeClasses[size],
-      'bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 border-3 border-white shadow-lg ring-2 ring-slate-200 dark:ring-slate-600',
+      'bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 border-2 border-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600',
       className
     )}>
-      <span className="select-none font-bold text-white">
+      <span className="select-none font-medium text-white">
         {getInitials(displayName)}
       </span>
     </div>
   );
 };
 
-const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
+const AssetDetailView: React.FC<AssetDetailViewProps> = ({
   assetId,
   isOpen,
   onClose,
   onEdit,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [showActivityHistory, setShowActivityHistory] = useState(false);
+  const [selectedTab, setSelectedTab] = useState(0);
   const queryClient = useQueryClient();
   
   const { data: asset, isLoading: assetLoading } = useQuery({
@@ -151,18 +147,15 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   if (!isOpen) return null;
 
   const handleEdit = () => {
-    console.log('AssetDetailModal handleEdit called', { asset: !!asset, onEdit: !!onEdit });
     if (onEdit && asset) {
       onEdit(asset);
     } else {
-      console.log('Setting isEditing to true');
       setIsEditing(true);
     }
   };
 
   const handleSaveEdit = (updatedAsset: ApiAsset) => {
     setIsEditing(false);
-    // Refresh the activity history for the updated asset
     queryClient.invalidateQueries({ queryKey: ['activities', 'ASSET', assetId] });
   };
 
@@ -173,48 +166,48 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'AVAILABLE':
-        return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700';
+        return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700';
       case 'ASSIGNED':
-        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+        return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
       case 'SPARE':
-        return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
+        return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
       case 'MAINTENANCE':
-        return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700';
+        return 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700';
       case 'RETIRED':
-        return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
+        return 'bg-slate-50 dark:bg-slate-700/20 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
       default:
-        return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
+        return 'bg-slate-50 dark:bg-slate-700/20 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
     }
   };
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
       case 'NEW':
-        return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700';
+        return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700';
       case 'GOOD':
-        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+        return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
       case 'FAIR':
-        return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
+        return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
       case 'POOR':
-        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700';
+        return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700';
       default:
-        return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
+        return 'bg-slate-50 dark:bg-slate-700/20 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-600';
     }
   };
 
   const getAssetTypeIcon = (type: string) => {
     switch (type) {
       case 'LAPTOP':
-        return Laptop; // Laptop icon
+        return Laptop;
       case 'DESKTOP':
-        return Monitor; // Desktop/Monitor icon
+        return Monitor;
       case 'TABLET':
-        return Tablet; // Tablet icon
+        return Tablet;
       case 'PHONE':
-        return Smartphone; // Phone icon
+        return Smartphone;
       case 'OTHER':
       default:
-        return Package; // Generic package icon
+        return Package;
     }
   };
 
@@ -243,7 +236,6 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
     
     if (value === null || value === undefined || value === '') return '—';
     
-    // Handle different field types
     const field = customFields?.find(f => f.id === fieldId);
     if (field?.fieldType === 'BOOLEAN') {
       return value ? 'Yes' : 'No';
@@ -263,34 +255,41 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
     }
   };
 
+  const tabs = [
+    { name: 'Overview', icon: Package },
+    { name: 'Specifications', icon: Cpu },
+    { name: 'Activity', icon: Activity },
+    { name: 'Custom Fields', icon: Settings },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center p-3">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
           onClick={onClose}
         />
 
         {/* Modal */}
-        <div className="relative w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden border border-slate-200 dark:border-slate-700">
+        <div className="relative w-full max-w-6xl bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-h-[95vh] overflow-hidden border border-slate-200 dark:border-slate-700">
           {isEditing ? (
             <>
               {/* Edit Mode Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Edit Asset
                 </h2>
                 <button
                   onClick={handleCancelEdit}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
               
               {/* Edit Form */}
-              <div className="p-6 overflow-y-auto max-h-[calc(95vh-80px)]">
+              <div className="p-5 overflow-y-auto max-h-[calc(95vh-60px)]">
                 {asset ? (
                   <EditAsset
                     asset={asset}
@@ -300,115 +299,76 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                   />
                 ) : (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"></div>
                   </div>
                 )}
               </div>
             </>
           ) : (
             <>
-              {/* View Mode */}
+              {/* Header */}
               {assetLoading ? (
-                <div className="flex items-center justify-center py-24">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
                 </div>
               ) : asset ? (
                 <>
-                  {/* Hero Section */}
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 p-6 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
+                  {/* Compact Header */}
+                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
                         {/* Asset Icon */}
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
+                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                           {React.createElement(getAssetTypeIcon(asset.assetType), {
-                            className: "w-6 h-6 text-slate-700 dark:text-slate-300"
+                            className: "w-5 h-5 text-slate-700 dark:text-slate-300"
                           })}
                         </div>
                         
                         {/* Asset Info */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-4 mb-2">
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                            {asset.assetTag}
-                          </h1>
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusColor(asset.status)}`}>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                              {asset.assetTag}
+                            </h1>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(asset.status)}`}>
                               {asset.status}
                             </span>
+                                                         {asset.source && <SourceBadge source={asset.source as AssetSource} size="lg" />}
                           </div>
-                          
-                          <p className="text-lg text-slate-600 dark:text-slate-400 mb-3">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
                             {asset.make} {asset.model}
                           </p>
-                          
-                          {/* Key Specs & Categories */}
-                          <div className="flex flex-wrap items-center gap-4 text-sm">
-                            {/* Vendor */}
-                            {asset.vendor && (
-                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                                <Building className="w-4 h-4" />
-                                <span>{asset.vendor.name}</span>
-                              </div>
-                            )}
-                            
-                            {/* Key Hardware Specs */}
-                            {(() => {
-                              const specs = parseSpecifications(asset.specifications);
-                              if (!specs) return null;
-                              
-                              return (
-                                <>
-                                  {specs.processor && (
-                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                                      <Cpu className="w-4 h-4" />
-                                      <span>{specs.processor}</span>
-                                    </div>
-                                  )}
-                                  {specs.ram && (
-                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                                      <MemoryStick className="w-4 h-4" />
-                                      <span>{specs.ram}</span>
-                                    </div>
-                                  )}
-                                  {specs.storage && (
-                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                                      <HardDrive className="w-4 h-4" />
-                                      <span>{specs.storage}</span>
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                          
-                          {/* Workload Categories */}
-                          {asset.workloadCategories && asset.workloadCategories.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {asset.workloadCategories.map((category) => (
-                                <span
-                                  key={category.id}
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
-                                >
-                                  <Tag className="w-3 h-3 mr-1" />
-                                  {category.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2">
+                        {/* Quick Actions */}
+                        <div className="flex items-center gap-1 mr-2">
+                          <button
+                            title="Coming Soon"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 cursor-not-allowed opacity-50"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
+                            title="Coming Soon"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 cursor-not-allowed opacity-50"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
                         <button
                           onClick={handleEdit}
-                          className="flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors text-sm font-medium"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md transition-colors text-sm font-medium"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3.5 h-3.5" />
                           Edit
                         </button>
                         <button
                           onClick={onClose}
-                          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-lg hover:bg-white dark:hover:bg-slate-700"
+                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-md hover:bg-slate-200 dark:hover:bg-slate-700"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -416,455 +376,374 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div className="p-8 overflow-y-auto max-h-[calc(95vh-200px)]">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Left Column - Asset Details */}
-                      <div className="lg:col-span-2 space-y-8">
-                        {/* Asset Overview */}
-                        <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                          <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
-                              <Package className="w-5 h-5" />
+                  {/* Tabs */}
+                  <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+                    <Tab.List className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                      {tabs.map((tab) => (
+                        <Tab
+                          key={tab.name}
+                          className={({ selected }) =>
+                            clsx(
+                              'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors focus:outline-none',
+                              selected
+                                ? 'text-brand-600 dark:text-brand-400 border-b-2 border-brand-600 dark:border-brand-400 bg-white dark:bg-slate-900'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                            )
+                          }
+                        >
+                          <tab.icon className="w-4 h-4" />
+                          {tab.name}
+                        </Tab>
+                      ))}
+                    </Tab.List>
+
+                    <Tab.Panels className="overflow-y-auto max-h-[calc(95vh-140px)]">
+                      {/* Overview Tab */}
+                      <Tab.Panel className="p-5">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                          {/* Asset Overview Card */}
+                          <div className="lg:col-span-2">
+                            <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                Asset Overview
+                              </h3>
+                              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Asset Tag</span>
+                                  <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">{asset.assetTag}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Type</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{asset.assetType}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Make</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{asset.make}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Model</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{asset.model}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Serial Number</span>
+                                  <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Condition</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getConditionColor(asset.condition)}`}>
+                                    {asset.condition}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Location</span>
+                                  <span className="text-slate-900 dark:text-slate-100">
+                                    {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Vendor</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{asset.vendor?.name || '—'}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Workload Categories */}
+                              {asset.workloadCategories && asset.workloadCategories.length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-600">
+                                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Workload Categories</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {asset.workloadCategories.map((category) => (
+                                      <span
+                                        key={category.id}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+                                      >
+                                        {category.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            Asset Overview
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Asset Tag</span>
-                                <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold">{asset.assetTag}</span>
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Type</span>
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">{asset.assetType}</span>
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Make & Model</span>
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">{asset.make} {asset.model}</span>
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Serial Number</span>
-                                <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
-                              </div>
+                          </div>
+
+                          {/* Right Column */}
+                          <div className="space-y-4">
+                            {/* Assigned To Card */}
+                            <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                Assigned To
+                              </h3>
+                                                             {asset.assignedToStaff ? (
+                                 <div className="flex items-center gap-3">
+                                   <ProfilePicture
+                                     azureAdId={asset.assignedToStaff.id}
+                                     displayName={asset.assignedToStaff.displayName}
+                                     size="md"
+                                   />
+                                   <div className="min-w-0 flex-1">
+                                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                       {asset.assignedToStaff.displayName}
+                                     </p>
+                                     <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                                       {asset.assignedToStaff.jobTitle || 'No title'}
+                                     </p>
+                                     <p className="text-xs text-slate-500 dark:text-slate-500 truncate">
+                                       {asset.assignedToStaff.department || 'No department'}
+                                     </p>
+                                   </div>
+                                 </div>
+                               ) : (
+                                <div className="text-center py-3">
+                                  <UserCheck className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                                  <p className="text-sm text-slate-500 dark:text-slate-400">Unassigned</p>
+                                </div>
+                              )}
                             </div>
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Status</span>
-                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium border ${getStatusColor(asset.status)}`}>
-                                  {asset.status}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Condition</span>
-                                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium border ${getConditionColor(asset.condition)}`}>
-                                  {asset.condition}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Source</span>
-                                {asset.source ? <SourceBadge source={asset.source as AssetSource} size="lg" /> : <span className="text-slate-500">—</span>}
-                              </div>
-                              <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                                <span className="text-slate-600 dark:text-slate-400 font-medium">Location</span>
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">
-                                  {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
-                                </span>
+
+                            {/* Purchase & Warranty Card */}
+                            <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                Purchase & Warranty
+                              </h3>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Purchase Date</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{formatDate(asset.purchaseDate)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Purchase Price</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{formatCurrency(asset.purchasePrice)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Warranty End</span>
+                                  <span className="text-slate-900 dark:text-slate-100">{formatDate(asset.warrantyEndDate)}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
+                      </Tab.Panel>
 
-                        {/* Technical Specifications */}
+                      {/* Specifications Tab */}
+                      <Tab.Panel className="p-5">
                         {(() => {
                           const specs = parseSpecifications(asset.specifications);
-                          if (!specs || Object.keys(specs).length === 0) return null;
-                          
-                          return (
-                            <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-700">
-                              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
-                                  <Cpu className="w-5 h-5" />
-                                </div>
-                                Technical Specifications
-                              </h3>
+                          if (!specs || Object.keys(specs).length === 0) {
+                            return (
+                              <div className="text-center py-12">
+                                <Cpu className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                                <p className="text-slate-500 dark:text-slate-400">No technical specifications available</p>
+                              </div>
+                            );
+                          }
+
+                          // Different layouts for different asset types
+                          if (asset.assetType === 'PHONE') {
+                            return (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Phone Specifications */}
+                                {specs.phone && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Smartphone className="w-4 h-4 text-blue-600" />
+                                      Device
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.phone}</p>
+                                  </div>
+                                )}
+                                {specs.storageCapacity && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <HardDrive className="w-4 h-4 text-orange-600" />
+                                      Storage
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.storageCapacity}</p>
+                                  </div>
+                                )}
+                                {specs.phoneNumber && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Phone className="w-4 h-4 text-green-600" />
+                                      Phone Number
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.phoneNumber}</p>
+                                  </div>
+                                )}
+                                {specs.carrier && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Building className="w-4 h-4 text-purple-600" />
+                                      Carrier
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.carrier}</p>
+                                  </div>
+                                )}
+                                {specs.contractEndDate && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Calendar className="w-4 h-4 text-red-600" />
+                                      Contract End
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{formatDate(specs.contractEndDate)}</p>
+                                  </div>
+                                )}
+                                {specs.balance && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <DollarSign className="w-4 h-4 text-green-600" />
+                                      Balance
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{formatCurrency(specs.balance)}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            // Computer specifications (Laptop/Desktop)
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {specs.processor && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <Cpu className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Processor</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.processor}</p>
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Cpu className="w-4 h-4 text-blue-600" />
+                                      Processor
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.processor}</p>
                                   </div>
                                 )}
                                 {specs.ram && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <MemoryStick className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Memory</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.ram}</p>
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <MemoryStick className="w-4 h-4 text-green-600" />
+                                      Memory
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.ram}</p>
                                   </div>
                                 )}
                                 {specs.storage && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <HardDrive className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Storage</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.storage}</p>
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <HardDrive className="w-4 h-4 text-orange-600" />
+                                      Storage
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.storage}</p>
                                   </div>
                                 )}
                                 {specs.operatingSystem && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <Shield className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Operating System</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.operatingSystem}</p>
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Monitor className="w-4 h-4 text-purple-600" />
+                                      Operating System
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.operatingSystem}</p>
+                                  </div>
+                                )}
+                                {specs.graphicsCard && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Zap className="w-4 h-4 text-yellow-600" />
+                                      Graphics Card
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.graphicsCard}</p>
                                   </div>
                                 )}
                                 {specs.screenSize && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <Monitor className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Screen Size</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.screenSize}</p>
-                                  </div>
-                                )}
-                                {specs.batteryHealth && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Battery Health</span>
-                                    </div>
-                                    <p className="text-slate-900 dark:text-slate-100 font-medium">{specs.batteryHealth}</p>
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Monitor className="w-4 h-4 text-indigo-600" />
+                                      Screen Size
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.screenSize}</p>
                                   </div>
                                 )}
                               </div>
-                            </div>
-                          );
+                            );
+                          }
                         })()}
+                      </Tab.Panel>
 
-                        {/* Workload Categories */}
-                        {asset.workloadCategories && asset.workloadCategories.length > 0 && (
-                          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-700">
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
-                                <Tag className="w-5 h-5" />
-                              </div>
-                              Workload Categories
-                            </h3>
-                            <div className="flex flex-wrap gap-3">
-                              {asset.workloadCategories.map((category, index) => (
-                                <span
-                                  key={category.id}
-                                  className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 shadow-sm hover:shadow-md transition-all duration-300"
-                                >
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-2" />
-                                  {category.name}
-                                </span>
-                              ))}
-                            </div>
+                      {/* Activity Tab */}
+                      <Tab.Panel className="p-5">
+                        {activitiesLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"></div>
                           </div>
-                        )}
-
-                        {/* Notes */}
-                        {asset.notes && (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                              <Package className="w-5 h-5 text-slate-600" />
-                              Notes
-                            </h3>
-                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-white dark:bg-slate-700 p-4 rounded-lg">
-                              {asset.notes}
-                            </p>
+                        ) : activities && activities.length > 0 ? (
+                          <div className="space-y-3">
+                            {activities.map((activity) => (
+                              <div key={activity.id} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                <div className="flex items-start gap-3">
+                                  <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg flex-shrink-0">
+                                    <Activity className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                        {activity.action}
+                                      </p>
+                                                                             <time className="text-xs text-slate-500 dark:text-slate-400">
+                                         {formatDate(activity.createdAt)}
+                                       </time>
+                                     </div>
+                                     {activity.details && (
+                                       <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                                         {activity.details}
+                                       </p>
+                                     )}
+                                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                                      <span>By {activity.userId}</span>
+                                      <span>•</span>
+                                      <span>{activity.entityType}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
-
-                      {/* Right Column - Assignment & Business Info */}
-                      <div className="space-y-8">
-                        {/* Assignment */}
-                        {(asset.assignedTo || asset.assignedToStaff || asset.assignedToAadId) ? (
-                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
-                                <User className="w-4 h-4" />
-                              </div>
-                      Assigned To
-                            </h3>
-                  
-                  {asset.assignedToStaff ? (
-                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-start gap-3">
-                        <ProfilePicture
-                                    size="sm"
-                          azureAdId={asset.assignedToStaff.id}
-                          displayName={asset.assignedToStaff.displayName}
-                          className="flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate mb-1">
-                              {asset.assignedToStaff.displayName}
-                            </h4>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                            {asset.assignedToStaff.jobTitle || 'Employee'}
-                          </p>
-                          
-                                    <div className="space-y-2 text-sm">
-                            {asset.assignedToStaff.department && (
-                              <div className="flex items-center gap-2">
-                                          <Building className="w-3 h-3 text-slate-400" />
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">
-                                  {asset.assignedToStaff.department}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {asset.assignedToStaff.officeLocation && (
-                              <div className="flex items-center gap-2">
-                                          <MapPin className="w-3 h-3 text-slate-400" />
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">
-                                  {asset.assignedToStaff.officeLocation}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {asset.assignedToStaff.mail && (
-                              <div className="flex items-center gap-2">
-                                          <Mail className="w-3 h-3 text-slate-400" />
-                                <a 
-                                  href={`mailto:${asset.assignedToStaff.mail}`}
-                                            className="text-blue-600 dark:text-blue-400 hover:underline truncate text-sm"
-                                >
-                                  {asset.assignedToStaff.mail}
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : asset.assignedTo ? (
-                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-start gap-3">
-                        <ProfilePicture
-                                    size="sm"
-                          azureAdId={asset.assignedToAadId}
-                          displayName={asset.assignedTo.displayName}
-                          className="flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate mb-1">
-                              {asset.assignedTo.displayName}
-                            </h4>
-                          
-                                    <div className="space-y-2 text-sm">
-                            {asset.assignedTo.department && (
-                              <div className="flex items-center gap-2">
-                                          <Building className="w-3 h-3 text-slate-400" />
-                                <span className="text-slate-900 dark:text-slate-100 font-medium">
-                                  {asset.assignedTo.department}
-                                </span>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-2">
-                                        <Mail className="w-3 h-3 text-slate-400" />
-                              <a 
-                                href={`mailto:${asset.assignedTo.email}`}
-                                          className="text-blue-600 dark:text-blue-400 hover:underline truncate text-sm"
-                              >
-                                {asset.assignedTo.email}
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : asset.assignedToAadId ? (
-                              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                      <div className="flex items-center gap-3">
-                                  <User className="w-6 h-6 text-slate-400" />
-                        <div>
-                          <h4 className="font-medium text-slate-900 dark:text-slate-100">
-                            {asset.assignedToAadId}
-                          </h4>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">
-                            User (No additional details available)
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
                         ) : (
-                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-                            <div className="text-center py-8">
-                              <div className="mx-auto w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                                <User className="w-6 h-6 text-slate-400" />
-                              </div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Unassigned</h3>
-                              <p className="text-slate-600 dark:text-slate-400">This asset is not currently assigned to anyone</p>
-                            </div>
+                          <div className="text-center py-12">
+                            <Activity className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                            <p className="text-slate-500 dark:text-slate-400">No activity history available</p>
                           </div>
                         )}
+                      </Tab.Panel>
 
-                        {/* Purchase & Warranty */}
-                        {(asset.purchaseDate || asset.purchasePrice || asset.vendor || asset.warrantyEndDate) && (
-                          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-700">
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
-                                <DollarSign className="w-5 h-5" />
+                      {/* Custom Fields Tab */}
+                      <Tab.Panel className="p-5">
+                        {customFields && customFields.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {customFields.map((field) => (
+                              <div key={field.id} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                     {field.name}
+                                   </h4>
+                                </div>
+                                <p className="text-sm text-slate-900 dark:text-slate-100">
+                                  {getCustomFieldValue(field.id)}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                  {field.fieldType}
+                                </p>
                               </div>
-                              Purchase & Warranty
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {asset.purchaseDate && (
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Purchase Date</span>
-                                  </div>
-                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{formatDate(asset.purchaseDate)}</p>
-                                </div>
-                              )}
-                              {asset.purchasePrice && (
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Purchase Price</span>
-                                  </div>
-                                  <p className="text-slate-900 dark:text-slate-100 font-semibold text-lg">{formatCurrency(asset.purchasePrice)}</p>
-                                </div>
-                              )}
-                              {asset.vendor && (
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <Building className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Vendor</span>
-                                  </div>
-                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{asset.vendor.name}</p>
-                                </div>
-                              )}
-                              {asset.warrantyEndDate && (
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Warranty End</span>
-                                  </div>
-                                  <p className="text-slate-900 dark:text-slate-100 font-medium">{formatDate(asset.warrantyEndDate)}</p>
-                                </div>
-                              )}
-                            </div>
+                            ))}
                           </div>
-                        )}
-
-                        {/* Custom Fields */}
-                        {customFields && customFields.length > 0 && (() => {
-                          const hasCustomFieldValues = customFields.some(field => {
-                            const value = getCustomFieldValue(field.id);
-                            return value !== '—';
-                          });
-                          
-                          if (!hasCustomFieldValues) return null;
-                          
-                          return (
-                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-700">
-                              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3">
-                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                                  <Package className="w-5 h-5" />
-                                </div>
-                              Additional Attributes
-                            </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {customFields.map((field) => {
-                                const value = getCustomFieldValue(field.id);
-                                if (value === '—') return null;
-                                return (
-                                    <div key={field.id} className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-indigo-200 dark:border-indigo-700">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <Tag className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{field.name}</span>
-                                      </div>
-                                      <p className="text-slate-900 dark:text-slate-100 font-medium">{value}</p>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Activity History - Collapsible */}
-                    <div className="mt-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <button
-                        onClick={() => setShowActivityHistory(!showActivityHistory)}
-                        className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors rounded-xl"
-                      >
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-blue-600" />
-                          Activity History
-                          {activities && activities.length > 0 && (
-                            <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
-                              {activities.length}
-                            </span>
-                          )}
-                        </h3>
-                        {showActivityHistory ? (
-                          <ChevronUp className="w-5 h-5 text-slate-400" />
                         ) : (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                          <div className="text-center py-12">
+                            <Settings className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                            <p className="text-slate-500 dark:text-slate-400">No custom fields configured</p>
+                          </div>
                         )}
-                      </button>
-                      
-                      {showActivityHistory && (
-                        <div className="px-6 pb-6">
-                          {activitiesLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"></div>
-                            </div>
-                          ) : activities && activities.length > 0 ? (
-                            <div className="space-y-3 max-h-64 overflow-y-auto">
-                              {activities.map((activity: Activity) => (
-                                <div key={activity.id} className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                                      {activity.action}
-                                    </span>
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                                      {formatDate(activity.createdAt)}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    by {activity.user?.displayName || 'System'}
-                                  </p>
-                                  {activity.details && (
-                                    <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                                      {activity.details}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-slate-500 dark:text-slate-400 text-sm py-4">
-                              No activity history available.
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                      </Tab.Panel>
+                    </Tab.Panels>
+                  </Tab.Group>
                 </>
               ) : (
-                <div className="text-center py-24">
-                  <p className="text-slate-500 dark:text-slate-400">Asset not found.</p>
+                <div className="text-center py-20">
+                  <p className="text-slate-500 dark:text-slate-400">Asset not found</p>
                 </div>
               )}
             </>
@@ -875,4 +754,4 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   );
 };
 
-export default AssetDetailModal; 
+export default AssetDetailView; 
