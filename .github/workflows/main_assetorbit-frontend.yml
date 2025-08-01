@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'packages/frontend/**'
+      - 'packages/shared/**'
+      - 'package.json'
       - '.github/workflows/main_assetorbit-frontend.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]

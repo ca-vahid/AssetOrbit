@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'packages/backend/**'
+      - 'packages/shared/**'
+      - 'package.json'
       - '.github/workflows/main_assetorbit-api.yml'
   workflow_dispatch:
 
