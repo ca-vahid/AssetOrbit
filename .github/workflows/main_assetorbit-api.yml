@@ -53,6 +53,15 @@ jobs:
           cp -r src/generated deploy/
           cp package.json deploy/
           cp -r prisma deploy/
+
+          # -------------------------------------------------------------------
+          # Copy compiled shared-transformations workspace into node_modules so
+          # runtime "require('@ats/shared-transformations')" resolves without
+          # needing a postinstall step on Azure.
+          # -------------------------------------------------------------------
+          mkdir -p deploy/node_modules/@ats
+          cp -r ../../shared/dist deploy/node_modules/@ats/shared-transformations
+          cp ../../shared/package.json deploy/node_modules/@ats/shared-transformations/package.json
           
           # Update package.json start script to point to correct location
           cd deploy
