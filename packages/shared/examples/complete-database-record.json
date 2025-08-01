@@ -1,0 +1,38 @@
+{
+  "id": "asset-12345",
+  "assetTag": "PH-John Smith",
+  "serialNumber": "356938085643806",
+  "model": "Galaxy S23",
+  "make": "Samsung",
+  "assetType": "PHONE",
+  "condition": "GOOD",
+  "status": "ASSIGNED",
+  "source": "TELUS",
+  
+  "assignedToAadId": "09f720a5-d3d1-45ec-94b6-471c89277735",
+  "assignedToDisplayName": "John Smith",
+  "assignedToEmail": "john.smith@bgcengineering.ca",
+  "assignedToDepartment": "Engineering",
+  
+  "locationId": "loc-vancouver-bc",
+  "locationName": "Vancouver, BC",
+  "locationAbbreviation": "VAN",
+  
+  "specifications": {
+    "storage": "256GB",
+    "imei": "356938085643806",
+    "phoneNumber": "6045550123",
+    "carrier": "Telus",
+    "ratePlan": "Business Unlimited",
+    "contractEndDate": "2025-03-15T00:00:00.000Z",
+    "ban": "123456789",
+    "operatingSystem": "Android",
+    "deviceColor": "Black"
+  },
+  
+  "createdAt": "2025-01-24T10:30:00.000Z",
+  "updatedAt": "2025-01-24T10:30:00.000Z",
+  "importBatchId": "batch-2025-01-24-001",
+  "importSourceFile": "telus-phones-2025-01-24.csv",
+  "importedBy": "admin@bgcengineering.ca"
+} 

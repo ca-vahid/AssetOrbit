@@ -1,18 +1,48 @@
 {
-  "name": "@ats/shared",
-  "version": "0.94.0",
-  "private": true,
+  "name": "@ats/shared-transformations",
+  "version": "1.0.0",
+  "description": "Shared transformation library for asset import processing",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
-    "format": "prettier --write \"src/**/*.{ts}\""
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "generate-golden-masters": "jest --testNamePattern=\"Generate Golden Master Standards\" --verbose",
+    "test-real-data": "jest --testNamePattern=\"Real Data Golden Master Tests\" --verbose",
+    "generate-real-golden-masters": "jest --testNamePattern=\"Real Data Golden Master Generation\" --verbose",
+    "validate-real-golden-masters": "jest --testNamePattern=\"Real Data Golden Master Validation\" --verbose",
+    "generate-ninjaone-golden-masters": "jest --testNamePattern=\"NinjaOne Golden Master Generation\" --verbose",
+    "validate-ninjaone-golden-masters": "jest --testNamePattern=\"NinjaOne Golden Master Validation\" --verbose"
   },
-  "dependencies": {
-    "zod": "^3.22.4"
-  },
+  "keywords": [
+    "asset",
+    "import",
+    "transformation",
+    "csv",
+    "excel"
+  ],
+  "author": "AssetOrbit",
+  "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.3.2"
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts"
+    ]
   }
-} 
+}

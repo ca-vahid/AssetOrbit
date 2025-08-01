@@ -1,0 +1,63 @@
+{
+  "id": "real-telus-nastaran-nematollahi",
+  "description": "Real Telus phone for NASTARAN NEMATOLLAHI",
+  "inputCsvRow": {
+    "Subscriber Name": "NASTARAN NEMATOLLAHI",
+    "Phone Number": "2369793540",
+    "Device Name": "",
+    "IMEI": "35907642683583",
+    "Contract end date": "2027-05-21",
+    "BAN": "20300776",
+    "Status": "Active",
+    "Rate Plan": "Corporate Complete Unlimited $45",
+    "Service Type": "Voice & Data",
+    "ICCID": "8912230102342216631"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assignedToAadId": "NASTARAN NEMATOLLAHI",
+      "make": "Unknown",
+      "serialNumber": "35907642683583",
+      "assetType": "PHONE",
+      "condition": "GOOD",
+      "source": "TELUS",
+      "assetTag": "PH-NASTARAN NEMATOLLAHI",
+      "status": "ASSIGNED"
+    },
+    "specifications": {
+      "phoneNumber": "2369793540",
+      "planType": "Corporate Complete Unlimited $45",
+      "imei": "35907642683583",
+      "contractEndDate": "2027-05-21T00:00:00.000Z",
+      "carrier": "Telus"
+    },
+    "customFields": {},
+    "processingNotes": [
+      "Username \"NASTARAN NEMATOLLAHI\" requires Azure AD lookup"
+    ],
+    "validationErrors": [
+      "Required field model is missing"
+    ]
+  },
+  "expectedDatabaseRecord": {
+    "assignedToAadId": "74349ca0-89be-4a20-8aeb-43221d28e4b6",
+    "make": "Unknown",
+    "serialNumber": "35907642683583",
+    "assetType": "PHONE",
+    "condition": "GOOD",
+    "source": "TELUS",
+    "assetTag": "PH-NASTARAN NEMATOLLAHI",
+    "status": "ASSIGNED",
+    "assignedToDisplayName": "NASTARAN NEMATOLLAHI",
+    "assignedToEmail": "nastaran.nematollahi@bgcengineering.ca",
+    "assignedToDepartment": "Operations",
+    "locationName": "Calgary, AB",
+    "specifications": {
+      "phoneNumber": "2369793540",
+      "planType": "Corporate Complete Unlimited $45",
+      "imei": "35907642683583",
+      "contractEndDate": "2027-05-21T00:00:00.000Z",
+      "carrier": "Telus"
+    }
+  }
+}

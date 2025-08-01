@@ -20,30 +20,20 @@ interface ChangelogProps {
 const changelog: ChangelogEntry[] = [
   {
     version: 'v0.94',
-    date: 'July 9, 2025',
+    date: 'August 1, 2025',
     changes: {
       features: [
-        'Enterprise-Grade Asset Detail View: Complete redesign with tabbed navigation (Overview, Specifications, Activity, Custom Fields)',
-        'Compact Professional Layout: Significantly reduced font sizes, padding, and spacing for higher information density',
-        'Adaptive Specifications Display: Different layouts for phones vs computers with appropriate field groupings',
-        'Enhanced Source Badge Visibility: Larger, more prominent source indicators in both list and detail views',
-        'Improved Information Hierarchy: Critical data (asset tag, status, make/model) prominently displayed in compact header',
+        'Fully modular shared import engine – single source of truth across FE & BE',
+        'NinjaOne OS details (Architecture, Build Number) auto-mapped into specifications',
       ],
       improvements: [
-        'Asset Detail Modal Redesign: Replaced old single-page layout with modern tabbed interface using Headless UI',
-        'Space Optimization: Multi-column card layout maximizes screen real estate usage',
-        'Visual Consistency: Maintained existing design tokens while achieving 30% more compact presentation',
-        'Professional Aesthetics: Clean, modern enterprise-grade visual design with improved readability',
-        'Responsive Design: Optimized layouts that work seamlessly across different screen sizes',
-        'Dark Mode Enhancement: Full compatibility with existing dark theme throughout new components',
-        'Source Badge Integration: Better positioned and sized source indicators in asset list view',
+        'Case-insensitive CSV header matching',
+        'Backend second-pass now overwrites placeholder values and preserves unsupported keys in JSON',
+        'Updated import documentation (REFACTORED_IMPORT_ARCHITECTURE.md)',
       ],
       bugFixes: [
-        'Fixed TypeScript compatibility issues with Activity and CustomField type definitions',
-        'Resolved asset property naming conflicts (assignedToUser vs assignedToStaff)',
-        'Corrected Activity timeline property references (timestamp vs createdAt, description vs details)',
-        'Fixed CustomField property access (label vs name) for proper field display',
-        'Updated import statements to use new AssetDetailView component consistently',
+        'Fixed missing Make / Model in NinjaOne imports (System Model header now supported)',
+        'Resolved Prisma errors by sanitising unsupported top-level keys before insert',
       ],
     },
   },

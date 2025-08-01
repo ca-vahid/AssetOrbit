@@ -15,7 +15,17 @@ import { ColumnMapping, getMappingForColumn } from '../utils/ninjaMapping';
 import { getImportSource } from '../utils/importSources';
 import type { UploadCategory, UploadSource } from '../utils/importSources';
 import type { AssetFieldMeta } from '../services/api';
-import type { CustomField } from '@ats/shared';
+// CustomField will be properly imported once @ats/shared package is available
+interface CustomField {
+  id: string;
+  name: string;
+  fieldType: 'STRING' | 'NUMBER' | 'SINGLE_SELECT' | 'MULTI_SELECT' | 'DATE' | 'BOOLEAN';
+  isRequired: boolean;
+  isActive: boolean;
+  options?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ColumnMapperProps {
   csvHeaders: string[];
@@ -65,6 +75,15 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
     'ipAddresses',
     'macAddresses',
     'lastOnline',
+    // Phone-specific specifications
+    'phoneNumber',
+    'planType',
+    'imei',
+    'contractEndDate',
+    // Additional specifications that might be used
+    'carrier',
+    'simSerialNumber',
+    'networkType',
   ];
 
   const directFieldKeys = assetFields.map(f => f.key);
@@ -85,8 +104,8 @@ const ColumnMapper: React.FC<ColumnMapperProps> = ({
         if (config?.getMappings) {
           const m = await config.getMappings();
           templateMappings = m || [];
+        }
       }
-    }
 
     const findDefault = (header: string): ColumnMapping | undefined => {
         if (selectedSource === 'ninjaone') return getMappingForColumn(header);

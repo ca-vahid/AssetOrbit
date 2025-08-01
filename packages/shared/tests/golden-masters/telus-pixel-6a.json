@@ -1,0 +1,25 @@
+{
+  "assetTag": "PH-Bob Wilson",
+  "serialNumber": "456789123456789",
+  "model": "Pixel 6a",
+  "make": "Google",
+  "assetType": "PHONE",
+  "condition": "GOOD",
+  "status": "ASSIGNED",
+  "source": "TELUS",
+  "assignedToAadId": "Bob Wilson",
+  "specifications": {
+    "phoneNumber": "5553219876",
+    "planType": "Standard Plan",
+    "storage": "128GB",
+    "imei": "456789123456789",
+    "contractEndDate": "2024-03-20T00:00:00.000Z",
+    "carrier": "Telus",
+    "operatingSystem": "PIXEL 6A 128GB CHARCOAL"
+  },
+  "metadata": {
+    "processedAt": "2025-08-01T23:13:41.584Z",
+    "version": "1.0.0",
+    "source": "refactored"
+  }
+}

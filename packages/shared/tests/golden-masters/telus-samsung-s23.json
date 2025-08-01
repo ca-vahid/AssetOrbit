@@ -1,0 +1,25 @@
+{
+  "assetTag": "PH-John Doe",
+  "serialNumber": "123456789012345",
+  "model": "Galaxy S23",
+  "make": "Samsung",
+  "assetType": "PHONE",
+  "condition": "GOOD",
+  "status": "ASSIGNED",
+  "source": "TELUS",
+  "assignedToAadId": "John Doe",
+  "specifications": {
+    "phoneNumber": "5551234567",
+    "planType": "Unlimited Plus",
+    "storage": "128GB",
+    "imei": "123456789012345",
+    "contractEndDate": "2025-12-31T00:00:00.000Z",
+    "carrier": "Telus",
+    "operatingSystem": "SAMSUNG GALAXY S23 128GB BLACK"
+  },
+  "metadata": {
+    "processedAt": "2025-08-01T23:13:41.560Z",
+    "version": "1.0.0",
+    "source": "refactored"
+  }
+}

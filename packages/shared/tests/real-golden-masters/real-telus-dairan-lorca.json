@@ -1,0 +1,67 @@
+{
+  "id": "real-telus-dairan-lorca",
+  "description": "Real Telus phone for DAIRAN LORCA",
+  "inputCsvRow": {
+    "Subscriber Name": "DAIRAN LORCA",
+    "Phone Number": "2369820216",
+    "Device Name": "SAMSUNG GALAXY S23 128GB BLACK ANDROID SMARTPHONE",
+    "IMEI": "350702690740185",
+    "Contract end date": "2026-03-16",
+    "BAN": "20300776",
+    "Status": "Active",
+    "Rate Plan": "Corporate Complete Unlimited $45",
+    "Service Type": "Voice & Data",
+    "ICCID": "8912230102195278225"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assignedToAadId": "DAIRAN LORCA",
+      "model": "Galaxy S23",
+      "make": "Samsung",
+      "serialNumber": "350702690740185",
+      "assetType": "PHONE",
+      "condition": "GOOD",
+      "source": "TELUS",
+      "assetTag": "PH-DAIRAN LORCA",
+      "status": "ASSIGNED"
+    },
+    "specifications": {
+      "phoneNumber": "2369820216",
+      "planType": "Corporate Complete Unlimited $45",
+      "storage": "128GB",
+      "imei": "350702690740185",
+      "contractEndDate": "2026-03-16T00:00:00.000Z",
+      "carrier": "Telus",
+      "operatingSystem": "SAMSUNG GALAXY S23 128GB BLACK ANDROID SMARTPHONE"
+    },
+    "customFields": {},
+    "processingNotes": [
+      "Username \"DAIRAN LORCA\" requires Azure AD lookup"
+    ],
+    "validationErrors": []
+  },
+  "expectedDatabaseRecord": {
+    "assignedToAadId": "a639898d-4f14-40ee-a361-bf77c64ccbca",
+    "model": "Galaxy S23",
+    "make": "Samsung",
+    "serialNumber": "350702690740185",
+    "assetType": "PHONE",
+    "condition": "GOOD",
+    "source": "TELUS",
+    "assetTag": "PH-DAIRAN LORCA",
+    "status": "ASSIGNED",
+    "assignedToDisplayName": "DAIRAN LORCA",
+    "assignedToEmail": "dairan.lorca@bgcengineering.ca",
+    "assignedToDepartment": "Project Management",
+    "locationName": "Toronto, ON",
+    "specifications": {
+      "phoneNumber": "2369820216",
+      "planType": "Corporate Complete Unlimited $45",
+      "storage": "128GB",
+      "imei": "350702690740185",
+      "contractEndDate": "2026-03-16T00:00:00.000Z",
+      "carrier": "Telus",
+      "operatingSystem": "SAMSUNG GALAXY S23 128GB BLACK ANDROID SMARTPHONE"
+    }
+  }
+}

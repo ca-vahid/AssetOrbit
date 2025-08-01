@@ -8,6 +8,19 @@ import logger from '../utils/logger';
 import { Prisma } from '../generated/prisma';
 import { USER_ROLES, ASSET_TYPES } from '../constants/index';
 
+// Import shared transformation modules
+import { 
+  transformImportRow, 
+  getImportTransformer,
+  parseDeviceName,
+  simplifyRam,
+  aggregateVolumes,
+  roundToCommonStorageSize,
+  toISO as sharedToISO,
+  type ImportSourceType,
+  type TransformationResult
+} from '@ats/shared-transformations';
+
 // Configuration for batch processing
 const BATCH_SIZE = 25;
 
@@ -29,23 +42,8 @@ const progressStore = new Map<string, {
   statusBreakdown: Record<string, number>;
 }>();
 
-// Utility: convert various date strings (or Excel serial numbers) to ISO 8601 string accepted by Prisma
-function toISO(value: string): string | null {
-  if (!value) return null;
-
-  // Excel serial number (positive integer)
-  if (/^\d+$/.test(value)) {
-    const serial = parseInt(value, 10);
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Excel epoch (1900-01-00)
-    const iso = new Date(excelEpoch.getTime() + serial * 86400000).toISOString();
-    return iso;
-  }
-
-  // Add missing colon in timezone offset, e.g. "-0700" -> "-07:00"
-  const cleaned = value.replace(/([\+\-]\d{2})(\d{2})$/, '$1:$2');
-  const date = new Date(cleaned);
-  return isNaN(date.getTime()) ? null : date.toISOString();
-}
+// Use shared toISO function (renamed to avoid conflicts)
+const toISO = sharedToISO;
 
 // Generate a unique session ID for progress tracking
 function generateSessionId(): string {
@@ -109,186 +107,7 @@ async function detectWorkloadCategory(assetData: any, rules: any[]): Promise<str
 }
 
 // Utility: round storage size to common denominations
-function roundToCommonStorageSize(gib: number): string {
-  if (gib > 3800) return '4 TB';
-  if (gib > 1800) return '2 TB';
-  if (gib > 900) return '1 TB';
-  if (gib > 450) return '512 GB';
-  if (gib > 230) return '256 GB';
-  if (gib > 110) return '128 GB';
-  if (gib > 50) return '64 GB';
-  return `${Math.round(gib)} GB`;
-}
-
-// Utility: simplify raw memory value in GiB to nearest common size label
-function simplifyRam(value: string): string | null {
-  if (!value) return null;
-  const gib = parseFloat(value);
-  if (isNaN(gib)) return null;
-
-  if (gib > 120) return '128 GB';
-  if (gib > 90) return '96 GB';
-  if (gib > 60) return '64 GB';
-  if (gib > 30) return '32 GB';
-  if (gib > 14) return '16 GB';
-  if (gib > 6)  return '8 GB';
-  if (gib > 2)  return '4 GB';
-  return `${Math.round(gib)} GB`;
-}
-
-// Utility: aggregate NinjaOne "Volumes" column into a single rounded storage size label
-function aggregateVolumes(value: string): string | null {
-  if (!value) return null;
-  const volumeRegex = /Type: "(.*?)"(?:[^\(]*)\((\d+\.?\d*)\s*GiB\)/g;
-  let totalGib = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = volumeRegex.exec(value)) !== null) {
-    const type = match[1];
-    const capacity = parseFloat(match[2]);
-    // Skip removable disks – we only want local storage
-    if (type.toLowerCase() !== 'removable disk') {
-      totalGib += capacity;
-    }
-  }
-
-  return totalGib > 0 ? roundToCommonStorageSize(totalGib) : null;
-}
-
-// Phone device name parser for extracting make, model, and storage
-function parseDeviceName(deviceName: string): { make: string; model: string; storage?: string } {
-  if (!deviceName) {
-    return { make: 'Unknown', model: 'Unknown' };
-  }
-
-  // Strip common noise prefixes first
-  let normalized = deviceName.trim().toUpperCase();
-  if (normalized.startsWith('SWAP ')) {
-    normalized = normalized.substring(5);
-  }
-
-  // Helper to extract storage token and remove it from the string
-  const storageMatch = normalized.match(/(\d+)(?:GB|TB)/);
-  const storage = storageMatch ? `${storageMatch[1]}GB` : undefined;
-  if (storageMatch) {
-    normalized = normalized.replace(storageMatch[0], '').trim();
-  }
-
-  // Apple iPhone patterns
-  if (normalized.includes('IPHONE')) {
-    const make = 'Apple';
-    
-    // Extract iPhone model (e.g., "IPHONE 14 PRO 128GB SPACE BLACK" -> "iPhone 14 Pro")
-    const iphoneMatch = normalized.match(/IPHONE\s+(\d+(?:\s+(?:PRO|PLUS|MINI|MAX))*)/);
-    if (iphoneMatch) {
-      const modelPart = iphoneMatch[1];
-      const model = `iPhone ${modelPart.split(' ').map(word => 
-        word.charAt(0) + word.slice(1).toLowerCase()
-      ).join(' ')}`;
-      
-      // Use storage extracted at the top level
-      return { make, model, storage };
-    }
-    
-    return { make, model: 'iPhone', storage };
-  }
-  
-  // Apple iPad patterns
-  if (normalized.includes('IPAD')) {
-    const make = 'Apple';
-
-    // Remove APPLE prefix if present
-    normalized = normalized.replace(/^APPLE\s+/, '');
-
-    // Example variants: "IPAD PRO 10.5", "IPAD 6TH GEN", "IPAD AIR2"
-    let modelPart = normalized;
-
-    // Remove color / misc tokens
-    modelPart = modelPart.replace(/SPACE|SPC|GRAY|GRY|GREY|SILVER|SLV|ARTL|TL|ML|AL|TI|BLK|MID|ROSE|GOLD/g, '').trim();
-
-    // Title-case
-    const model = modelPart.split(' ').filter(Boolean).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-
-    return { make, model, storage };
-  }
-
-  // Apple Watch patterns
-  if (normalized.includes('WATCH')) {
-    const make = 'Apple';
-
-    normalized = normalized.replace(/^APPLE\s+/, '');
-
-    let modelPart = normalized;
-    modelPart = modelPart.replace(/ULTRA|SERIES|S\d|SE|TI|AL|MID|GPS|CELL|ARTL|TL|ML/g, match => {
-      // Keep main identifiers like ULTRA or S7
-      return match;
-    });
-
-    // Remove color tokens
-    modelPart = modelPart.replace(/SPACE|SPC|GRAY|GRY|GREY|BLACK|BLK|MID|BLUE|RED|PINK|ORANGE|YELLOW|WHITE|SILVER|STAINLESS/g, '').trim();
-
-    const model = modelPart.split(' ').filter(Boolean).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-
-    return { make, model, storage };
-  }
-
-  // Samsung prefixes "SS" or explicit SAMSUNG GALAXY
-  if (normalized.startsWith('SS ')) {
-    normalized = 'SAMSUNG ' + normalized.substring(3);
-  }
-
-  // Samsung Galaxy patterns
-  if (normalized.includes('SAMSUNG') && normalized.includes('GALAXY')) {
-    const make = 'Samsung';
-    
-    // Extract Galaxy model (e.g., "SAMSUNG GALAXY S25 256GB NAVY ANDROID SMARTPHONE" -> "Galaxy S25")
-    const galaxyMatch = normalized.match(/GALAXY\s+([A-Z]\d+(?:\s+(?:PLUS|ULTRA|FE))*)/);
-    if (galaxyMatch) {
-      const modelPart = galaxyMatch[1];
-      const model = `Galaxy ${modelPart.split(' ').map(word => 
-        word.charAt(0) + word.slice(1).toLowerCase()
-      ).join(' ')}`;
-      
-      // Use storage extracted at the top level
-      return { make, model, storage };
-    }
-    
-    return { make, model: 'Galaxy', storage };
-  }
-  
-  // Google Pixel patterns
-  if (normalized.includes('PIXEL')) {
-    const make = 'Google';
-    
-    const pixelMatch = normalized.match(/PIXEL\s+(\d+(?:\s+(?:PRO|XL|A))*)/);
-    if (pixelMatch) {
-      const modelPart = pixelMatch[1];
-      const model = `Pixel ${modelPart.split(' ').map(word => 
-        word.charAt(0) + word.slice(1).toLowerCase()
-      ).join(' ')}`;
-      
-      // Use storage extracted at the top level
-      return { make, model, storage };
-    }
-    
-    return { make, model: 'Pixel', storage };
-  }
-  
-  // Generic fallback - try to extract make from first word
-  const words = normalized.split(' ');
-  if (words.length > 0) {
-    const make = words[0].charAt(0) + words[0].slice(1).toLowerCase();
-    const model = deviceName.trim(); // Keep original casing for model
-    
-    // storage already extracted earlier
- 
-    const result = { make, model, storage };
-    return result;
-  }
-
-  const fallbackResult = { make: 'Unknown', model: deviceName.trim() };
-  return fallbackResult;
-}
+// All transformation functions are now imported from @ats/shared-transformations
 
 // Process a batch of assets in parallel
 async function processAssetBatch(
@@ -364,86 +183,111 @@ async function processAssetBatch(
         'PRINTER': ASSET_TYPES.OTHER
       };
 
-      // Apply column mappings
-      for (const mapping of columnMappings) {
-        const csvValue = csvRow[mapping.ninjaColumn];
-        
-        console.log(`🔧 Processing mapping: ${mapping.ninjaColumn} → ${mapping.targetField}`);
-        console.log(`   CSV value: "${csvValue}"`);
-        console.log(`   Processor: ${mapping.processor}`);
-        
-        // Handle required field validation – allow graceful fallback for certain cases
-        if (!csvValue && mapping.isRequired) {
-          // Relax requirement for `model` so that phone imports without Device Name still proceed
-          if (mapping.targetField === 'model') {
-            // Skip the missing value – will fallback to "Unknown" later
+      // Use shared transformation modules based on source type
+      let transformationResult: TransformationResult;
+      
+      try {
+        // Determine source type for shared transformation modules
+        let sourceType: ImportSourceType;
+        if (source === 'TELUS') {
+          sourceType = 'telus';
+        } else if (source === 'NINJAONE') {
+          sourceType = 'ninjaone';  
+        } else if (source === 'EXCEL' || source === 'BGC_TEMPLATE') {
+          sourceType = 'bgc-template';
+        } else {
+          // Fallback: try to determine from column mappings
+          const hasPhoneColumns = columnMappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI');
+          const hasNinjaColumns = columnMappings.some(m => m.ninjaColumn === 'Role' || m.ninjaColumn === 'Volumes');
+          
+          if (hasPhoneColumns) {
+            sourceType = 'telus';
+          } else if (hasNinjaColumns) {
+            sourceType = 'ninjaone';
           } else {
-            throw new Error(`Required field ${mapping.targetField} is missing`);
+            sourceType = 'bgc-template';
           }
         }
 
-        if (csvValue) {
-          // Pre-process certain fields that require transformation
-          let transformedValue: any = csvValue;
+        console.log(`🔧 Using shared transformation for source type: ${sourceType}`);
+        
+        // Transform the row using shared modules
+        transformationResult = transformImportRow(sourceType, csvRow);
+        
+        console.log(`✅ Transformation result:`, {
+          directFields: Object.keys(transformationResult.directFields),
+          specifications: Object.keys(transformationResult.specifications),
+          processingNotes: transformationResult.processingNotes.length,
+          validationErrors: transformationResult.validationErrors.length
+        });
 
-          switch (mapping.targetField) {
-            // Only transform asset type when the source column is NinjaOne "Role"
-            case 'assetType':
-              if (mapping.ninjaColumn === 'Role') {
-                const upper = String(csvValue).toUpperCase().trim();
-                transformedValue = roleToAssetTypeMap[upper] || 'OTHER';
-              } else if (mapping.ninjaColumn === 'BAN') {
-                // Telus phone imports map BAN → assetType = PHONE (constant)
-                console.log(`   → Setting assetType to PHONE for Telus import`);
-                transformedValue = ASSET_TYPES.PHONE;
-              }
-              break;
-            case 'ram':
-              transformedValue = simplifyRam(csvValue);
-              break;
-            case 'storage':
-              // For Telus imports, use the frontend processor if available
-              if (mapping.processor) {
-                console.log(`   Using frontend processor for storage`);
-                // Note: Frontend processor is a string, not a function
-                // We'll need to handle this differently
-                transformedValue = csvValue; // Keep original value for now
-              } else {
-                transformedValue = aggregateVolumes(csvValue);
-              }
-              break;
-            case 'lastOnline':
-              transformedValue = toISO(csvValue);
-              break;
-            default:
-              // For direct date fields handled later via dateFields array
-              transformedValue = csvValue;
+        // Apply transformation results to assetData
+        Object.assign(assetData, transformationResult.directFields);
+        assetData.specifications = { ...assetData.specifications, ...transformationResult.specifications };
+
+        // Handle custom fields if any
+        if (transformationResult.customFields && Object.keys(transformationResult.customFields).length > 0) {
+          assetData.customFields = { ...assetData.customFields, ...transformationResult.customFields };
+        }
+
+        // 🐛 DEBUG: Log what's in assetData before save
+        console.log(`🔍 AssetData before save:`, {
+          directFields: Object.keys(assetData).filter(k => !['specifications', 'customFields'].includes(k)),
+          specifications: assetData.specifications ? Object.keys(assetData.specifications) : [],
+          hasRamInDirect: 'ram' in assetData,
+          hasOperatingSystemInDirect: 'operatingSystem' in assetData
+        });
+
+        // -------------------------------------------------------------------
+        // SECOND-PASS: Apply any UI-provided column mappings that the shared
+        // transformer did NOT cover (e.g. custom column names like "System Model").
+        // We only set a value if that field isn’t already populated.
+        // -------------------------------------------------------------------
+        for (const mapping of columnMappings) {
+          const csvValue = csvRow[mapping.ninjaColumn];
+          if (!csvValue) continue; // nothing to map
+
+          // Skip if already populated either in direct field or specifications
+          const existingDirectVal = (assetData as any)[mapping.targetField];
+          const placeholderValues = ['unknown', ''];
+          const alreadySetDirect = existingDirectVal !== undefined && !placeholderValues.includes(String(existingDirectVal).toLowerCase());
+          const alreadySetSpec   = assetData.specifications && (mapping.targetField in assetData.specifications);
+          if (alreadySetDirect || alreadySetSpec) continue;
+
+          let transformed: any = csvValue;
+          // Apply simple processors for known fields
+          if (mapping.targetField === 'ram') {
+            transformed = simplifyRam(csvValue);
+          } else if (mapping.targetField === 'storage') {
+            transformed = aggregateVolumes(csvValue);
           }
 
-          // Handle different field types
           if (mapping.targetField.startsWith('cf_')) {
-            // Custom field
-            const customFieldId = mapping.targetField.substring(3);
-            assetData.customFields[customFieldId] = transformedValue;
+            const cfId = mapping.targetField.substring(3);
+            assetData.customFields[cfId] = transformed;
           } else if (directAssetFields.includes(mapping.targetField)) {
-            // Direct Asset model field
-            let val: any = transformedValue;
-            if (dateFields.includes(mapping.targetField)) {
-              val = toISO(String(transformedValue));
-              if (!val) {
-                continue; // Skip invalid date but keep processing
-              }
-            }
-            assetData[mapping.targetField] = val;
+            assetData[mapping.targetField] = transformed;
           } else {
-            // Everything else goes into specifications
-            if (!assetData.specifications) {
-              assetData.specifications = {};
-            }
-            console.log(`   → Adding to specifications: ${mapping.targetField} = "${transformedValue}"`);
-            assetData.specifications[mapping.targetField] = transformedValue;
+            if (!assetData.specifications) assetData.specifications = {};
+            assetData.specifications[mapping.targetField] = transformed;
           }
         }
+
+        // Log any processing notes or validation errors
+        if (transformationResult.processingNotes.length > 0) {
+          console.log(`📝 Processing notes:`, transformationResult.processingNotes);
+        }
+        if (transformationResult.validationErrors.length > 0) {
+          console.log(`⚠️ Validation errors:`, transformationResult.validationErrors);
+        }
+
+      } catch (transformError) {
+        console.error(`❌ Shared transformation failed:`, transformError);
+        
+        // For critical failures, rethrow the error instead of falling back
+        // This ensures we don't accidentally put fields in wrong places
+        const errorMessage = transformError instanceof Error ? transformError.message : String(transformError);
+        throw new Error(`Transformation failed: ${errorMessage}`);
       }
 
       // If this is a phone import and serialNumber is empty, fallback to specifications.imei
@@ -686,6 +530,15 @@ async function processAssetBatch(
             delete assetDataWithoutCustomFields.locationId;
           }
 
+          // -------------------------------------------------------------------
+          // 🔒 SANITIZE: Strip out any properties that are NOT actual columns in
+          // the Prisma Asset model (e.g., `ram`, `operatingSystem`). These should
+          // live inside the JSON `specifications` column instead. Keeping them as
+          // top-level keys causes Prisma validation errors.
+          // -------------------------------------------------------------------
+          delete (assetDataWithoutCustomFields as any).ram;
+          delete (assetDataWithoutCustomFields as any).operatingSystem;
+
           // Update existing asset
           const updatedAsset = await prisma.asset.update({
             where: { id: existingAsset.id },
@@ -768,6 +621,17 @@ async function processAssetBatch(
       if (assetDataWithoutCustomFields.locationId === null || assetDataWithoutCustomFields.locationId === undefined) {
         delete assetDataWithoutCustomFields.locationId;
       }
+
+      // -------------------------------------------------------------------
+      // 🔒 SANITIZE: Ensure unsupported top-level fields are moved into the
+      // `specifications` JSON blob (rather than simply discarded).
+      // -------------------------------------------------------------------
+      if ((assetDataWithoutCustomFields as any).operatingSystem) {
+        if (!assetData.specifications) assetData.specifications = {};
+        assetData.specifications.operatingSystem = (assetDataWithoutCustomFields as any).operatingSystem;
+      }
+      delete (assetDataWithoutCustomFields as any).ram;
+      delete (assetDataWithoutCustomFields as any).operatingSystem;
 
       // Create new asset
       const newAsset = await prisma.asset.create({

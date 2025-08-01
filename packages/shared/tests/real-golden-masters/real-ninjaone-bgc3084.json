@@ -1,0 +1,53 @@
+{
+  "id": "real-ninjaone-bgc3084",
+  "description": "Real NinjaOne device for BGC3084",
+  "inputCsvRow": {
+    "Display Name": "BGC3084",
+    "Serial Number": "4TTYSQ3",
+    "OS Name": "Windows 11 Enterprise Edition",
+    "Role": "Windows Workstation",
+    "RAM": "15.44",
+    "Volumes": "\"Name: \"\"C:\"\" / Type: \"\"Local Disk\"\" / Capacity: \"\"1023189970944 (952.9 GiB)\"\" / Free: \"\"711443505152 (662.6 GiB)\"\" / Usage %: \"\"30%\"\"\"",
+    "Manufacturer": "Dell Inc.",
+    "Model": "Latitude 7430",
+    "Processor": "12th Gen Intel(R) Core(TM) i7-1265U",
+    "System Type": "64-bit",
+    "Location": "Vancouver",
+    "Last Seen": "2025-07-02T15:59:07.000-0700"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assetTag": "BGC3084",
+      "assetType": "LAPTOP",
+      "serialNumber": "4TTYSQ3",
+      "make": "Dell Inc.",
+      "model": "Latitude 7430",
+      "condition": "GOOD",
+      "status": "AVAILABLE"
+    },
+    "specifications": {
+      "ram": "16 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "12th Gen Intel(R) Core(TM) i7-1265U",
+      "storage": "1 TB"
+    },
+    "customFields": {},
+    "processingNotes": [],
+    "validationErrors": []
+  },
+  "expectedDatabaseRecord": {
+    "assetTag": "BGC3084",
+    "assetType": "LAPTOP",
+    "serialNumber": "4TTYSQ3",
+    "make": "Dell Inc.",
+    "model": "Latitude 7430",
+    "condition": "GOOD",
+    "status": "AVAILABLE",
+    "specifications": {
+      "ram": "16 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "12th Gen Intel(R) Core(TM) i7-1265U",
+      "storage": "1 TB"
+    }
+  }
+}

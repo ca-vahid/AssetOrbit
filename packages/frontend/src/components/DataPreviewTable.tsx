@@ -10,7 +10,8 @@ import {
   User,
   X
 } from 'lucide-react';
-import { ColumnMapping, processNinjaRow, validateRequiredFields } from '../utils/ninjaMapping';
+import { ColumnMapping, validateRequiredFields } from '../utils/ninjaMapping';
+import { transformImportRow, type ImportSourceType, type TransformationResult } from '@ats/shared-transformations';
 
 interface DataPreviewTableProps {
   csvData: {
@@ -63,13 +64,45 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
     let initialProcessingNotes: string[] = [];
 
     if (sourceType === 'ninja') {
-      const ninjaResult = processNinjaRow(row);
-      directFields = ninjaResult.directFields;
-      specifications = ninjaResult.specifications;
-      initialProcessingNotes = ninjaResult.processingNotes;
-      validationErrors = validateRequiredFields(directFields);
+      try {
+        // Use shared transformation modules for NinjaOne
+        const transformationResult: TransformationResult = transformImportRow('ninjaone', row);
+        directFields = transformationResult.directFields;
+        specifications = transformationResult.specifications;
+        initialProcessingNotes = transformationResult.processingNotes;
+        validationErrors = transformationResult.validationErrors.length > 0 
+          ? transformationResult.validationErrors 
+          : validateRequiredFields(directFields);
+      } catch (error) {
+        console.error('Shared transformation failed, using fallback:', error);
+        validationErrors = ['Transformation failed'];
+        directFields = {};
+        specifications = {};
+        initialProcessingNotes = ['Error processing row'];
+      }
+          } else {
+        try {
+          // Use shared transformation modules for other sources
+          let importSourceType: ImportSourceType;
+          
+          // Try to determine source type from mappings or source type
+          if (sourceType === 'bgc' || mappings.some(m => m.ninjaColumn === 'Asset Tag' || m.ninjaColumn === 'Brand')) {
+            importSourceType = 'bgc-template';
+          } else if (mappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI')) {
+            importSourceType = 'telus';
     } else {
-      // BGC or other sources – build directFields using provided mappings only for display
+            importSourceType = 'bgc-template'; // fallback
+          }
+          
+          const transformationResult: TransformationResult = transformImportRow(importSourceType, row);
+          directFields = transformationResult.directFields;
+          specifications = transformationResult.specifications;
+          initialProcessingNotes = transformationResult.processingNotes;
+          validationErrors = transformationResult.validationErrors;
+        } catch (error) {
+          console.error('Shared transformation failed for BGC/other, using legacy mappings:', error);
+          
+          // Fallback to legacy mapping approach
       mappings.forEach(m => {
         if (m.targetType === 'direct') {
           let val: any = row[m.ninjaColumn];
@@ -85,7 +118,8 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
           specifications[m.targetField] = val;
         }
       });
-      // No validation errors for BGC (handled earlier)
+          validationErrors = [];
+        }
     }
 
     let assignedToDisplayName: string | undefined = undefined;

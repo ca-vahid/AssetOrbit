@@ -1,5 +1,6 @@
 import { FileSpreadsheet, FileText, Zap, Shield, Cloud, Building2 } from 'lucide-react';
 import { ColumnMapping } from './ninjaMapping';
+import { getImportMappings } from '@ats/shared-transformations';
 
 export type UploadCategory = 'endpoints' | 'servers' | 'phones';
 export type UploadSource =
@@ -180,124 +181,15 @@ export const getBGCTemplateMappings = (): ColumnMapping[] => {
   ];
 };
 
-// Telus Mappings (extract phone details)
+// Telus Mappings - Import from shared transformation modules
+
 export const getTelusMappings = (): ColumnMapping[] => {
-  const parseDeviceName = (value: string) => {
-    if (!value) return { make: '', model: '', storage: '' };
-    // Remove SWAP prefix and normalize
-    let upper = value.toUpperCase().trim();
-    if (upper.startsWith('SWAP ')) upper = upper.substring(5);
+  // Use the shared transformation mappings from our refactored modules
+  return getImportMappings('telus');
+};
 
-    // Extract storage (e.g., 128GB)
-    const capMatch = upper.match(/(\d+)\s*GB/);
-    const storage = capMatch ? `${capMatch[1]}GB` : '';
-    if (capMatch) upper = upper.replace(capMatch[0], '');
-
-    let make = 'Other';
-    let remainder = upper;
-
-    if (upper.startsWith('IPHONE') || upper.startsWith('IPAD') || upper.startsWith('APPLE IPAD') || upper.startsWith('APPLE WATCH') || upper.startsWith('WATCH')) {
-      make = 'Apple';
-    } else if (upper.startsWith('APPLE')) {
-      make = 'Apple';
-      remainder = remainder.replace(/^APPLE\s+/, '');
-    } else if (upper.startsWith('SAMSUNG')) {
-      make = 'Samsung';
-      remainder = remainder.replace(/^SAMSUNG\s+/, '');
-    }
-
-    // Remove make tokens
-    remainder = remainder
-      .replace(/^IPHONE\s+/, '')
-      .replace(/^IPAD\s+/, '')
-      .replace(/^WATCH\s+/, '')
-      .replace(/^GALAXY\s+/, '')
-      .replace(/ANDROID SMARTPHONE/i, '')
-      .replace(/SMARTPHONE/i, '')
-      .replace(/ARTL/i, '')
-      .replace(/TTNM/i, '')
-      .replace(/SPACE|SPC|GRAY|GRY|GREY|BLACK|BLK|MID|SILVER|SLV|TI|AL|ARTL|TL|ML|GPS|CELL/g, '')
-      .trim();
-
-    // Remove capacity token from model string
-    if (capMatch) {
-      remainder = remainder.replace(capMatch[0], '').trim();
-    }
-
-    // Title-case model for readability
-    const model = remainder
-      .toLowerCase()
-      .split(' ')
-      .filter(Boolean)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-
-    return { make, model, storage };
-  };
-
-  return [
-    {
-      ninjaColumn: 'Subscriber Name',
-      targetField: 'assignedToAadId',
-      targetType: 'direct',
-      description: 'Subscriber name (attempt Azure AD resolution)',
-      processor: (v: string) => v?.trim() || null,
-    },
-    {
-      ninjaColumn: 'Phone Number',
-      targetField: 'phoneNumber',
-      targetType: 'specifications',
-      description: 'Phone number',
-      processor: (v: string) => v?.replace(/[^\d]+/g, ''),
-    },
-    {
-      ninjaColumn: 'Rate Plan',
-      targetField: 'planType',
-      targetType: 'specifications',
-      description: 'Plan type',
-    },
-    {
-      ninjaColumn: 'Device Name',
-      targetField: 'model',
-      targetType: 'direct',
-      description: 'Device model (make will be auto-extracted)',
-      processor: (v: string) => parseDeviceName(v).model,
-      required: true,
-    },
-    {
-      ninjaColumn: 'Device Name',
-      targetField: 'storage',
-      targetType: 'specifications',
-      description: 'Storage capacity extracted from device name',
-      processor: (v: string) => parseDeviceName(v).storage,
-    },
-    {
-      ninjaColumn: 'IMEI',
-      targetField: 'imei',
-      targetType: 'specifications',
-      description: 'IMEI number',
-      required: true,
-    },
-    {
-      ninjaColumn: 'Contract end date',
-      targetField: 'contractEndDate',
-      targetType: 'specifications',
-      description: 'Contract end date',
-      processor: (v: string) => {
-        if (!v) return null;
-        const date = new Date(v);
-        return isNaN(date.getTime()) ? null : date.toISOString();
-      },
-    },
-    // Use Billing Account Number (BAN) column as a dummy to set assetType → PHONE
-    {
-      ninjaColumn: 'BAN',
-      targetField: 'assetType',
-      targetType: 'direct',
-      required: true,
-      description: 'Set assetType to PHONE',
-      processor: () => 'PHONE',
-    },
+// OLD FALLBACK MAPPINGS - keeping for reference but not used
+const OLD_TELUS_MAPPINGS = [
     // Ignore columns not needed
     {
       ninjaColumn: 'Status',
@@ -395,8 +287,7 @@ export const getTelusMappings = (): ColumnMapping[] => {
       targetType: 'ignore',
       description: 'Days left (ignored)',
     },
-  ];
-};
+];
 
 // Future Intune mappings (placeholder)
 export const getIntuneMappings = (): ColumnMapping[] => {

@@ -1,0 +1,53 @@
+{
+  "id": "real-ninjaone-bgc3288",
+  "description": "Real NinjaOne device for BGC3288",
+  "inputCsvRow": {
+    "Display Name": "BGC3288",
+    "Serial Number": "18TNGY3",
+    "OS Name": "Windows 11 Enterprise Edition",
+    "Role": "Windows Workstation",
+    "RAM": "63.68",
+    "Volumes": "\"Name: \"\"C:\"\" / Type: \"\"Local Disk\"\" / Capacity: \"\"1021692604416 (951.5 GiB)\"\" / Free: \"\"456230887424 (424.9 GiB)\"\" / Usage %: \"\"55%\"\"\"",
+    "Manufacturer": "Dell Inc.",
+    "Model": "XPS 15 9530",
+    "Processor": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "System Type": "64-bit",
+    "Location": "Vancouver",
+    "Last Seen": "2025-07-04T17:25:24.000-0700"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assetTag": "BGC3288",
+      "assetType": "LAPTOP",
+      "serialNumber": "18TNGY3",
+      "make": "Dell Inc.",
+      "model": "XPS 15 9530",
+      "condition": "GOOD",
+      "status": "AVAILABLE"
+    },
+    "specifications": {
+      "ram": "64 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "13th Gen Intel(R) Core(TM) i9-13900H",
+      "storage": "1 TB"
+    },
+    "customFields": {},
+    "processingNotes": [],
+    "validationErrors": []
+  },
+  "expectedDatabaseRecord": {
+    "assetTag": "BGC3288",
+    "assetType": "LAPTOP",
+    "serialNumber": "18TNGY3",
+    "make": "Dell Inc.",
+    "model": "XPS 15 9530",
+    "condition": "GOOD",
+    "status": "AVAILABLE",
+    "specifications": {
+      "ram": "64 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "13th Gen Intel(R) Core(TM) i9-13900H",
+      "storage": "1 TB"
+    }
+  }
+}

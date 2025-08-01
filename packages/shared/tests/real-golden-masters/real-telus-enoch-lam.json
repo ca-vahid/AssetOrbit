@@ -1,0 +1,67 @@
+{
+  "id": "real-telus-enoch-lam",
+  "description": "Real Telus phone for ENOCH LAM",
+  "inputCsvRow": {
+    "Subscriber Name": "ENOCH LAM",
+    "Phone Number": "2368683138",
+    "Device Name": "SAMSUNG GALAXY S23 128GB GREEN ANDROID SMARTPHONE",
+    "IMEI": "350702691127184",
+    "Contract end date": "2026-10-17",
+    "BAN": "20300776",
+    "Status": "Active",
+    "Rate Plan": "Corporate Complete Unlimited $45",
+    "Service Type": "Voice & Data",
+    "ICCID": "8912230102198979837"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assignedToAadId": "ENOCH LAM",
+      "model": "Galaxy S23",
+      "make": "Samsung",
+      "serialNumber": "350702691127184",
+      "assetType": "PHONE",
+      "condition": "GOOD",
+      "source": "TELUS",
+      "assetTag": "PH-ENOCH LAM",
+      "status": "ASSIGNED"
+    },
+    "specifications": {
+      "phoneNumber": "2368683138",
+      "planType": "Corporate Complete Unlimited $45",
+      "storage": "128GB",
+      "imei": "350702691127184",
+      "contractEndDate": "2026-10-17T00:00:00.000Z",
+      "carrier": "Telus",
+      "operatingSystem": "SAMSUNG GALAXY S23 128GB GREEN ANDROID SMARTPHONE"
+    },
+    "customFields": {},
+    "processingNotes": [
+      "Username \"ENOCH LAM\" requires Azure AD lookup"
+    ],
+    "validationErrors": []
+  },
+  "expectedDatabaseRecord": {
+    "assignedToAadId": "edb31c14-25d9-43dd-8b6c-a7ede090a6d8",
+    "model": "Galaxy S23",
+    "make": "Samsung",
+    "serialNumber": "350702691127184",
+    "assetType": "PHONE",
+    "condition": "GOOD",
+    "source": "TELUS",
+    "assetTag": "PH-ENOCH LAM",
+    "status": "ASSIGNED",
+    "assignedToDisplayName": "ENOCH LAM",
+    "assignedToEmail": "enoch.lam@bgcengineering.ca",
+    "assignedToDepartment": "Engineering",
+    "locationName": "Vancouver, BC",
+    "specifications": {
+      "phoneNumber": "2368683138",
+      "planType": "Corporate Complete Unlimited $45",
+      "storage": "128GB",
+      "imei": "350702691127184",
+      "contractEndDate": "2026-10-17T00:00:00.000Z",
+      "carrier": "Telus",
+      "operatingSystem": "SAMSUNG GALAXY S23 128GB GREEN ANDROID SMARTPHONE"
+    }
+  }
+}

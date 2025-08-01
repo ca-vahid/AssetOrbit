@@ -1,0 +1,53 @@
+{
+  "id": "real-ninjaone-bgc3844",
+  "description": "Real NinjaOne device for BGC3844",
+  "inputCsvRow": {
+    "Display Name": "BGC3844",
+    "Serial Number": "9S8TFW3",
+    "OS Name": "Windows 11 Enterprise Edition",
+    "Role": "Windows Workstation",
+    "RAM": "31.38",
+    "Volumes": "\"Name: \"\"C:\"\" / Type: \"\"Local Disk\"\" / Capacity: \"\"1020690165760 (950.6 GiB)\"\" / Free: \"\"789476646912 (735.3 GiB)\"\" / Usage %: \"\"23%\"\"\"",
+    "Manufacturer": "Dell Inc.",
+    "Model": "Latitude 7440",
+    "Processor": "13th Gen Intel(R) Core(TM) i7-1365U",
+    "System Type": "64-bit",
+    "Location": "Vancouver",
+    "Last Seen": "2025-07-05T03:04:51.000-0700"
+  },
+  "expectedTransformationResult": {
+    "directFields": {
+      "assetTag": "BGC3844",
+      "assetType": "LAPTOP",
+      "serialNumber": "9S8TFW3",
+      "make": "Dell Inc.",
+      "model": "Latitude 7440",
+      "condition": "GOOD",
+      "status": "AVAILABLE"
+    },
+    "specifications": {
+      "ram": "32 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "13th Gen Intel(R) Core(TM) i7-1365U",
+      "storage": "1 TB"
+    },
+    "customFields": {},
+    "processingNotes": [],
+    "validationErrors": []
+  },
+  "expectedDatabaseRecord": {
+    "assetTag": "BGC3844",
+    "assetType": "LAPTOP",
+    "serialNumber": "9S8TFW3",
+    "make": "Dell Inc.",
+    "model": "Latitude 7440",
+    "condition": "GOOD",
+    "status": "AVAILABLE",
+    "specifications": {
+      "ram": "32 GB",
+      "operatingSystem": "Windows 11 Enterprise Edition",
+      "processor": "13th Gen Intel(R) Core(TM) i7-1365U",
+      "storage": "1 TB"
+    }
+  }
+}

@@ -10,6 +10,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\""
   },
   "dependencies": {
+    "@ats/shared-transformations": "file:../shared",
     "@azure/msal-browser": "^3.28.1",
     "@azure/msal-react": "^2.2.0",
     "@headlessui/react": "^2.2.4",

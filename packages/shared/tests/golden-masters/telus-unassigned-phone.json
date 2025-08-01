@@ -1,0 +1,25 @@
+{
+  "assetTag": "PH-021585-NI6",
+  "serialNumber": "789123456789123",
+  "model": "Galaxy A54",
+  "make": "Samsung",
+  "assetType": "PHONE",
+  "condition": "GOOD",
+  "status": "AVAILABLE",
+  "source": "TELUS",
+  "assignedToAadId": null,
+  "specifications": {
+    "phoneNumber": "5550000000",
+    "planType": "Data Only",
+    "storage": "64GB",
+    "imei": "789123456789123",
+    "contractEndDate": "2025-01-15T00:00:00.000Z",
+    "carrier": "Telus",
+    "operatingSystem": "SAMSUNG GALAXY A54 64GB WHITE"
+  },
+  "metadata": {
+    "processedAt": "2025-08-01T23:13:41.585Z",
+    "version": "1.0.0",
+    "source": "refactored"
+  }
+}
