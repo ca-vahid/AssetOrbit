@@ -54,18 +54,19 @@ jobs:
           cp package.json deploy/
           cp -r prisma deploy/
           
-          # Copy the built shared package
-          mkdir -p deploy/node_modules/@ats
-          cp -r ../shared deploy/node_modules/@ats/shared-transformations
+          # Pack the built shared package and install it properly
+          cd ../shared
+          npm pack
+          cd ../backend/deploy
+          
+          # Install the packed shared package (npm pack creates ats-shared-transformations-1.0.0.tgz)
+          npm install ../../shared/ats-shared-transformations-1.0.0.tgz --ignore-scripts
           
           # Update package.json start script to point to correct location
-          cd deploy
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.scripts.start = 'node server.js';
-            // Remove the file: reference for shared package as it's now in node_modules
-            delete pkg.dependencies['@ats/shared-transformations'];
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           
