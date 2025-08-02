@@ -231,7 +231,7 @@ router.get('/staff-with-assets', requireRole([USER_ROLES.ADMIN]), async (req: Re
     if (search || department || (userType && userType !== 'all')) {
       try {
         // Import graphService instance to get staff details
-        const { graphService } = await import('../services/graphService');
+        const { graphService } = await import('../services/graphService.js');
         
         // Get staff details for all staff members to apply filters
         const staffDetailsPromises = staffAadIds.map(async (aadId) => {
