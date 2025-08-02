@@ -88,7 +88,7 @@ async function startServer() {
     await connectDatabase();
     
     // Start Express server
-    const server = app.listen(port, '0.0.0.0', () => {
+    const server = app.listen(port, () => {
       logger.info(`Backend running on http://localhost:${port}`);
     });
 

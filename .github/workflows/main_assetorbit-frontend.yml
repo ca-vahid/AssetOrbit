@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - 'packages/frontend/**'
-      - 'packages/shared/**'
-      - 'package.json'
       - '.github/workflows/main_assetorbit-frontend.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
@@ -33,13 +31,8 @@ jobs:
           cache: npm
           # Remove cache-dependency-path since we have no lock file
 
-      # 3. Install dependencies & build shared package
-      - name: Install dependencies & build shared package
-        run: |
-          npm ci --ignore-scripts
-          npm run build --workspace=@ats/shared-transformations
-
-      - name: Build front-end
+      # 3. Install dependencies & build Vite app
+      - name: Install and build front-end
         working-directory: packages/frontend
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
@@ -47,7 +40,9 @@ jobs:
           VITE_AZURE_AD_TENANT_ID: ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
           VITE_AZURE_AD_AUTHORITY: ${{ secrets.VITE_AZURE_AD_AUTHORITY }}
           VITE_AZURE_AD_SCOPE: ${{ secrets.VITE_AZURE_AD_SCOPE }}
-        run: npm run build
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm run build
 
       # 4. Deploy to Azure Static Web Apps
       - name: Deploy to Azure Static Web Apps
