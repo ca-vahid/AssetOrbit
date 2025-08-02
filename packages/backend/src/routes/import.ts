@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import { graphService } from '../services/graphService';
-import { matchLocations } from '../utils/locationMatcher';
-import prisma from '../services/database';
-import logger from '../utils/logger';
-import { Prisma } from '../generated/prisma';
-import { USER_ROLES, ASSET_TYPES } from '../constants/index';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import { graphService } from '../services/graphService.js';
+import { matchLocations } from '../utils/locationMatcher.js';
+import prisma from '../services/database.js';
+import logger from '../utils/logger.js';
+import { Prisma } from '../generated/prisma/index.js';
+import { USER_ROLES, ASSET_TYPES } from '../constants/index.js';
 
 // Import shared transformation modules
 import { 
@@ -486,7 +486,7 @@ async function processAssetBatch(
         if (detectedCategoryId) {
           assetData.workloadCategoryId = detectedCategoryId;
           // Find the rule that matched for statistics
-          const matchedRule = workloadCategoryRules.find(rule => {
+          const matchedRule = workloadCategoryRules.find((rule: any) => {
             if (!rule.isActive) return false;
             const fieldValue = getNestedValue(assetData, rule.sourceField);
             return matchRule(fieldValue, rule);
