@@ -64,7 +64,6 @@ jobs:
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.scripts.start = 'node server.js';
-            pkg.type = 'commonjs';
             // Remove the file: reference for shared package as it's now in node_modules
             delete pkg.dependencies['@ats/shared-transformations'];
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
