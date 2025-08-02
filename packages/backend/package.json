@@ -3,7 +3,7 @@
   "version": "0.94.0",
   "private": true,
   "main": "dist/server.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
     "build": "tsc -p tsconfig.json",
