@@ -10,10 +10,12 @@ export * from './importTransformations.js';
 
 // Source-specific transformation modules (selective exports to avoid conflicts)
 export { 
-  transformNinjaOneRow, 
+  transformNinjaOneRow,
+  transformNinjaOneServerRow,
   getNinjaOneMapping, 
   validateNinjaOneData,
   NINJA_ONE_MAPPINGS,
+  NINJA_ONE_SERVER_MAPPINGS,
   filterNinjaOneEndpoints,
   filterNinjaOneServers
 } from './importSources/ninjaOneTransforms.js';

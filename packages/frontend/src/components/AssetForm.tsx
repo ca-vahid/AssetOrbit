@@ -459,6 +459,18 @@ const AssetForm: React.FC<AssetFormProps> = ({
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const { data: customFields, isLoading: customFieldsLoading } = useCustomFields();
   
+  // Helper function to format date for HTML date inputs (YYYY-MM-DD)
+  const formatDateForInput = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    } catch {
+      return '';
+    }
+  };
+  
   // Fetch dropdown data
   const { data: categories } = useQuery({
     queryKey: ['workload-categories'],
@@ -523,13 +535,43 @@ const AssetForm: React.FC<AssetFormProps> = ({
       console.log('Specifications:', specs);
       console.log('Storage in specs:', specs.storage);
       
+      // Format dates in specifications for HTML date inputs
+      const formattedSpecs = { ...specs };
+      Object.keys(formattedSpecs).forEach(key => {
+        if (key.toLowerCase().includes('date') && formattedSpecs[key]) {
+          formattedSpecs[key] = formatDateForInput(formattedSpecs[key]);
+        }
+      });
+
+      // Format main date fields
+      const formattedInitialData = { ...initialData };
+      if (formattedInitialData.purchaseDate) {
+        formattedInitialData.purchaseDate = formatDateForInput(formattedInitialData.purchaseDate);
+      }
+      if (formattedInitialData.warrantyEndDate) {
+        formattedInitialData.warrantyEndDate = formatDateForInput(formattedInitialData.warrantyEndDate);
+      }
+      
+      // Format custom field dates
+      if (formattedInitialData.customFields) {
+        const formattedCustomFields = { ...formattedInitialData.customFields };
+        Object.keys(formattedCustomFields).forEach(fieldId => {
+          const field = customFields?.find(f => f.id === fieldId);
+          if (field?.fieldType === 'DATE' && formattedCustomFields[fieldId]) {
+            // Map to custom field name pattern
+            const fieldName = `custom_${fieldId}`;
+            formattedSpecs[fieldName] = formatDateForInput(formattedCustomFields[fieldId]);
+          }
+        });
+      }
+
       const formData = {
         assetType: 'LAPTOP',
         status: 'AVAILABLE',
         condition: 'GOOD',
-        ...initialData,
-        // Add all possible specification fields
-        ...specs,
+        ...formattedInitialData,
+        // Add all possible specification fields (with formatted dates)
+        ...formattedSpecs,
       };
       
       console.log('Final form data:', formData);
@@ -771,29 +813,59 @@ const AssetForm: React.FC<AssetFormProps> = ({
         </div>
       );
     } else {
-      // Text input field
-      return (
-        <div key={field.key}>
-          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <div className="relative">
-            <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
-              <IconComponent className="w-3.5 h-3.5" />
+      // Check if this is a date field
+      const isDateField = fieldName.toLowerCase().includes('date') || fieldName.toLowerCase().includes('enddate');
+      
+      if (isDateField) {
+        // Date input field
+        return (
+          <div key={field.key}>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="relative">
+              <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
+                <IconComponent className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="date"
+                {...register(fieldName, { 
+                  required: field.required ? `${field.label} is required` : false,
+                  setValueAs: (value) => value || null
+                })}
+                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+              />
             </div>
-            <input
-              {...register(fieldName, { 
-                required: field.required ? `${field.label} is required` : false 
-              })}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-              placeholder={`Enter ${field.label.toLowerCase()}`}
-            />
+            {errors[fieldName] && (
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
+            )}
           </div>
-          {errors[fieldName] && (
-            <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
-          )}
-        </div>
-      );
+        );
+      } else {
+        // Text input field
+        return (
+          <div key={field.key}>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="relative">
+              <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400">
+                <IconComponent className="w-3.5 h-3.5" />
+              </div>
+              <input
+                {...register(fieldName, { 
+                  required: field.required ? `${field.label} is required` : false 
+                })}
+                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                placeholder={`Enter ${field.label.toLowerCase()}`}
+              />
+            </div>
+            {errors[fieldName] && (
+              <p className="text-red-500 text-xs mt-1">{String(errors[fieldName]?.message)}</p>
+            )}
+          </div>
+        );
+      }
     }
   };
 
@@ -941,7 +1013,8 @@ const AssetForm: React.FC<AssetFormProps> = ({
             <input
               type="date"
               {...register(fieldName, { 
-                required: isRequired ? `${field.name} is required` : false 
+                required: isRequired ? `${field.name} is required` : false,
+                setValueAs: (value) => value || null
               })}
               className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 font-mono"
             />

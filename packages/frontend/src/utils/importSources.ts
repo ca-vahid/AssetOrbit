@@ -49,6 +49,11 @@ export const getNinjaOneMappings = async (): Promise<ColumnMapping[]> => {
   return NINJA_COLUMN_MAPPINGS;
 };
 
+// NinjaOne Server mappings (from shared transformation modules)
+export const getNinjaOneServerMappings = (): ColumnMapping[] => {
+  return getImportMappings('ninjaone-servers');
+};
+
 // BGC Template mappings (to be defined)
 export const getBGCTemplateMappings = (): ColumnMapping[] => {
   return [
@@ -503,7 +508,32 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
     }
   ],
   servers: [
-    // Future server import sources
+    {
+      id: 'ninjaone',
+      title: 'NinjaOne Export',
+      description: 'Import servers from NinjaOne RMM system',
+      icon: Zap,
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+      acceptedFormats: ['CSV', 'XLSX'],
+      sampleFile: '/samples/ninjaone-export.csv',
+      enabled: true,
+      category: 'servers',
+      features: [
+        'Server specifications',
+        'Virtual/Physical detection',
+        'Location extraction from name',
+        'Storage aggregation'
+      ],
+      requiredOverrides: [],
+      filterKey: 'ninja-servers',
+      getMappings: getNinjaOneServerMappings,
+      customProcessing: {
+        userResolution: true,
+        locationResolution: true,
+        conflictDetection: true
+      }
+    },
     {
       id: 'bgc-template',
       title: 'BGC Server Template',

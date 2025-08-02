@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database.js';
-import { authenticateJwt, requireRole } from '../middleware/auth.js';
-import logger from '../utils/logger.js';
+import prisma from '../services/database';
+import { authenticateJwt, requireRole } from '../middleware/auth';
+import logger from '../utils/logger';
 import { 
   isValidAssetType, 
   isValidAssetStatus, 
@@ -11,8 +11,8 @@ import {
   ENTITY_TYPES,
   USER_ROLES
 } from '../constants/index.js';
-import { Prisma } from '../generated/prisma/index.js';
-import { graphService } from '../services/graphService.js';
+import { Prisma } from '../generated/prisma';
+import { graphService } from '../services/graphService';
 
 const router = Router();
 
@@ -321,7 +321,7 @@ router.get('/', async (req: Request, res: Response) => {
     ]);
 
     // Parse specifications JSON
-    const assetsWithParsedSpecs = assets.map((asset: any) => ({
+    const assetsWithParsedSpecs = assets.map((asset) => ({
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
       customFields: (asset as any).customFieldValues?.reduce((obj: any, cfv: any) => {
@@ -371,12 +371,12 @@ router.get('/stats', async (req: Request, res: Response) => {
     const totalCount = await prisma.asset.count();
 
     // Format the response
-    const assetTypeStats = assetTypeCounts.reduce((acc: Record<string, number>, item: { assetType: string; _count: { id: number; } }) => {
+    const assetTypeStats = assetTypeCounts.reduce((acc, item) => {
       acc[item.assetType] = item._count.id;
       return acc;
     }, {} as Record<string, number>);
 
-    const statusStats = statusCounts.reduce((acc: Record<string, number>, item: { status: string; _count: { id: number; } }) => {
+    const statusStats = statusCounts.reduce((acc, item) => {
       acc[item.status] = item._count.id;
       return acc;
     }, {} as Record<string, number>);
@@ -615,7 +615,7 @@ router.post('/', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: 
         where: { id: { in: nonEmptyCustomFieldIds }, isActive: true },
         select: { id: true },
       });
-      const existingIds = new Set(existingDefs.map((d: { id: string }) => d.id));
+      const existingIds = new Set(existingDefs.map((d) => d.id));
       const missingIds = nonEmptyCustomFieldIds.filter((id) => !existingIds.has(id));
       if (missingIds.length) {
         return res.status(400).json({ error: `Invalid custom field IDs: ${missingIds.join(', ')}` });
@@ -810,7 +810,7 @@ router.put('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req
         where: { id: { in: updateCustomFieldIds }, isActive: true },
         select: { id: true },
       });
-      const existingSet = new Set(defs.map((d: { id: string }) => d.id));
+      const existingSet = new Set(defs.map((d) => d.id));
       const missing = updateCustomFieldIds.filter((id) => !existingSet.has(id));
       if (missing.length) {
         return res.status(400).json({ error: `Invalid custom field IDs: ${missing.join(', ')}` });
@@ -1048,7 +1048,7 @@ router.patch('/:id', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (r
         where: { id: { in: updateCustomFieldIds }, isActive: true },
         select: { id: true },
       });
-      const existingSet = new Set(defs.map((d: { id: string }) => d.id));
+      const existingSet = new Set(defs.map((d) => d.id));
       const missing = updateCustomFieldIds.filter((id) => !existingSet.has(id));
       if (missing.length) {
         return res.status(400).json({ error: `Invalid custom field IDs: ${missing.join(', ')}` });
@@ -1431,7 +1431,7 @@ router.get('/export', async (req: Request, res: Response) => {
       ];
 
       // Add rows
-      assets.forEach((asset: any) => {
+      assets.forEach((asset) => {
         worksheet.addRow({
           assetTag: asset.assetTag,
           assetType: asset.assetType,
@@ -1491,7 +1491,7 @@ router.get('/export', async (req: Request, res: Response) => {
         ],
       });
 
-      const records = assets.map((asset: any) => ({
+      const records = assets.map((asset) => ({
         assetTag: asset.assetTag,
         assetType: asset.assetType,
         status: asset.status,
@@ -1520,6 +1520,112 @@ router.get('/export', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error exporting assets:', error);
     res.status(500).json({ error: 'Failed to export assets' });
+  }
+});
+
+// POST /api/assets/bulk-delete-all - Delete all assets (requires ADMIN role)
+router.post('/bulk-delete-all', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const userId = getUserId(user);
+
+    // Get count before deletion for logging
+    const totalCount = await prisma.asset.count();
+
+    if (totalCount === 0) {
+      return res.json({
+        operation: 'bulk_delete_all',
+        affected: 0,
+        message: 'No assets to delete',
+      });
+    }
+
+    // Delete all assets
+    const deleteResult = await prisma.asset.deleteMany({});
+
+    // Log activity
+    await logActivity(
+      userId,
+      ACTIVITY_ACTIONS.DELETE,
+      ENTITY_TYPES.ASSET,
+      'bulk_delete_all',
+      undefined,
+      { 
+        operation: 'bulk_delete_all', 
+        count: deleteResult.count,
+        totalAssetsDeleted: totalCount 
+      }
+    );
+
+    logger.info(`Admin bulk delete: ${deleteResult.count} assets deleted by user ${userId}`);
+
+    res.json({
+      operation: 'bulk_delete_all',
+      affected: deleteResult.count,
+      message: `Successfully deleted ${deleteResult.count} assets`,
+    });
+  } catch (error) {
+    logger.error('Error in bulk delete all assets:', error);
+    res.status(500).json({ error: 'Failed to delete all assets' });
+  }
+});
+
+// POST /api/assets/bulk-delete-by-type - Delete assets by type (requires ADMIN role)
+router.post('/bulk-delete-by-type', requireRole([USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const userId = getUserId(user);
+    const { assetType } = req.body;
+
+    if (!assetType || !isValidAssetType(assetType)) {
+      return res.status(400).json({ error: 'Valid asset type is required' });
+    }
+
+    // Get count before deletion for logging
+    const typeCount = await prisma.asset.count({
+      where: { assetType }
+    });
+
+    if (typeCount === 0) {
+      return res.json({
+        operation: 'bulk_delete_by_type',
+        assetType,
+        affected: 0,
+        message: `No ${assetType} assets to delete`,
+      });
+    }
+
+    // Delete assets by type
+    const deleteResult = await prisma.asset.deleteMany({
+      where: { assetType }
+    });
+
+    // Log activity
+    await logActivity(
+      userId,
+      ACTIVITY_ACTIONS.DELETE,
+      ENTITY_TYPES.ASSET,
+      'bulk_delete_by_type',
+      undefined,
+      { 
+        operation: 'bulk_delete_by_type', 
+        assetType,
+        count: deleteResult.count,
+        assetsDeleted: typeCount 
+      }
+    );
+
+    logger.info(`Admin bulk delete by type: ${deleteResult.count} ${assetType} assets deleted by user ${userId}`);
+
+    res.json({
+      operation: 'bulk_delete_by_type',
+      assetType,
+      affected: deleteResult.count,
+      message: `Successfully deleted ${deleteResult.count} ${assetType} assets`,
+    });
+  } catch (error) {
+    logger.error('Error in bulk delete by asset type:', error);
+    res.status(500).json({ error: 'Failed to delete assets by type' });
   }
 });
 

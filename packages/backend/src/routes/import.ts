@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateJwt, requireRole } from '../middleware/auth.js';
-import { graphService } from '../services/graphService.js';
-import { matchLocations } from '../utils/locationMatcher.js';
-import prisma from '../services/database.js';
-import logger from '../utils/logger.js';
-import { Prisma } from '../generated/prisma/index.js';
-import { USER_ROLES, ASSET_TYPES } from '../constants/index.js';
+import { authenticateJwt, requireRole } from '../middleware/auth';
+import { graphService } from '../services/graphService';
+import { matchLocations } from '../utils/locationMatcher';
+import prisma from '../services/database';
+import logger from '../utils/logger';
+import { Prisma } from '../generated/prisma';
+import { USER_ROLES, ASSET_TYPES } from '../constants/index';
 
 // Import shared transformation modules
 import { 
@@ -192,7 +192,12 @@ async function processAssetBatch(
         if (source === 'TELUS') {
           sourceType = 'telus';
         } else if (source === 'NINJAONE') {
-          sourceType = 'ninjaone';  
+          // Check if this is a server import based on asset type in the data
+          const role = csvRow['Role'];
+          const isServerRole = role && ['WINDOWS_SERVER', 'LINUX_SERVER', 'HYPER-V_SERVER', 'VMWARE_SERVER', 'SERVER'].includes(role.toUpperCase());
+          sourceType = isServerRole ? 'ninjaone-servers' : 'ninjaone';
+        } else if (source === 'NINJAONE_SERVERS') {
+          sourceType = 'ninjaone-servers';
         } else if (source === 'EXCEL' || source === 'BGC_TEMPLATE') {
           sourceType = 'bgc-template';
         } else {
@@ -203,7 +208,10 @@ async function processAssetBatch(
           if (hasPhoneColumns) {
             sourceType = 'telus';
           } else if (hasNinjaColumns) {
-            sourceType = 'ninjaone';
+            // Check if it's a server based on Role column
+            const role = csvRow['Role'];
+            const isServerRole = role && ['WINDOWS_SERVER', 'LINUX_SERVER', 'HYPER-V_SERVER', 'VMWARE_SERVER', 'SERVER'].includes(role.toUpperCase());
+            sourceType = isServerRole ? 'ninjaone-servers' : 'ninjaone';
           } else {
             sourceType = 'bgc-template';
           }
@@ -228,6 +236,25 @@ async function processAssetBatch(
         // Handle custom fields if any
         if (transformationResult.customFields && Object.keys(transformationResult.customFields).length > 0) {
           assetData.customFields = { ...assetData.customFields, ...transformationResult.customFields };
+        }
+
+        // Handle server location resolution
+        if (assetData.locationName && !assetData.locationId) {
+          console.log(`🏢 Resolving server location: ${assetData.locationName}`);
+          // Use the location matcher to find matching location
+          const locationMatches = await matchLocations([assetData.locationName]);
+          const matchedLocationId = locationMatches[assetData.locationName];
+          if (matchedLocationId) {
+            assetData.locationId = matchedLocationId;
+            console.log(`✅ Matched server location "${assetData.locationName}" to location ID: ${matchedLocationId}`);
+          } else {
+            console.log(`⚠️ Could not match server location "${assetData.locationName}" to existing locations`);
+          }
+        }
+        
+        // Always remove locationName as it's not a direct field in the Asset model
+        if ('locationName' in assetData) {
+          delete assetData.locationName;
         }
 
         // 🐛 DEBUG: Log what's in assetData before save
@@ -486,7 +513,7 @@ async function processAssetBatch(
         if (detectedCategoryId) {
           assetData.workloadCategoryId = detectedCategoryId;
           // Find the rule that matched for statistics
-          const matchedRule = workloadCategoryRules.find((rule: any) => {
+          const matchedRule = workloadCategoryRules.find(rule => {
             if (!rule.isActive) return false;
             const fieldValue = getNestedValue(assetData, rule.sourceField);
             return matchRule(fieldValue, rule);
@@ -502,12 +529,17 @@ async function processAssetBatch(
 
       // Handle conflict resolution for serial numbers AND asset tags
       let existingAsset = null;
+      let conflictType = null;
       
       // Check for conflicts by serial number first
       if (assetData.serialNumber) {
         existingAsset = await prisma.asset.findFirst({
           where: { serialNumber: assetData.serialNumber }
         });
+        if (existingAsset) {
+          conflictType = 'serial number';
+          console.log(`🔍 Found existing asset by serial: ${assetData.serialNumber} -> Asset ID: ${existingAsset.id}, Tag: ${existingAsset.assetTag}, Incoming Tag: ${assetData.assetTag}`);
+        }
       }
       
       // If no serial number conflict, check for asset tag conflict
@@ -515,13 +547,47 @@ async function processAssetBatch(
         existingAsset = await prisma.asset.findFirst({
           where: { assetTag: assetData.assetTag }
         });
+        if (existingAsset) {
+          conflictType = 'asset tag';
+        }
       }
 
       if (existingAsset) {
         if (conflictResolution === 'skip') {
-          const conflictType = existingAsset.serialNumber === assetData.serialNumber ? 'serial number' : 'asset tag';
           return { success: false, index, skipped: true, error: `Duplicate ${conflictType}: ${existingAsset.serialNumber || existingAsset.assetTag}` };
         } else if (conflictResolution === 'overwrite') {
+          // For serial number conflicts, prioritize the serial number match
+          if (conflictType === 'serial number') {
+            // Check if there's a different asset with the same asset tag
+            const conflictingAssetByTag = await prisma.asset.findFirst({
+              where: { 
+                assetTag: assetData.assetTag,
+                id: { not: existingAsset.id } // Exclude the current asset
+              }
+            });
+            
+            if (conflictingAssetByTag) {
+              // Strategy: Update the existing asset (found by serial) and reassign the conflicting asset
+              console.log(`⚠️ Asset tag conflict detected. Serial match: ${existingAsset.id}, Tag match: ${conflictingAssetByTag.id}`);
+              
+              // Generate a new unique tag for the conflicting asset
+              const timestamp = Date.now().toString().slice(-6);
+              const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+              const newTagForConflicting = `${assetData.assetTag}-OLD-${timestamp}-${randomSuffix}`;
+              
+              // Update the conflicting asset with a new tag
+              await prisma.asset.update({
+                where: { id: conflictingAssetByTag.id },
+                data: { assetTag: newTagForConflicting }
+              });
+              
+              console.log(`✅ Resolved conflict: Moved asset ${conflictingAssetByTag.id} from tag "${assetData.assetTag}" to "${newTagForConflicting}"`);
+            }
+          } else if (conflictType === 'asset tag') {
+            // For asset tag conflicts, we're updating an asset that was found by tag
+            // No additional checks needed since we found it by the exact tag we want to use
+          }
+
           // Separate custom fields and workload category from asset data
           const { customFields, workloadCategoryId, ...assetDataWithoutCustomFields } = assetData;
 

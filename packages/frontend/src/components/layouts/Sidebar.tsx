@@ -24,7 +24,8 @@ import {
   Workflow,
   Laptop,
   Smartphone,
-  Monitor as Desktop
+  Monitor as Desktop,
+  Shield
 } from 'lucide-react';
 import { useStore } from '../../store';
 import clsx from 'clsx';
@@ -59,6 +60,7 @@ const navigation: NavigationItem[] = [
       { name: 'All Assets', href: '/assets', icon: Server },
       { name: 'Laptops', href: '/assets?assetType=LAPTOP', icon: Laptop },
       { name: 'Desktops', href: '/assets?assetType=DESKTOP', icon: Desktop },
+      { name: 'Servers', href: '/assets?assetType=SERVER', icon: Server },
       { name: 'Phones', href: '/assets?assetType=PHONE', icon: Smartphone },
       { name: 'Add Asset', href: '/assets/new', icon: Plus, requiresWrite: true },
       { name: 'Bulk Upload', href: '/assets/bulk', icon: Upload, requiresWrite: true },
@@ -95,6 +97,7 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Custom Fields', href: '/settings/custom-fields', icon: Sliders, requiresAdmin: true },
       { name: 'Workload Rules', href: '/settings/workload-rules', icon: Workflow, requiresAdmin: true },
+      { name: 'Admin', href: '/settings/admin', icon: Shield, requiresAdmin: true },
     ]
   },
 ];

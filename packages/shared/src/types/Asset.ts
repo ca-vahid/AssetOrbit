@@ -3,6 +3,7 @@ export enum AssetType {
   DESKTOP = 'DESKTOP',
   TABLET = 'TABLET',
   PHONE = 'PHONE',
+  SERVER = 'SERVER',
   OTHER = 'OTHER'
 }
 

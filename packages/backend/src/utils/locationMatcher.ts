@@ -1,5 +1,5 @@
-import prisma from '../services/database.js';
-import logger from '../utils/logger.js';
+import prisma from '../services/database';
+import logger from '../utils/logger';
 
 // Common location abbreviations and mappings
 const locationMappings: Record<string, string[]> = {
@@ -15,6 +15,13 @@ const locationMappings: Record<string, string[]> = {
   'vic': ['victoria'],
   'hal': ['halifax'],
   'stj': ['st. john\'s', 'st johns'],
+  // BGC Server location codes
+  'fdr': ['fredericton'],
+  'kam': ['kamloops'],
+  'col': ['golden'],
+  'hfx': ['halifax'],
+  'sa': ['santiago'],
+  'azu': ['azure cloud', 'azure'],
 };
 
 export async function matchLocations(locationStrings: string[]): Promise<Record<string, string | null>> {

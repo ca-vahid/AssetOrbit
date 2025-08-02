@@ -5,7 +5,7 @@
  * It acts as the single entry point for both frontend and backend.
  */
 
-import { transformNinjaOneRow, NINJA_ONE_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms.js';
+import { transformNinjaOneRow, transformNinjaOneServerRow, NINJA_ONE_MAPPINGS, NINJA_ONE_SERVER_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms.js';
 import { transformTelusPhoneRow, TELUS_PHONE_MAPPINGS, validateTelusPhoneData } from './telusTransforms.js';
 import { transformBGCTemplateRow, BGC_TEMPLATE_MAPPINGS, validateBGCTemplateData } from './bgcTemplateTransforms.js';
 import type { ColumnMapping, TransformationResult } from '../importTransformations.js';
@@ -14,7 +14,7 @@ import type { ColumnMapping, TransformationResult } from '../importTransformatio
 // TYPES
 // ============================================================================
 
-export type ImportSourceType = 'telus' | 'ninjaone' | 'bgc-template';
+export type ImportSourceType = 'telus' | 'ninjaone' | 'ninjaone-servers' | 'bgc-template';
 
 export interface ImportSourceTransformer {
   transformRow: (row: Record<string, string>) => TransformationResult;
@@ -38,6 +38,14 @@ export const IMPORT_TRANSFORMATION_REGISTRY: Record<ImportSourceType, ImportSour
   'ninjaone': {
     transformRow: transformNinjaOneRow,
     getMappings: () => NINJA_ONE_MAPPINGS,
+    validateData: (data: any) => {
+      const errors = validateNinjaOneData(data);
+      return { isValid: errors.length === 0, errors };
+    },
+  },
+  'ninjaone-servers': {
+    transformRow: transformNinjaOneServerRow,
+    getMappings: () => NINJA_ONE_SERVER_MAPPINGS,
     validateData: (data: any) => {
       const errors = validateNinjaOneData(data);
       return { isValid: errors.length === 0, errors };

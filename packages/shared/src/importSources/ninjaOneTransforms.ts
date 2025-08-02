@@ -9,6 +9,9 @@ import {
   toISO,
   simplifyRam,
   aggregateVolumes,
+  aggregateServerVolumes,
+  resolveServerLocation,
+  detectVirtualization,
   NINJA_ROLE_TO_ASSET_TYPE,
   applyColumnMappings,
   type ColumnMapping,
@@ -160,11 +163,165 @@ export const NINJA_ONE_MAPPINGS: ColumnMapping[] = [
 ];
 
 // ============================================================================
+// NINJA ONE SERVER MAPPINGS
+// ============================================================================
+
+export const NINJA_ONE_SERVER_MAPPINGS: ColumnMapping[] = [
+  {
+    ninjaColumn: 'Display Name',
+    targetField: 'assetTag',
+    targetType: 'direct',
+    description: 'Server Asset Tag',
+    required: true,
+    processor: (value: string) => value.trim().toUpperCase()
+  },
+  {
+    ninjaColumn: 'Role',
+    targetField: 'assetType',
+    targetType: 'direct',
+    processor: (value: string) => {
+      const mapped = NINJA_ROLE_TO_ASSET_TYPE[value.toUpperCase()];
+      return mapped === 'SERVER' ? 'SERVER' : 'OTHER';
+    },
+    description: 'Asset Type (mapped from Role)',
+    required: true
+  },
+  {
+    ninjaColumn: 'Display Name',
+    targetField: 'locationName',
+    targetType: 'direct',
+    processor: resolveServerLocation,
+    description: 'Location (extracted from server name)'
+  },
+  {
+    ninjaColumn: 'System Model',
+    targetField: 'virtualizationType',
+    targetType: 'specifications',
+    processor: detectVirtualization,
+    description: 'Virtual or Physical server'
+  },
+  {
+    ninjaColumn: 'Warranty End Date',
+    targetField: 'warrantyEndDate',
+    targetType: 'direct',
+    processor: toISO,
+    description: 'Warranty End Date'
+  },
+  {
+    ninjaColumn: 'Last LoggedIn User',
+    targetField: 'assignedToAadId',
+    targetType: 'direct',
+    processor: (value: string) => {
+      if (!value) return null;
+      // Extract username from "BGC\\username" format
+      const match = value.match(/BGC\\(.+)/);
+      const raw = match ? match[1] : value;
+      return raw.trim();
+    },
+    description: 'Last Logged In User (requires Azure AD lookup)'
+  },
+  {
+    ninjaColumn: 'RAM',
+    targetField: 'ram',
+    targetType: 'specifications',
+    processor: simplifyRam,
+    description: 'RAM (rounded to common size)'
+  },
+  {
+    ninjaColumn: 'OS Name',
+    targetField: 'operatingSystem',
+    targetType: 'specifications',
+    description: 'Operating System'
+  },
+  {
+    ninjaColumn: 'OS Architecture',
+    targetField: 'osArchitecture',
+    targetType: 'specifications',
+    description: 'OS Architecture (64-bit/32-bit)'
+  },
+  {
+    ninjaColumn: 'OS Build Number',
+    targetField: 'osBuildNumber',
+    targetType: 'specifications',
+    description: 'OS Build Number'
+  },
+  {
+    ninjaColumn: 'OS Version',
+    targetField: 'osVersion',
+    targetType: 'specifications',
+    description: 'Operating System Version'
+  },
+  {
+    ninjaColumn: 'Processor',
+    targetField: 'processor',
+    targetType: 'specifications',
+    description: 'Processor'
+  },
+  {
+    ninjaColumn: 'Volumes',
+    targetField: 'storage',
+    targetType: 'specifications',
+    processor: aggregateServerVolumes,
+    description: 'Storage (aggregated with granular TB rounding)'
+  },
+  {
+    ninjaColumn: 'Graphics',
+    targetField: 'graphics',
+    targetType: 'specifications',
+    description: 'Graphics Card'
+  },
+  {
+    ninjaColumn: 'Network Adapters',
+    targetField: 'networkAdapters',
+    targetType: 'specifications',
+    description: 'Network Adapters'
+  },
+  {
+    ninjaColumn: 'Serial Number',
+    targetField: 'serialNumber',
+    targetType: 'direct',
+    description: 'Serial Number',
+    required: true
+  },
+  {
+    ninjaColumn: 'Manufacturer',
+    targetField: 'make',
+    targetType: 'direct',
+    description: 'Manufacturer'
+  },
+  {
+    ninjaColumn: 'Model',
+    targetField: 'model',
+    targetType: 'direct',
+    description: 'Product Model'
+  },
+  {
+    ninjaColumn: 'System Model',
+    targetField: 'model',
+    targetType: 'direct',
+    description: 'System Model'
+  },
+  {
+    ninjaColumn: 'Last Online',
+    targetField: 'lastOnline',
+    targetType: 'specifications',
+    processor: toISO,
+    description: 'Last Online Date'
+  },
+  {
+    ninjaColumn: 'System Name',
+    targetField: 'systemName',
+    targetType: 'specifications',
+    description: 'System Name'
+  }
+];
+
+// ============================================================================
 // NINJA ONE TRANSFORMATION ENGINE
 // ============================================================================
 
 /**
- * Transform a single row of NinjaOne data
+ * Transform a single row of NinjaOne data for endpoints
  */
 export function transformNinjaOneRow(row: Record<string, string>): TransformationResult {
   const result = applyColumnMappings(row, NINJA_ONE_MAPPINGS);
@@ -192,6 +349,43 @@ export function transformNinjaOneRow(row: Record<string, string>): Transformatio
   }
   
   // Add processing notes for username lookup
+  if (result.directFields.assignedToAadId) {
+    result.processingNotes.push(`Username "${result.directFields.assignedToAadId}" requires Azure AD lookup`);
+  }
+  
+  return result;
+}
+
+/**
+ * Transform a single row of NinjaOne data for servers
+ */
+export function transformNinjaOneServerRow(row: Record<string, string>): TransformationResult {
+  const result = applyColumnMappings(row, NINJA_ONE_SERVER_MAPPINGS);
+  
+  // Post-processing for server-specific business logic
+  
+  // Set default values
+  if (!result.directFields.condition) {
+    result.directFields.condition = 'GOOD';
+  }
+  
+  if (!result.directFields.make) {
+    result.directFields.make = 'Unknown';
+  }
+  
+  if (!result.directFields.model) {
+    result.directFields.model = 'Unknown';
+  }
+  
+  // Servers are typically not assigned to individuals like endpoints
+  // Set status based on whether it's online/accessible
+  result.directFields.status = 'ASSIGNED'; // Servers are typically in use
+  
+  // Add processing notes for location and user lookup
+  if (result.directFields.locationName) {
+    result.processingNotes.push(`Location "${result.directFields.locationName}" will be matched to existing locations`);
+  }
+  
   if (result.directFields.assignedToAadId) {
     result.processingNotes.push(`Username "${result.directFields.assignedToAadId}" requires Azure AD lookup`);
   }

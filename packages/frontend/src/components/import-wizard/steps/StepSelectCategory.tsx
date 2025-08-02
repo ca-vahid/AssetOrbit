@@ -79,21 +79,25 @@ const StepSelectCategory: React.FC<Props> = ({ selectedCategory, onSelectCategor
         {/* Servers */}
         <button
           onClick={() => onSelectCategory('servers')}
-          disabled
-          className="flex-1 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 text-left relative opacity-60 cursor-not-allowed"
+          className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+            selectedCategory === 'servers'
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm'
+              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
+          }`}
         >
-          <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-900/50 rounded-lg flex items-center justify-center">
-            <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs font-medium">
-              <AlertCircle className="w-3 h-3" />
-              Coming Soon
-            </div>
-          </div>
           <div className="flex items-start gap-3">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex-shrink-0">
               <Server className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-slate-900 dark:text-slate-100">Servers</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold text-slate-900 dark:text-slate-100">Servers</h4>
+                {selectedCategory === 'servers' && (
+                  <div className="p-1 bg-brand-500 text-white rounded-full">
+                    <Check className="w-3 h-3" />
+                  </div>
+                )}
+              </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Physical servers, VMs, infrastructure</p>
             </div>
           </div>

@@ -19,6 +19,34 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.95',
+    date: 'August 2, 2025',
+    changes: {
+      features: [
+        'Server Asset Import: Added comprehensive server import functionality with NinjaOne integration',
+        'Server Location Mapping: Intelligent location detection from BGC server naming convention (BGC-VAN-BUILD1 → Vancouver)',
+        'Virtual/Physical Detection: Automatic identification of virtual machines vs physical servers based on system model',
+        'Azure Server Support: Added support for Azure cloud servers (BGC-AZU-xxxx naming pattern)',
+        'Server Storage Calculation: Enhanced storage aggregation with granular TB rounding for server capacities',
+        'Smart Conflict Resolution: Automatic resolution of asset tag conflicts during re-imports with audit trail',
+      ],
+      improvements: [
+        'Enhanced Import Conflict Detection: Serial number priority over asset tag matching for more reliable updates',
+        'Automatic Conflict Resolution: Conflicting assets automatically renamed with -OLD- suffix to preserve data integrity',
+        'Server Navigation: Added Servers section to sidebar navigation for easy access to server assets',
+        'Import Category Selection: Enabled Servers category in import wizard with NinjaOne source support',
+        'Location Matcher Enhancement: Extended location matching to support all BGC office codes (FDR, KAM, COL, HFX, SA, AZU)',
+        'Error Handling: Improved import error messages and conflict resolution logging',
+      ],
+      bugFixes: [
+        'Fixed locationName field validation error during server asset creation',
+        'Resolved unique constraint violations on asset tag updates during re-imports',
+        'Fixed server transformation registry registration for ninjaone-servers source type',
+        'Corrected server asset tag processing to handle case sensitivity and whitespace issues',
+      ],
+    },
+  },
+  {
     version: 'v0.94',
     date: 'August 1, 2025',
     changes: {

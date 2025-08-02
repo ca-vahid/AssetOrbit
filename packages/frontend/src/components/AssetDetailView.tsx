@@ -213,11 +213,25 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '—';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return '—';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return '—';
+    }
   };
 
   const formatCurrency = (amount: string | number | null | undefined) => {
@@ -408,44 +422,153 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
                                 <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                 Asset Overview
                               </h3>
-                              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Asset Tag</span>
-                                  <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">{asset.assetTag}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Type</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{asset.assetType}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Make</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{asset.make}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Model</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{asset.model}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Serial Number</span>
-                                  <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Condition</span>
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getConditionColor(asset.condition)}`}>
-                                    {asset.condition}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Location</span>
-                                  <span className="text-slate-900 dark:text-slate-100">
-                                    {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Vendor</span>
-                                  <span className="text-slate-900 dark:text-slate-100">{asset.vendor?.name || '—'}</span>
-                                </div>
-                              </div>
+                              {(() => {
+                                const specs = parseSpecifications(asset.specifications);
+                                
+                                if (asset.assetType === 'PHONE') {
+                                  // Phone-specific overview showing critical mobile device information
+                                  return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Asset Tag</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">{asset.assetTag}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Device</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.make} {asset.model}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Storage</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.storage || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Carrier</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.carrier || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Phone Number</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100">{specs?.phoneNumber || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Plan Type</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.planType || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">IMEI</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100">{specs?.imei || asset.serialNumber || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Condition</span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getConditionColor(asset.condition)}`}>
+                                          {asset.condition}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Contract End</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.contractEndDate ? formatDate(specs.contractEndDate) : '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Location</span>
+                                        <span className="text-slate-900 dark:text-slate-100">
+                                          {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                } else if (asset.assetType === 'LAPTOP' || asset.assetType === 'DESKTOP') {
+                                  // Computer-specific overview showing critical hardware information
+                                  return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Asset Tag</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">{asset.assetTag}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Type</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.assetType}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Device</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.make} {asset.model}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Processor</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.processor || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">RAM</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.ram || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Storage</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.storage || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Operating System</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{specs?.operatingSystem || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Serial Number</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Condition</span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getConditionColor(asset.condition)}`}>
+                                          {asset.condition}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Location</span>
+                                        <span className="text-slate-900 dark:text-slate-100">
+                                          {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  // Generic overview for other asset types
+                                  return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Asset Tag</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">{asset.assetTag}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Type</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.assetType}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Make</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.make}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Model</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.model}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Serial Number</span>
+                                        <span className="font-mono text-slate-900 dark:text-slate-100">{asset.serialNumber || '—'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Condition</span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getConditionColor(asset.condition)}`}>
+                                          {asset.condition}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Location</span>
+                                        <span className="text-slate-900 dark:text-slate-100">
+                                          {asset.location ? `${asset.location.city}, ${asset.location.province}` : '—'}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600 dark:text-slate-400">Vendor</span>
+                                        <span className="text-slate-900 dark:text-slate-100">{asset.vendor?.name || '—'}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                              })()}
                               
                               {/* Workload Categories */}
                               {asset.workloadCategories && asset.workloadCategories.length > 0 && (
@@ -542,35 +665,29 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
                           // Different layouts for different asset types
                           if (asset.assetType === 'PHONE') {
                             return (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Phone Specifications */}
-                                {specs.phone && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {/* Technical Identifiers */}
+                                {(specs.imei || asset.serialNumber) && (
                                   <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                                      <Smartphone className="w-4 h-4 text-blue-600" />
-                                      Device
+                                      <Tag className="w-4 h-4 text-blue-600" />
+                                      IMEI / Serial
                                     </h4>
-                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.phone}</p>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100 font-mono">{specs.imei || asset.serialNumber}</p>
                                   </div>
                                 )}
-                                {specs.storageCapacity && (
-                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                                      <HardDrive className="w-4 h-4 text-orange-600" />
-                                      Storage
-                                    </h4>
-                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.storageCapacity}</p>
-                                  </div>
-                                )}
+
+                                {/* Service Information */}
                                 {specs.phoneNumber && (
                                   <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
                                       <Phone className="w-4 h-4 text-green-600" />
                                       Phone Number
                                     </h4>
-                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.phoneNumber}</p>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100 font-mono">{specs.phoneNumber}</p>
                                   </div>
                                 )}
+
                                 {specs.carrier && (
                                   <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
@@ -580,22 +697,99 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
                                     <p className="text-sm text-slate-900 dark:text-slate-100">{specs.carrier}</p>
                                   </div>
                                 )}
+
+                                {specs.planType && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Settings className="w-4 h-4 text-indigo-600" />
+                                      Plan Type
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.planType}</p>
+                                  </div>
+                                )}
+
+                                {/* Hardware Specifications */}
+                                {specs.storage && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <HardDrive className="w-4 h-4 text-orange-600" />
+                                      Storage Capacity
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.storage}</p>
+                                  </div>
+                                )}
+
+                                {specs.operatingSystem && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Smartphone className="w-4 h-4 text-blue-600" />
+                                      Operating System
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.operatingSystem}</p>
+                                  </div>
+                                )}
+
+                                {/* Contract & Financial */}
                                 {specs.contractEndDate && (
                                   <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
                                       <Calendar className="w-4 h-4 text-red-600" />
-                                      Contract End
+                                      Contract End Date
                                     </h4>
                                     <p className="text-sm text-slate-900 dark:text-slate-100">{formatDate(specs.contractEndDate)}</p>
                                   </div>
                                 )}
+
                                 {specs.balance && (
                                   <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
                                       <DollarSign className="w-4 h-4 text-green-600" />
-                                      Balance
+                                      Account Balance
                                     </h4>
                                     <p className="text-sm text-slate-900 dark:text-slate-100">{formatCurrency(specs.balance)}</p>
+                                  </div>
+                                )}
+
+                                {/* Network & Technical Details */}
+                                {specs.networkType && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Zap className="w-4 h-4 text-yellow-600" />
+                                      Network Type
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.networkType}</p>
+                                  </div>
+                                )}
+
+                                {specs.simSerialNumber && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Shield className="w-4 h-4 text-cyan-600" />
+                                      SIM Serial Number
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100 font-mono">{specs.simSerialNumber}</p>
+                                  </div>
+                                )}
+
+                                {/* Device Variant/Color */}
+                                {specs.deviceColor && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Package className="w-4 h-4 text-pink-600" />
+                                      Device Color
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{specs.deviceColor}</p>
+                                  </div>
+                                )}
+
+                                {/* Last Online (for phones that report this) */}
+                                {specs.lastOnline && (
+                                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-gray-600" />
+                                      Last Seen
+                                    </h4>
+                                    <p className="text-sm text-slate-900 dark:text-slate-100">{formatDate(specs.lastOnline)}</p>
                                   </div>
                                 )}
                               </div>

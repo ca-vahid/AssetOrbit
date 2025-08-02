@@ -20,6 +20,7 @@ interface DataPreviewTableProps {
   };
   mappings: ColumnMapping[];
   sourceType: 'ninja' | 'bgc';
+  selectedSource?: string | null;
   userMap: Record<string, { id: string; displayName: string; officeLocation?: string } | null>;
   locationMap: Record<string, string | null>;
   conflicts?: Record<string, { id: string; assetTag: string; serialNumber: string }>;
@@ -44,6 +45,7 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
   csvData, 
   mappings, 
   sourceType, 
+  selectedSource,
   userMap, 
   locationMap, 
   conflicts = {},
@@ -85,13 +87,20 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
           // Use shared transformation modules for other sources
           let importSourceType: ImportSourceType;
           
-          // Try to determine source type from mappings or source type
-          if (sourceType === 'bgc' || mappings.some(m => m.ninjaColumn === 'Asset Tag' || m.ninjaColumn === 'Brand')) {
-            importSourceType = 'bgc-template';
-          } else if (mappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI')) {
+          // First check if we have an explicit selectedSource
+          if (selectedSource === 'telus') {
             importSourceType = 'telus';
-    } else {
-            importSourceType = 'bgc-template'; // fallback
+          } else if (selectedSource === 'bgc-template') {
+            importSourceType = 'bgc-template';
+          } else {
+            // Fallback to detection logic for unknown sources
+            if (sourceType === 'bgc' || mappings.some(m => m.ninjaColumn === 'Asset Tag' || m.ninjaColumn === 'Brand')) {
+              importSourceType = 'bgc-template';
+            } else if (mappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI')) {
+              importSourceType = 'telus';
+            } else {
+              importSourceType = 'bgc-template'; // fallback
+            }
           }
           
           const transformationResult: TransformationResult = transformImportRow(importSourceType, row);

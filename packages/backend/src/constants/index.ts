@@ -13,6 +13,7 @@ export const ASSET_TYPES = {
   DESKTOP: 'DESKTOP',
   TABLET: 'TABLET',
   PHONE: 'PHONE',
+  SERVER: 'SERVER',
   OTHER: 'OTHER',
 } as const;
 

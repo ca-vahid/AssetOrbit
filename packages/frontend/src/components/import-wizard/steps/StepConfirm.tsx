@@ -344,6 +344,7 @@ const StepConfirm: React.FC<Props> = ({
             csvData={{ headers: csvHeaders, rows: previewRows }}
             mappings={columnMappings}
             sourceType={selectedSource === 'ninjaone' ? 'ninja' : 'bgc'}
+            selectedSource={selectedSource}
             userMap={userMap}
             locationMap={locationMap}
             conflicts={conflicts}
@@ -385,6 +386,7 @@ const StepConfirm: React.FC<Props> = ({
                   csvData={{ headers: csvHeaders, rows: excludedItems.slice(0, 10) }}
                   mappings={columnMappings}
                   sourceType={selectedSource === 'ninjaone' ? 'ninja' : 'bgc'}
+                  selectedSource={selectedSource}
                   userMap={userMap}
                   locationMap={locationMap}
                   conflicts={conflicts}

@@ -140,6 +140,17 @@ const BulkUpload: React.FC = () => {
 
   const uploadSources = IMPORT_SOURCES;
 
+  // Auto-progress from step 1 when category is selected
+  const handleCategorySelection = (category: UploadCategory) => {
+    setSelectedCategory(category);
+    // Auto-progress to next step with a small delay for better UX
+    setTimeout(() => {
+      setCurrentStep(2);
+      // Scroll to top when changing steps
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 300);
+  };
+
   const handleNext = () => {
     if (currentStep === 1) {
       if (!selectedCategory) return;
@@ -500,7 +511,7 @@ const BulkUpload: React.FC = () => {
           >
             <StepSelectCategory
               selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
+              onSelectCategory={handleCategorySelection}
             />
             </motion.div>
           )}
@@ -605,7 +616,7 @@ const BulkUpload: React.FC = () => {
       </div>
               
       {/* Footer */}
-      {currentStep < 4 && (
+      {currentStep > 1 && currentStep < 4 && (
       <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-6 mt-6">
         <div className="flex justify-between">
           <button

@@ -47,6 +47,30 @@ export function roundToCommonStorageSize(gib: number): string {
 }
 
 /**
+ * Round storage capacity in GiB for servers (granular TB rounding)
+ * Examples: 5.7TB -> 6TB, 10.99TB -> 11TB, 12TB -> 12TB
+ */
+export function roundToServerStorageSize(gib: number): string {
+  const tb = gib / 1024; // Convert GiB to TB
+  
+  if (tb >= 1) {
+    // Round up fractions, keep whole numbers as-is
+    const roundedTb = Math.ceil(tb);
+    return `${roundedTb} TB`;
+  }
+  
+  // Less than 1TB, use the existing GB logic
+  if (gib > 450) return '512 GB';
+  if (gib > 230) return '256 GB';
+  if (gib > 110) return '128 GB';
+  if (gib > 55) return '64 GB';
+  if (gib > 28) return '32 GB';
+  if (gib > 14) return '16 GB';
+  if (gib > 6) return '8 GB';
+  return `${Math.round(gib)} GB`;
+}
+
+/**
  * Simplify raw memory value in GiB to nearest common size label
  */
 export function simplifyRam(value: string): string | null {
@@ -287,6 +311,23 @@ export const LOCATION_ABBREVIATIONS: Record<string, string> = {
 };
 
 /**
+ * Server Location Code Mapping
+ * Maps 3-letter codes from server names to full location names
+ */
+export const SERVER_LOCATION_CODES: Record<string, string> = {
+  'VAN': 'Vancouver',
+  'FDR': 'Fredericton',
+  'KAM': 'Kamloops',
+  'COL': 'Golden, Colorado, US',
+  'CAL': 'Calgary',
+  'EDM': 'Edmonton',
+  'HFX': 'Halifax',
+  'TOR': 'Toronto',
+  'SA': 'Santiago, Chile',
+  'AZU': 'Azure Cloud'
+};
+
+/**
  * Resolve location from abbreviation or full name
  */
 export function resolveLocation(location: string): string | null {
@@ -364,6 +405,62 @@ export function handleIMEIFallback(serialNumber?: string, imei?: string): {
 export function cleanPhoneNumber(phoneNumber: string): string {
   if (!phoneNumber) return phoneNumber;
   return phoneNumber.replace(/[^\d]/g, '');
+}
+
+/**
+ * Extract location code from server display name
+ * Example: "BGC-EDM-FILE2" -> "EDM"
+ */
+export function extractServerLocationCode(displayName: string): string | null {
+  if (!displayName?.trim()) return null;
+  
+  const parts = displayName.trim().split('-');
+  if (parts.length >= 3 && parts[0].toUpperCase() === 'BGC') {
+    return parts[1].toUpperCase();
+  }
+  
+  return null;
+}
+
+/**
+ * Resolve server location from display name using server location codes
+ */
+export function resolveServerLocation(displayName: string): string | null {
+  const locationCode = extractServerLocationCode(displayName);
+  if (!locationCode) return null;
+  
+  return SERVER_LOCATION_CODES[locationCode] || null;
+}
+
+/**
+ * Determine if server is virtual based on System Model
+ */
+export function detectVirtualization(systemModel: string): string {
+  if (!systemModel?.trim()) return 'Physical';
+  
+  const model = systemModel.trim().toLowerCase();
+  return model === 'virtual machine' ? 'Virtual Machine' : 'Physical';
+}
+
+/**
+ * Aggregate server volumes with granular TB rounding
+ */
+export function aggregateServerVolumes(value: string): string | null {
+  if (!value) return null;
+  const volumeRegex = /Type: "(.*?)"(?:[^\(]*)\((\d+\.?\d*)\s*GiB\)/g;
+  let totalGib = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = volumeRegex.exec(value)) !== null) {
+    const type = match[1];
+    const capacity = parseFloat(match[2]);
+    // Skip removable disks – we only want local storage
+    if (type.toLowerCase() !== 'removable disk') {
+      totalGib += capacity;
+    }
+  }
+
+  return totalGib > 0 ? roundToServerStorageSize(totalGib) : null;
 }
 
 // ============================================================================

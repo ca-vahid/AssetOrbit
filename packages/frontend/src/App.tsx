@@ -18,6 +18,7 @@ import Staff from './pages/Staff';
 import WorkloadCategories from './pages/WorkloadCategories';
 import WorkloadRules from './pages/WorkloadRules';
 import Locations from './pages/Locations';
+import AdminSettings from './pages/AdminSettings';
 import { PhotoBatchProvider } from './contexts/PhotoBatchContext';
 
 // Create a query client for React Query
@@ -281,6 +282,7 @@ const App: React.FC = () => {
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="settings/custom-fields" element={<CustomFields />} />
                   <Route path="settings/workload-rules" element={<WorkloadRules />} />
+                  <Route path="settings/admin" element={<AdminSettings />} />
                   
                   {/* Catch all - redirect to dashboard */}
                   <Route path="*" element={<Navigate to="/" replace />} />
