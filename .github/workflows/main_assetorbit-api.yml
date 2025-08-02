@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'packages/backend/**'
+      - 'packages/shared/**'
       - '.github/workflows/main_assetorbit-api.yml'
   workflow_dispatch:
 
@@ -28,6 +29,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
+
+      - name: Build shared package
+        working-directory: ./packages/shared
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm run build
 
       - name: npm install, build, and prepare deployment
         working-directory: ./packages/backend
