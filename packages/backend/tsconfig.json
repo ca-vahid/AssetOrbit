@@ -5,7 +5,9 @@
     "rootDir": "src",
     "lib": ["ES2020"],
     "types": ["node"],
-    "module": "CommonJS"
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "target": "ES2022"
   },
   "include": ["src/**/*.ts"],
   "references": [
