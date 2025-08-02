@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import prisma from '../services/database';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import logger from '../utils/logger';
+import prisma from '../services/database.js';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 import { 
   isValidAssetType, 
   isValidAssetStatus, 
@@ -11,8 +11,8 @@ import {
   ENTITY_TYPES,
   USER_ROLES
 } from '../constants/index.js';
-import { Prisma } from '../generated/prisma';
-import { graphService } from '../services/graphService';
+import { Prisma } from '../generated/prisma/index.js';
+import { graphService } from '../services/graphService.js';
 
 const router = Router();
 
@@ -153,6 +153,35 @@ router.get('/', async (req: Request, res: Response) => {
       workloadCategoryId, // Filter by workload category
       dateFrom,
       dateTo,
+      // Specification filters
+      processor,
+      ram,
+      ramMin,
+      ramMax,
+      storage,
+      storageMin,
+      storageMax,
+      operatingSystem,
+      // Hardware filters
+      make,
+      model,
+      serialNumber,
+      // Financial filters
+      purchasePriceMin,
+      purchasePriceMax,
+      purchaseDateFrom,
+      purchaseDateTo,
+      // Warranty filters
+      warrantyStartFrom,
+      warrantyStartTo,
+      warrantyEndFrom,
+      warrantyEndTo,
+      warrantyStatus,
+      // Vendor and source filters
+      vendorId,
+      source,
+      // Asset identification
+      assetTag,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.query;
@@ -186,21 +215,259 @@ router.get('/', async (req: Request, res: Response) => {
       ];
     }
 
+    // Helper function to handle array or single value filters
+    const handleArrayFilter = (value: any): string | { in: string[] } | undefined => {
+      if (!value) return undefined;
+      if (typeof value === 'string') {
+        // Check if it's a comma-separated list
+        if (value.includes(',')) {
+          return { in: value.split(',').map(v => v.trim()) };
+        }
+        return value;
+      }
+      if (Array.isArray(value)) {
+        return value.length === 1 ? value[0] : { in: value };
+      }
+      return value;
+    };
+
     // Filters
-    if (status && isValidAssetStatus(status as string)) {
-      where.status = status as string;
+    if (status) {
+      const statusFilter = handleArrayFilter(status);
+      if (statusFilter) {
+        where.status = statusFilter;
+      }
     }
-    if (condition && isValidAssetCondition(condition as string)) {
-      where.condition = condition as string;
+    if (condition) {
+      const conditionFilter = handleArrayFilter(condition);
+      if (conditionFilter) {
+        where.condition = conditionFilter;
+      }
     }
-    if (assetType && isValidAssetType(assetType as string)) {
-      where.assetType = assetType as string;
+    if (assetType) {
+      const assetTypeFilter = handleArrayFilter(assetType);
+      if (assetTypeFilter) {
+        where.assetType = assetTypeFilter;
+      }
     }
     if (departmentId) {
-      where.departmentId = departmentId as string;
+      const departmentFilter = handleArrayFilter(departmentId);
+      if (departmentFilter) {
+        where.departmentId = departmentFilter;
+      }
     }
     if (locationId) {
-      where.locationId = locationId as string;
+      const locationFilter = handleArrayFilter(locationId);
+      if (locationFilter) {
+        where.locationId = locationFilter;
+      }
+    }
+    
+    // Hardware filters
+    if (make) {
+      const makeFilter = handleArrayFilter(make);
+      if (makeFilter) {
+        where.make = makeFilter;
+      }
+    }
+    if (model) {
+      where.model = { contains: model as string };
+    }
+    if (serialNumber) {
+      where.serialNumber = { contains: serialNumber as string };
+    }
+    if (assetTag) {
+      where.assetTag = { contains: assetTag as string };
+    }
+    
+    // Source filter
+    if (source) {
+      const sourceFilter = handleArrayFilter(source);
+      if (sourceFilter) {
+        where.source = sourceFilter;
+      }
+    }
+    
+    // Vendor filter
+    if (vendorId) {
+      const vendorFilter = handleArrayFilter(vendorId);
+      if (vendorFilter) {
+        where.vendorId = vendorFilter;
+      }
+    }
+    
+    // Financial filters
+    if (purchasePriceMin || purchasePriceMax) {
+      where.purchasePrice = {};
+      if (purchasePriceMin) {
+        where.purchasePrice.gte = parseFloat(purchasePriceMin as string);
+      }
+      if (purchasePriceMax) {
+        where.purchasePrice.lte = parseFloat(purchasePriceMax as string);
+      }
+    }
+    
+    // Purchase date range
+    if (purchaseDateFrom || purchaseDateTo) {
+      where.purchaseDate = {};
+      if (purchaseDateFrom) {
+        where.purchaseDate.gte = new Date(purchaseDateFrom as string);
+      }
+      if (purchaseDateTo) {
+        where.purchaseDate.lte = new Date(purchaseDateTo as string);
+      }
+    }
+    
+    // Warranty filters
+    if (warrantyStartFrom || warrantyStartTo) {
+      where.warrantyStartDate = {};
+      if (warrantyStartFrom) {
+        where.warrantyStartDate.gte = new Date(warrantyStartFrom as string);
+      }
+      if (warrantyStartTo) {
+        where.warrantyStartDate.lte = new Date(warrantyStartTo as string);
+      }
+    }
+    
+    if (warrantyEndFrom || warrantyEndTo) {
+      where.warrantyEndDate = {};
+      if (warrantyEndFrom) {
+        where.warrantyEndDate.gte = new Date(warrantyEndFrom as string);
+      }
+      if (warrantyEndTo) {
+        where.warrantyEndDate.lte = new Date(warrantyEndTo as string);
+      }
+    }
+    
+    // Warranty status filter
+    if (warrantyStatus) {
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+      
+      if (warrantyStatus === 'active') {
+        where.warrantyEndDate = { gte: now };
+      } else if (warrantyStatus === 'expired') {
+        where.warrantyEndDate = { lt: now };
+      } else if (warrantyStatus === 'expiring_soon') {
+        where.AND = [
+          { warrantyEndDate: { gte: now } },
+          { warrantyEndDate: { lte: thirtyDaysFromNow } }
+        ];
+      }
+    }
+    
+    // Specification filters using JSON operations
+    const specFilters: any[] = [];
+    
+    if (processor) {
+      specFilters.push({
+        OR: [
+          { processor: { contains: processor as string } },
+          { 
+            specifications: {
+              path: ['processor'],
+              string_contains: processor as string
+            }
+          }
+        ]
+      });
+    }
+    
+    if (ram) {
+      specFilters.push({
+        OR: [
+          { ram: { contains: ram as string } },
+          { 
+            specifications: {
+              path: ['ram'],
+              string_contains: ram as string
+            }
+          }
+        ]
+      });
+    }
+    
+    if (ramMin || ramMax) {
+      // Extract numeric value from RAM strings for comparison
+      if (ramMin) {
+        const ramMinStr = ramMin as string;
+        specFilters.push({
+          OR: [
+            { ram: { contains: `${ramMinStr}GB` } },
+            { ram: { contains: `${parseInt(ramMinStr) * 1024}MB` } }
+          ]
+        });
+      }
+      if (ramMax) {
+        const ramMaxStr = ramMax as string;
+        specFilters.push({
+          OR: [
+            { ram: { contains: `${ramMaxStr}GB` } },
+            { ram: { contains: `${parseInt(ramMaxStr) * 1024}MB` } }
+          ]
+        });
+      }
+    }
+    
+    if (storage) {
+      specFilters.push({
+        OR: [
+          { storage: { contains: storage as string } },
+          { 
+            specifications: {
+              path: ['storage'],
+              string_contains: storage as string
+            }
+          }
+        ]
+      });
+    }
+    
+    if (storageMin || storageMax) {
+      // Similar logic for storage filtering
+      if (storageMin) {
+        const storageMinStr = storageMin as string;
+        specFilters.push({
+          OR: [
+            { storage: { contains: `${storageMinStr}GB` } },
+            { storage: { contains: `${parseInt(storageMinStr) / 1024}TB` } }
+          ]
+        });
+      }
+      if (storageMax) {
+        const storageMaxStr = storageMax as string;
+        specFilters.push({
+          OR: [
+            { storage: { contains: `${storageMaxStr}GB` } },
+            { storage: { contains: `${parseInt(storageMaxStr) / 1024}TB` } }
+          ]
+        });
+      }
+    }
+    
+    if (operatingSystem) {
+      const osFilter = handleArrayFilter(operatingSystem);
+      if (osFilter) {
+        specFilters.push({
+          OR: [
+            { operatingSystem: osFilter },
+            { 
+              specifications: {
+                path: ['operatingSystem'],
+                string_contains: typeof osFilter === 'string' ? osFilter : (osFilter as any).in[0]
+              }
+            }
+          ]
+        });
+      }
+    }
+    
+    // Add specification filters to the main where clause
+    if (specFilters.length > 0) {
+      if (!where.AND) {
+        where.AND = [];
+      }
+      (where.AND as any[]).push(...specFilters);
     }
     
     // Handle assignment filters - support both legacy and new parameters

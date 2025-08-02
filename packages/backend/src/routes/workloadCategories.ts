@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import prisma from '../services/database';
-import logger from '../utils/logger';
-import { USER_ROLES } from '../constants/index';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import prisma from '../services/database.js';
+import logger from '../utils/logger.js';
+import { USER_ROLES } from '../constants/index.js';
 
 const router = Router();
 

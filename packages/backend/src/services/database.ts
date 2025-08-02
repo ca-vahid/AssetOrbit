@@ -1,5 +1,5 @@
-import { PrismaClient } from '../generated/prisma';
-import logger from '../utils/logger';
+import { PrismaClient } from '../generated/prisma/index.js';
+import logger from '../utils/logger.js';
 
 // Create a single instance of PrismaClient
 const prisma = new PrismaClient({

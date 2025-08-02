@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { authenticateJwt, requireRole } from '../middleware/auth';
-import { graphService } from '../services/graphService';
-import { matchLocations } from '../utils/locationMatcher';
-import prisma from '../services/database';
-import logger from '../utils/logger';
-import { Prisma } from '../generated/prisma';
-import { USER_ROLES, ASSET_TYPES } from '../constants/index';
+import { authenticateJwt, requireRole } from '../middleware/auth.js';
+import { graphService } from '../services/graphService.js';
+import { matchLocations } from '../utils/locationMatcher.js';
+import prisma from '../services/database.js';
+import logger from '../utils/logger.js';
+import { Prisma } from '../generated/prisma/index.js';
+import { USER_ROLES, ASSET_TYPES } from '../constants/index.js';
 
 // Import shared transformation modules
 import { 
