@@ -2,24 +2,24 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
-import config from './config/index.js';
+import config from './config';
 import type { Request, Response } from 'express';
-import logger from './utils/logger.js';
-import { connectDatabase } from './services/database.js';
+import logger from './utils/logger';
+import { connectDatabase } from './services/database';
 
-import healthRouter from './routes/health.js';
-import assetsRouter from './routes/assets.js';
-import usersRouter from './routes/users.js';
-import departmentsRouter from './routes/departments.js';
-import locationsRouter from './routes/locations.js';
-import vendorsRouter from './routes/vendors.js';
-import customFieldsRouter from './routes/customFields.js';
-import activitiesRouter from './routes/activities.js';
-import staffRouter from './routes/staff.js';
-import workloadCategoriesRouter from './routes/workloadCategories.js';
-import importRouter from './routes/import.js';
-import { initAuth, authenticateJwt } from './middleware/auth.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import healthRouter from './routes/health';
+import assetsRouter from './routes/assets';
+import usersRouter from './routes/users';
+import departmentsRouter from './routes/departments';
+import locationsRouter from './routes/locations';
+import vendorsRouter from './routes/vendors';
+import customFieldsRouter from './routes/customFields';
+import activitiesRouter from './routes/activities';
+import staffRouter from './routes/staff';
+import workloadCategoriesRouter from './routes/workloadCategories';
+import importRouter from './routes/import';
+import { initAuth, authenticateJwt } from './middleware/auth';
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 const port = config.port;
@@ -88,8 +88,8 @@ async function startServer() {
     await connectDatabase();
     
     // Start Express server
-    const server = app.listen(port, () => {
-      logger.info(`Backend running on http://localhost:${port}`);
+    const server = app.listen(port, '0.0.0.0', () => {
+      logger.info(`Backend running on http://0.0.0.0:${port}`);
     });
 
     // Handle server errors
