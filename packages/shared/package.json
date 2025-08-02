@@ -2,7 +2,6 @@
   "name": "@ats/shared-transformations",
   "version": "1.0.0",
   "description": "Shared transformation library for asset import processing",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

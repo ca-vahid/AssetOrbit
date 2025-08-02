@@ -5,7 +5,7 @@
     "rootDir": "src",
     "lib": ["ES2020"],
     "types": ["node"],
-    "module": "ESNext"
+    "module": "CommonJS"
   },
   "include": ["src/**/*.ts"],
   "references": [
