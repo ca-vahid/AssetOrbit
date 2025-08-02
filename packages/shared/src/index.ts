@@ -6,7 +6,7 @@
  */
 
 // Core transformation utilities
-export * from './importTransformations';
+export * from './importTransformations.js';
 
 // Source-specific transformation modules (selective exports to avoid conflicts)
 export { 
@@ -16,7 +16,7 @@ export {
   NINJA_ONE_MAPPINGS,
   filterNinjaOneEndpoints,
   filterNinjaOneServers
-} from './importSources/ninjaOneTransforms';
+} from './importSources/ninjaOneTransforms.js';
 
 export { 
   transformTelusPhoneRow, 
@@ -24,7 +24,7 @@ export {
   validateTelusPhoneData,
   TELUS_PHONE_MAPPINGS,
   generatePhoneAssetTag as generateTelusPhoneAssetTag
-} from './importSources/telusTransforms';
+} from './importSources/telusTransforms.js';
 
 export { 
   transformBGCTemplateRow, 
@@ -32,10 +32,10 @@ export {
   validateBGCTemplateData,
   BGC_TEMPLATE_MAPPINGS,
   normalizeBGCAssetTag as normalizeBGCTemplateAssetTag
-} from './importSources/bgcTemplateTransforms';
+} from './importSources/bgcTemplateTransforms.js';
 
 // Main transformation registry (primary API)
-export * from './importSources/transformationRegistry';
+export * from './importSources/transformationRegistry.js';
 
 // Re-export key types for convenience
 export type {

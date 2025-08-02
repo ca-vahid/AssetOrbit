@@ -5,10 +5,10 @@
  * It acts as the single entry point for both frontend and backend.
  */
 
-import { transformNinjaOneRow, NINJA_ONE_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms';
-import { transformTelusPhoneRow, TELUS_PHONE_MAPPINGS, validateTelusPhoneData } from './telusTransforms';
-import { transformBGCTemplateRow, BGC_TEMPLATE_MAPPINGS, validateBGCTemplateData } from './bgcTemplateTransforms';
-import type { ColumnMapping, TransformationResult } from '../importTransformations';
+import { transformNinjaOneRow, NINJA_ONE_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms.js';
+import { transformTelusPhoneRow, TELUS_PHONE_MAPPINGS, validateTelusPhoneData } from './telusTransforms.js';
+import { transformBGCTemplateRow, BGC_TEMPLATE_MAPPINGS, validateBGCTemplateData } from './bgcTemplateTransforms.js';
+import type { ColumnMapping, TransformationResult } from '../importTransformations.js';
 
 // ============================================================================
 // TYPES

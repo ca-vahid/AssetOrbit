@@ -13,7 +13,7 @@ import {
   cleanPhoneNumber,
   type ColumnMapping,
   type TransformationResult
-} from '../importTransformations';
+} from '../importTransformations.js';
 
 // ============================================================================
 // TELUS PHONE COLUMN MAPPINGS

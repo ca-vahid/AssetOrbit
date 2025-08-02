@@ -10,7 +10,7 @@ import {
   applyColumnMappings,
   type ColumnMapping,
   type TransformationResult
-} from '../importTransformations';
+} from '../importTransformations.js';
 
 // ============================================================================
 // BGC TEMPLATE COLUMN MAPPINGS
