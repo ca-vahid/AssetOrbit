@@ -172,6 +172,7 @@ const ASSET_TYPES = [
   { value: 'DESKTOP', label: 'Desktop', icon: '🖥️' },
   { value: 'TABLET', label: 'Tablet', icon: '📱' },
   { value: 'PHONE', label: 'Phone', icon: '📞' },
+  { value: 'SERVER', label: 'Server', icon: '🖥️' },
   { value: 'OTHER', label: 'Other', icon: '📦' },
 ];
 
@@ -269,6 +270,19 @@ const ASSET_TYPE_CONFIGS = {
     ],
     title: 'Device & Service Details',
     description: 'Phone specifications and service information'
+  },
+  SERVER: {
+    specFields: [
+      { key: 'processor', label: 'Processor', icon: Cpu, options: ['Intel Xeon E5-2620', 'Intel Xeon E5-2640', 'Intel Xeon Gold 5118', 'Intel Xeon Gold 6128', 'Intel Xeon Platinum 8180', 'AMD EPYC 7401P', 'AMD EPYC 7551P', 'AMD EPYC 7742', 'Other'], required: false },
+      { key: 'ram', label: 'Memory (RAM)', icon: Monitor, options: ['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB'], required: false },
+      { key: 'storage', label: 'Storage', icon: HardDrive, options: ['500GB HDD', '1TB HDD', '2TB HDD', '4TB HDD', '256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD', 'RAID Configuration'], required: false },
+      { key: 'operatingSystem', label: 'Operating System', icon: Settings, options: ['Windows Server 2019', 'Windows Server 2022', 'Ubuntu Server 20.04', 'Ubuntu Server 22.04', 'CentOS 7', 'CentOS 8', 'RHEL 8', 'RHEL 9', 'VMware ESXi', 'Other'], required: false },
+      { key: 'networkPorts', label: 'Network Ports', icon: Settings, options: ['1x Gigabit', '2x Gigabit', '4x Gigabit', '10 Gigabit', 'Multiple Network Cards'], required: false },
+      { key: 'formFactor', label: 'Form Factor', icon: Package, options: ['1U Rack', '2U Rack', '4U Rack', 'Tower', 'Blade Server', 'Mini Server'], required: false },
+      { key: 'powerSupply', label: 'Power Supply', icon: Settings, options: ['Single PSU', 'Redundant PSU', '300W', '500W', '750W', '1000W', '1200W+'], required: false },
+    ],
+    title: 'Hardware Specifications',
+    description: 'Server hardware and infrastructure details'
   },
   OTHER: {
     specFields: [
@@ -1093,7 +1107,7 @@ const AssetForm: React.FC<AssetFormProps> = ({
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
             {ASSET_TYPES.map((type) => {
               const isSelected = watchedAssetType === type.value;
               return (
