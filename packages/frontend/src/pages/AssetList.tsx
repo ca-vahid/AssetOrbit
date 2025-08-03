@@ -5,13 +5,13 @@ import {
   Plus, Search, Eye, X, Trash2, AlertTriangle, 
   Monitor, Users, MapPin, Calendar, MoreHorizontal,
   Edit, Edit2, CheckCircle, XCircle, Clock, Settings,
-  Laptop, Smartphone, Tablet, Monitor as Desktop,
+  Laptop, Smartphone, Tablet, Monitor as Desktop, Server,
   List, LayoutGrid, Copy, Archive, Share2, Keyboard,
   HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown
 } from 'lucide-react';
 import { assetsApi, usersApi, customFieldsApi } from '../services/api';
 import AssetDetailView from '../components/AssetDetailView';
-import AssetFilterPanel from '../components/AssetFilterPanel';
+import AssetFilterPanelV2 from '../components/AssetFilterPanelV2';
 import { useDebounce } from '../hooks/useDebounce';
 import ProfilePicture from '../components/ProfilePicture';
 import SourceBadge from '../components/SourceBadge';
@@ -27,6 +27,7 @@ const ASSET_TYPES = {
   DESKTOP: { label: 'Desktops', icon: Desktop, emoji: '🖥️' },
   TABLET: { label: 'Tablets', icon: Tablet, emoji: '📱' },
   PHONE: { label: 'Phones', icon: Smartphone, emoji: '📱' },
+  SERVER: { label: 'Servers', icon: Server, emoji: '🖥️' },
   OTHER: { label: 'Other', icon: Monitor, emoji: '📦' },
 } as const;
 
@@ -40,16 +41,56 @@ const STATUS_CONFIG = {
 } as const;
 
 interface AssetFilters {
+  // Basic filters
   assignedTo?: string;
-  status?: string;
-  condition?: string;
-  assetType?: string;
-  departmentId?: string;
-  locationId?: string;
-  workloadCategoryId?: string;
+  status?: string | string[];
+  condition?: string | string[];
+  assetType?: string | string[];
+  departmentId?: string | string[];
+  locationId?: string | string[];
+  workloadCategoryId?: string | string[];
+  
+  // Specification filters
+  processor?: string;
+  ram?: string;
+  ramMin?: string;
+  ramMax?: string;
+  storage?: string;
+  storageMin?: string;
+  storageMax?: string;
+  operatingSystem?: string | string[];
+  
+  // Hardware filters
+  make?: string | string[];
+  model?: string;
+  serialNumber?: string;
+  
+  // Financial filters
+  purchasePriceMin?: string;
+  purchasePriceMax?: string;
+  purchaseDateFrom?: string;
+  purchaseDateTo?: string;
+  
+  // Warranty filters
+  warrantyStartFrom?: string;
+  warrantyStartTo?: string;
+  warrantyEndFrom?: string;
+  warrantyEndTo?: string;
+  warrantyStatus?: string | string[];
+  
+  // Vendor and source filters
+  vendorId?: string | string[];
+  source?: string | string[];
+  
+  // Date filters
   dateFrom?: string;
   dateTo?: string;
-  [key: string]: string | undefined; // dynamic custom-field filters cf_<id>
+  
+  // Asset identification filters
+  assetTag?: string;
+  
+  // Custom fields (dynamic)
+  [key: string]: string | string[] | undefined;
 }
 
 // Helper functions for asset-specific specifications
@@ -561,7 +602,13 @@ const AssetList: React.FC = () => {
   }, [toast]);
 
   // Get active filter count
-  const activeFilterCount = Object.keys(filters).length;
+  const activeFilterCount = Object.entries(filters).reduce((count, [key, value]) => {
+    if (!value) return count;
+    if (Array.isArray(value)) {
+      return count + (value.length > 0 ? 1 : 0);
+    }
+    return count + (value.trim() !== '' ? 1 : 0);
+  }, 0);
 
   // Helper function to get display label for filter values
   const getFilterDisplayLabel = (key: keyof AssetFilters, value: string): string => {
@@ -949,7 +996,7 @@ const AssetList: React.FC = () => {
           </Tooltip.Provider>
         </div>
         
-        <AssetFilterPanel
+        <AssetFilterPanelV2
           filters={filters}
           onFiltersChange={handleFiltersChange}
           activeFilterCount={activeFilterCount}
@@ -974,9 +1021,46 @@ const AssetList: React.FC = () => {
           
           {Object.entries(filters).map(([key, value]) => {
             if (!value) return null;
+            if (Array.isArray(value) && value.length === 0) return null;
             
             const filterKey = key as keyof AssetFilters;
-            let label = getFilterDisplayLabel(filterKey, value);
+            
+            // Handle array values
+            if (Array.isArray(value)) {
+              return value.map((val, index) => {
+                const label = getFilterDisplayLabel(filterKey, val);
+                
+                const colorClasses: Record<string, string> = {
+                  assignedTo: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+                  status: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+                  condition: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+                  assetType: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+                  departmentId: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+                  locationId: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300',
+                  make: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+                  source: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+                  operatingSystem: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
+                };
+
+                return (
+                  <div key={`${key}-${index}`} className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm ${colorClasses[filterKey] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                    <span>{label}</span>
+                    <button
+                      onClick={() => {
+                        const newValues = value.filter((_, i) => i !== index);
+                        handleFiltersChange({ ...filters, [key]: newValues.length > 0 ? newValues : undefined });
+                      }}
+                      className="ml-1 hover:bg-white/20 rounded-full p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              });
+            }
+            
+            // Handle single string values
+            let label = getFilterDisplayLabel(filterKey, value as string);
             if (key.startsWith('cf_')) {
               const fieldId = key.slice(3);
               const field = customFieldMap[fieldId];
@@ -986,17 +1070,54 @@ const AssetList: React.FC = () => {
                 if (value === 'false') displayVal = 'No';
                 label = `${field.name}: ${displayVal}`;
               }
+            } else {
+              // Add more descriptive labels for new filter types
+              const labelMap: Record<string, string> = {
+                processor: `Processor: ${value}`,
+                ram: `RAM: ${value}`,
+                ramMin: `RAM ≥ ${value}GB`,
+                ramMax: `RAM ≤ ${value}GB`,
+                storage: `Storage: ${value}`,
+                storageMin: `Storage ≥ ${value}GB`,
+                storageMax: `Storage ≤ ${value}GB`,
+                model: `Model: ${value}`,
+                serialNumber: `Serial: ${value}`,
+                assetTag: `Asset Tag: ${value}`,
+                purchasePriceMin: `Price ≥ $${value}`,
+                purchasePriceMax: `Price ≤ $${value}`,
+                purchaseDateFrom: `Purchased ≥ ${value}`,
+                purchaseDateTo: `Purchased ≤ ${value}`,
+                warrantyStartFrom: `Warranty Start ≥ ${value}`,
+                warrantyStartTo: `Warranty Start ≤ ${value}`,
+                warrantyEndFrom: `Warranty End ≥ ${value}`,
+                warrantyEndTo: `Warranty End ≤ ${value}`,
+                dateFrom: `Created ≥ ${value}`,
+                dateTo: `Created ≤ ${value}`,
+              };
+              
+              if (labelMap[key]) {
+                label = labelMap[key];
+              }
             }
 
             const colorClasses: Record<string, string> = {
-              assignedTo: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50',
-              status: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50',
-              condition: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-800/50',
-              assetType: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/50',
-              departmentId: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50',
-              locationId: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-800/50',
-              dateFrom: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50',
-              dateTo: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50',
+              assignedTo: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+              status: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+              condition: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+              assetType: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+              departmentId: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+              locationId: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300',
+              dateFrom: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+              dateTo: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+              processor: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+              ram: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+              ramMin: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+              ramMax: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+              storage: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+              storageMin: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+              storageMax: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+              make: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+              source: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
             };
 
             return (
@@ -1004,13 +1125,13 @@ const AssetList: React.FC = () => {
                 <span>{label}</span>
                 <button
                   onClick={() => clearFilter(filterKey)}
-                  className="ml-1 rounded-full p-0.5"
+                  className="ml-1 hover:bg-white/20 rounded-full p-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </div>
             );
-          })}
+          }).flat()}
 
           {(activeFilterCount > 0 || search) && (
             <button
@@ -1361,6 +1482,7 @@ const AssetList: React.FC = () => {
                                         DESKTOP: 'text-purple-600 dark:text-purple-400', 
                                         TABLET: 'text-green-600 dark:text-green-400',
                                         PHONE: 'text-orange-600 dark:text-orange-400',
+                                        SERVER: 'text-red-600 dark:text-red-400',
                                         OTHER: 'text-slate-600 dark:text-slate-400'
                                       };
                                       const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;
@@ -1649,6 +1771,7 @@ const AssetList: React.FC = () => {
                                       DESKTOP: 'text-purple-600 dark:text-purple-400', 
                                       TABLET: 'text-green-600 dark:text-green-400',
                                       PHONE: 'text-orange-600 dark:text-orange-400',
+                                      SERVER: 'text-red-600 dark:text-red-400',
                                       OTHER: 'text-slate-600 dark:text-slate-400'
                                     };
                                     const colorClass = iconColors[asset.assetType as keyof typeof iconColors] || iconColors.OTHER;

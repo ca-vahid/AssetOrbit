@@ -1,5 +1,5 @@
-import prisma from '../services/database.js';
-import logger from '../utils/logger.js';
+import prisma from '../services/database';
+import logger from '../utils/logger';
 
 // Common location abbreviations and mappings
 const locationMappings: Record<string, string[]> = {
