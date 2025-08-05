@@ -24,9 +24,12 @@ export function useFileParser() {
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
           if (jsonData.length === 0) throw new Error('Empty file');
 
-          // Detect header row. Telus exports often include a preamble; we look for a row that contains "Subscriber Name".
+          // Detect header row. Telus/Rogers exports often include a preamble; we look for a row that contains known headers.
           let headerRowIndex = 0;
-          const headerKeywords = ['Subscriber Name', 'Phone Number', 'Device Name'];
+          const headerKeywords = [
+            'Subscriber Name', 'Phone Number', 'Device Name', // Telus
+            'Account Number', 'Subscriber Number', 'Usernames', 'Device Description' // Rogers
+          ];
           for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
             if (!Array.isArray(row)) continue;
@@ -62,7 +65,7 @@ export function useFileParser() {
     setError(null);
     try {
       const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
-      const isXLSX = file.type.includes('spreadsheet') || file.name.endsWith('.xlsx');
+      const isXLSX = file.type.includes('spreadsheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xlsm');
 
       let result: ParsedCSV;
       if (isCSV) {

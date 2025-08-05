@@ -43,6 +43,11 @@ const SOURCE_CONFIG = {
     color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
     logo: '/logos/telus.png',
   },
+  ROGERS: {
+    label: 'Rogers',
+    color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+    logo: '/logos/rogers.png',
+  },
 } as const;
 
 const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {

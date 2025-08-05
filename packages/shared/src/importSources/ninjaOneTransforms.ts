@@ -16,7 +16,7 @@ import {
   applyColumnMappings,
   type ColumnMapping,
   type TransformationResult
-} from '../importTransformations.js';
+} from '../importTransformations';
 
 // ============================================================================
 // NINJA ONE COLUMN MAPPINGS

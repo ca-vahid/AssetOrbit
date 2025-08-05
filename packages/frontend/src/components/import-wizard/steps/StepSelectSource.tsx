@@ -111,7 +111,12 @@ const StepSelectSource: React.FC<Props> = ({
               onClick={() => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = selectedSourceConfig.acceptedFormats.map(f => f === 'CSV' ? '.csv' : '.xlsx').join(',');
+                input.accept = selectedSourceConfig.acceptedFormats.map(f => {
+                  if (f === 'CSV') return '.csv';
+                  if (f === 'XLSX') return '.xlsx';
+                  if (f === 'XLSM') return '.xlsm';
+                  return f.toLowerCase();
+                }).join(',');
                 input.onchange = e => handleFileSelect((e.target as HTMLInputElement).files);
                 input.click();
               }}

@@ -191,6 +191,8 @@ async function processAssetBatch(
         let sourceType: ImportSourceType;
         if (source === 'TELUS') {
           sourceType = 'telus';
+        } else if (source === 'ROGERS') {
+          sourceType = 'rogers';
         } else if (source === 'NINJAONE') {
           // Check if this is a server import based on asset type in the data
           const role = csvRow['Role'];
@@ -202,11 +204,14 @@ async function processAssetBatch(
           sourceType = 'bgc-template';
         } else {
           // Fallback: try to determine from column mappings
-          const hasPhoneColumns = columnMappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI');
+          const hasTelusColumns = columnMappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'Subscriber Name');
+          const hasRogersColumns = columnMappings.some(m => m.ninjaColumn === 'Subscriber Number' || m.ninjaColumn === 'Device Description');
           const hasNinjaColumns = columnMappings.some(m => m.ninjaColumn === 'Role' || m.ninjaColumn === 'Volumes');
           
-          if (hasPhoneColumns) {
+          if (hasTelusColumns) {
             sourceType = 'telus';
+          } else if (hasRogersColumns) {
+            sourceType = 'rogers';
           } else if (hasNinjaColumns) {
             // Check if it's a server based on Role column
             const role = csvRow['Role'];
@@ -797,6 +802,7 @@ function normalizeImportSource(src: string | undefined): string {
   if (lower === 'intune') return 'INTUNE';
   if (lower === 'bgc-template' || lower === 'custom-excel' || lower === 'invoice') return 'EXCEL';
   if (lower === 'telus') return 'TELUS';
+  if (lower === 'rogers') return 'ROGERS';
   // Already in canonical form or unknown – default to upper-case for safety
   return src.toUpperCase();
 }

@@ -90,12 +90,16 @@ const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
           // First check if we have an explicit selectedSource
           if (selectedSource === 'telus') {
             importSourceType = 'telus';
+          } else if (selectedSource === 'rogers') {
+            importSourceType = 'rogers';
           } else if (selectedSource === 'bgc-template') {
             importSourceType = 'bgc-template';
           } else {
             // Fallback to detection logic for unknown sources
             if (sourceType === 'bgc' || mappings.some(m => m.ninjaColumn === 'Asset Tag' || m.ninjaColumn === 'Brand')) {
               importSourceType = 'bgc-template';
+            } else if (mappings.some(m => m.ninjaColumn === 'Subscriber Number' || m.ninjaColumn === 'Device Description')) {
+              importSourceType = 'rogers';
             } else if (mappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'IMEI')) {
               importSourceType = 'telus';
             } else {

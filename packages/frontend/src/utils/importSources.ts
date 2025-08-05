@@ -588,13 +588,18 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
       icon: Building2,
       iconColor: 'text-red-600 dark:text-red-400',
       iconBg: 'bg-red-100 dark:bg-red-900/30',
-      acceptedFormats: ['CSV', 'XLSX'],
+      acceptedFormats: ['CSV', 'XLSX', 'XLSM'],
       sampleFile: null,
-      enabled: false,
-      comingSoon: true,
+      enabled: true,
       category: 'phones',
-      features: [],
-      getMappings: () => [],
+      features: ['User assignments', 'Device details', 'Plan information', 'Contract tracking', 'HUP eligibility'],
+      getMappings: () => getImportMappings('rogers'),
+      requiredOverrides: ['assetTag', 'make', 'assetType'], // Phones don't need BGC asset tags, explicit make, or assetType (all auto-set in backend)
+      customProcessing: {
+        userResolution: true,
+        locationResolution: false,
+        conflictDetection: true,
+      },
     },
     {
       id: 'bell',
@@ -667,6 +672,9 @@ export const getAcceptedFileTypes = (source: ImportSourceConfig): Record<string,
         break;
       case 'XLSX':
         accept['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] = ['.xlsx'];
+        break;
+      case 'XLSM':
+        accept['application/vnd.ms-excel.sheet.macroEnabled.12'] = ['.xlsm'];
         break;
       case 'PDF':
         accept['application/pdf'] = ['.pdf'];

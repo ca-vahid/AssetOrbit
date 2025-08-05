@@ -5,16 +5,17 @@
  * It acts as the single entry point for both frontend and backend.
  */
 
-import { transformNinjaOneRow, transformNinjaOneServerRow, NINJA_ONE_MAPPINGS, NINJA_ONE_SERVER_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms.js';
-import { transformTelusPhoneRow, TELUS_PHONE_MAPPINGS, validateTelusPhoneData } from './telusTransforms.js';
-import { transformBGCTemplateRow, BGC_TEMPLATE_MAPPINGS, validateBGCTemplateData } from './bgcTemplateTransforms.js';
-import type { ColumnMapping, TransformationResult } from '../importTransformations.js';
+import { transformNinjaOneRow, transformNinjaOneServerRow, NINJA_ONE_MAPPINGS, NINJA_ONE_SERVER_MAPPINGS, validateNinjaOneData } from './ninjaOneTransforms';
+import { transformTelusPhoneRow, TELUS_PHONE_MAPPINGS, validateTelusPhoneData } from './telusTransforms';
+import { transformRogersPhoneRow, ROGERS_PHONE_MAPPINGS, validateRogersPhoneData } from './rogersTransforms';
+import { transformBGCTemplateRow, BGC_TEMPLATE_MAPPINGS, validateBGCTemplateData } from './bgcTemplateTransforms';
+import type { ColumnMapping, TransformationResult } from '../importTransformations';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type ImportSourceType = 'telus' | 'ninjaone' | 'ninjaone-servers' | 'bgc-template';
+export type ImportSourceType = 'telus' | 'rogers' | 'ninjaone' | 'ninjaone-servers' | 'bgc-template';
 
 export interface ImportSourceTransformer {
   transformRow: (row: Record<string, string>) => TransformationResult;
@@ -32,6 +33,14 @@ export const IMPORT_TRANSFORMATION_REGISTRY: Record<ImportSourceType, ImportSour
     getMappings: () => TELUS_PHONE_MAPPINGS,
     validateData: (data: any) => {
       const errors = validateTelusPhoneData(data);
+      return { isValid: errors.length === 0, errors };
+    },
+  },
+  'rogers': {
+    transformRow: transformRogersPhoneRow,
+    getMappings: () => ROGERS_PHONE_MAPPINGS,
+    validateData: (data: any) => {
+      const errors = validateRogersPhoneData(data);
       return { isValid: errors.length === 0, errors };
     },
   },
