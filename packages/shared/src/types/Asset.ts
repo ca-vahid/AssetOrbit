@@ -31,7 +31,8 @@ export enum AssetSource {
   BULK_UPLOAD = 'BULK_UPLOAD',
   API = 'API',
   TELUS = 'TELUS',
-  ROGERS = 'ROGERS'
+  ROGERS = 'ROGERS',
+  INVOICE = 'INVOICE'
 }
 
 export interface Asset {

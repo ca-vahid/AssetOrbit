@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck, Laptop, Smartphone, Tablet } from 'lucide-react';
+import { X, Calendar, User, MapPin, Package, Clock, Edit, ChevronDown, ChevronUp, Monitor, Cpu, HardDrive, MemoryStick, Zap, Shield, DollarSign, Building, Tag, Mail, Phone, UserCheck, Laptop, Smartphone, Tablet, FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { assetsApi, activitiesApi, staffApi, type Asset as ApiAsset } from '../services/api';
 import { useCustomFields } from '../hooks/useCustomFields';
-import type { Activity } from '@ats/shared';
+import type { Activity } from '@shared/types/Activity';
 import { AssetSource } from '@shared/types/Asset';
 import EditAsset from '../pages/EditAsset';
 import SourceBadge from './SourceBadge';
+import { useStore } from '../store';
 
 interface AssetDetailModalProps {
   assetId: string;
@@ -133,6 +134,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showActivityHistory, setShowActivityHistory] = useState(false);
   const queryClient = useQueryClient();
+  const { currentUser } = useStore();
   
   const { data: asset, isLoading: assetLoading } = useQuery({
     queryKey: ['asset', assetId],
@@ -757,6 +759,33 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Warranty End</span>
                                   </div>
                                   <p className="text-slate-900 dark:text-slate-100 font-medium">{formatDate(asset.warrantyEndDate)}</p>
+                                </div>
+                              )}
+                              
+                              {/* Invoice Document (Admin only) */}
+                              {currentUser?.role === 'ADMIN' && asset.source === 'INVOICE' && asset.documents && asset.documents.length > 0 && (
+                                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-emerald-200 dark:border-emerald-700">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Original Invoice</span>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {asset.documents.map((doc, index) => (
+                                      <a
+                                        key={doc.document.id}
+                                        href={`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/invoice/file/${doc.document.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium text-sm transition-colors"
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                        {doc.document.fileName}
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                          ({(doc.document.fileSize / 1024 / 1024).toFixed(1)} MB)
+                                        </span>
+                                      </a>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </div>

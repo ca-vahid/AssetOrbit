@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MsalProvider, useMsal } from '@azure/msal-react';
-import { msalInstance } from './auth/msal';
+import { msalInstance, acquireTokenSafely, resetAuthState } from './auth/msal';
 import { api, usersApi, setupAuthInterceptor } from './services/api';
 import { useStore } from './store';
 import Layout from './components/Layout';
@@ -70,10 +70,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         }
         
         const apiScope = `api://${clientId}/access_as_user`;
-        const result = await instance.acquireTokenSilent({ 
-          scopes: [apiScope], 
-          account: accounts[0] 
-        });
+        const result = await acquireTokenSafely([apiScope]);
         
         // Set auth header
         api.defaults.headers.common['Authorization'] = `Bearer ${result.accessToken}`;
@@ -118,9 +115,25 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <p className="text-slate-600 dark:text-slate-400 mb-6">{authError}</p>
           <div className="space-y-3">
             <button
-              onClick={() => {
-                setAuthError(null);
-                window.location.reload();
+              onClick={async () => {
+                try {
+                  setAuthError(null);
+                  setIsLoading(true);
+                  resetAuthState();
+                  const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID as string;
+                  const apiScope = `api://${clientId}/access_as_user`;
+                  const result = await acquireTokenSafely([apiScope]);
+                  api.defaults.headers.common['Authorization'] = `Bearer ${result.accessToken}`;
+                  const user = await usersApi.getMe();
+                  setCurrentUser(user);
+                } catch (e: any) {
+                  // If popup is blocked or more interaction is required, fall back to redirect
+                  const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID as string;
+                  const apiScope = `api://${clientId}/access_as_user`;
+                  await (instance as any).loginRedirect({ scopes: [apiScope], prompt: 'select_account' });
+                } finally {
+                  setIsLoading(false);
+                }
               }}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >

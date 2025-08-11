@@ -188,7 +188,7 @@ async function processAssetBatch(
       
       try {
         // Determine source type for shared transformation modules
-        let sourceType: ImportSourceType;
+        let sourceType: ImportSourceType | null;
         if (source === 'TELUS') {
           sourceType = 'telus';
         } else if (source === 'ROGERS') {
@@ -202,6 +202,9 @@ async function processAssetBatch(
           sourceType = 'ninjaone-servers';
         } else if (source === 'EXCEL' || source === 'BGC_TEMPLATE') {
           sourceType = 'bgc-template';
+        } else if (source === 'INVOICE') {
+          // Skip transformation for invoice data - it's already properly structured
+          sourceType = null; 
         } else {
           // Fallback: try to determine from column mappings
           const hasTelusColumns = columnMappings.some(m => m.ninjaColumn === 'Phone Number' || m.ninjaColumn === 'Subscriber Name');
@@ -222,10 +225,23 @@ async function processAssetBatch(
           }
         }
 
-        console.log(`🔧 Using shared transformation for source type: ${sourceType}`);
-        
-        // Transform the row using shared modules
-        transformationResult = transformImportRow(sourceType, csvRow);
+        if (sourceType) {
+          console.log(`🔧 Using shared transformation for source type: ${sourceType}`);
+          
+          // Transform the row using shared modules
+          transformationResult = transformImportRow(sourceType, csvRow);
+        } else {
+          console.log(`🔧 Skipping transformation for invoice import - using direct mappings only`);
+          
+          // For invoice imports, use direct mappings without transformation
+          transformationResult = {
+            directFields: {},
+            specifications: {},
+            customFields: {},
+            processingNotes: [],
+            validationErrors: []
+          };
+        }
         
         console.log(`✅ Transformation result:`, {
           directFields: Object.keys(transformationResult.directFields),
@@ -714,6 +730,20 @@ async function processAssetBatch(
         }
       });
 
+      // Link a single shared document (invoice) to each created asset, if provided
+      if ((req.body as any).documentId) {
+        try {
+          await prisma.assetDocument.create({
+            data: {
+              assetId: newAsset.id,
+              documentId: (req.body as any).documentId,
+            },
+          });
+        } catch (e) {
+          logger.warn('Failed to link document to asset', e);
+        }
+      }
+
       // Create custom field values if any
       if (customFields && Object.keys(customFields).length > 0) {
         for (const [fieldId, value] of Object.entries(customFields)) {
@@ -800,7 +830,8 @@ function normalizeImportSource(src: string | undefined): string {
   const lower = src.toLowerCase();
   if (lower === 'ninjaone') return 'NINJAONE';
   if (lower === 'intune') return 'INTUNE';
-  if (lower === 'bgc-template' || lower === 'custom-excel' || lower === 'invoice') return 'EXCEL';
+  if (lower === 'bgc-template' || lower === 'custom-excel') return 'EXCEL';
+  if (lower === 'invoice') return 'INVOICE';
   if (lower === 'telus') return 'TELUS';
   if (lower === 'rogers') return 'ROGERS';
   // Already in canonical form or unknown – default to upper-case for safety

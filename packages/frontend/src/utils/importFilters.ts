@@ -219,6 +219,9 @@ export function getFilterKey(source: string, category: string): string {
   if (source === 'bgc-template' && category === 'servers') {
     return '';
   }
+  if (source === 'invoice') {
+    return ''; // No filtering for invoice imports
+  }
   
   // Default: no filtering
   return '';

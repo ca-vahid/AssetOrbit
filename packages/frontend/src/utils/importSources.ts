@@ -490,8 +490,8 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
       iconBg: 'bg-purple-100 dark:bg-purple-900/30',
       acceptedFormats: ['PDF', 'JPG', 'PNG'],
       sampleFile: null,
-      enabled: false,
-      comingSoon: true,
+      enabled: true,
+      comingSoon: false,
       category: 'endpoints',
       features: [
         'OCR text extraction',
@@ -500,6 +500,7 @@ export const IMPORT_SOURCES: Record<UploadCategory, ImportSourceConfig[]> = {
         'Vendor identification'
       ],
       getMappings: () => [], // OCR-based mapping
+      filterKey: null, // No filtering needed for invoice imports
       customProcessing: {
         userResolution: false,
         locationResolution: false,

@@ -21,6 +21,8 @@ interface DataPreviewTableProps {
   mappings: ColumnMapping[];
   sourceType: 'ninja' | 'bgc';
   selectedSource?: string | null;
+  // Optional: show a warning header for invoice quantity/tag mismatches if backend returned issues
+  invoiceIssues?: { lineIndex: number; message: string }[];
   userMap: Record<string, { id: string; displayName: string; officeLocation?: string } | null>;
   locationMap: Record<string, string | null>;
   conflicts?: Record<string, { id: string; assetTag: string; serialNumber: string }>;

@@ -1,5 +1,5 @@
 {
-  "assetTag": "PH-700125-MQN",
+  "assetTag": "PH-401981-0FR",
   "serialNumber": "789123456789123",
   "model": "Galaxy A54",
   "make": "Samsung",
@@ -18,7 +18,7 @@
     "operatingSystem": "SAMSUNG GALAXY A54 64GB WHITE"
   },
   "metadata": {
-    "processedAt": "2025-08-03T23:11:40.125Z",
+    "processedAt": "2025-08-11T00:16:41.981Z",
     "version": "1.0.0",
     "source": "refactored"
   }

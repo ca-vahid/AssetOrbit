@@ -157,6 +157,16 @@ export interface Asset {
   };
   customFields?: Record<string, string>;
   workloadCategories?: WorkloadCategory[];
+  documents?: Array<{
+    document: {
+      id: string;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      isAdminOnly: boolean;
+      createdAt: string;
+    };
+  }>;
 }
 
 export interface User {
@@ -356,3 +366,27 @@ export const workloadRulesApi = {
 export const assetFieldsApi = {
   getAll: () => api.get<AssetFieldMeta[]>('/assets/fields').then(res => res.data),
 }; 
+
+// Invoice extraction
+export const invoiceApi = {
+  extract: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const base = API_BASE_URL.replace(/\/$/, '');
+    return fetch(`${base}/invoice/extract`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        // Let browser set multipart boundary; provide auth explicitly if available
+        Authorization: (api.defaults.headers.common['Authorization'] as string) || '',
+      } as any,
+      body: form,
+    }).then(async (r) => {
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw Object.assign(new Error(err.error || 'Extraction failed'), err);
+      }
+      return r.json();
+    });
+  },
+};

@@ -9,6 +9,8 @@ import type { Activity as ActivityType } from '@ats/shared';
 import { AssetSource } from '@shared/types/Asset';
 import EditAsset from '../pages/EditAsset';
 import SourceBadge from './SourceBadge';
+import { useStore } from '../store';
+import { acquireTokenSafely } from '../auth/msal';
 
 interface AssetDetailViewProps {
   assetId: string;
@@ -129,6 +131,7 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const queryClient = useQueryClient();
+  const { currentUser } = useStore();
   
   const { data: asset, isLoading: assetLoading } = useQuery({
     queryKey: ['asset', assetId],
@@ -143,6 +146,33 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
   });
 
   const { data: customFields } = useCustomFields();
+
+  const truncateMiddle = (text: string, max = 60) => {
+    if (!text) return '';
+    if (text.length <= max) return text;
+    const head = Math.ceil((max - 1) * 0.6);
+    const tail = max - 1 - head;
+    return text.slice(0, head) + '…' + text.slice(-tail);
+  };
+
+  const openInvoiceDocument = async (documentId: string) => {
+    try {
+      const apiScope = `api://${import.meta.env.VITE_AZURE_AD_CLIENT_ID}/access_as_user`;
+      const token = (await acquireTokenSafely([apiScope])).accessToken;
+      const base = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+      const resp = await fetch(`${base}/invoice/file/${documentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error(`Failed to fetch file (${resp.status})`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      console.error('Failed to open invoice document', e);
+      alert('Unable to open invoice. Please ensure you are signed in and have ADMIN access.');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -645,6 +675,31 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
                                 </div>
                               </div>
                             </div>
+
+                            {/* Original Invoice (Admin only) */}
+                            {currentUser?.role === 'ADMIN' && asset.source === 'INVOICE' && asset.documents && asset.documents.length > 0 && (
+                              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                                  <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                  Original Invoice
+                                </h3>
+                                <div className="space-y-2 text-sm">
+                                  {asset.documents.map((doc) => (
+                                    <button
+                                      key={doc.document.id}
+                                      onClick={() => openInvoiceDocument(doc.document.id)}
+                                      className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium max-w-full"
+                                    >
+                                      <FileText className="w-3 h-3 shrink-0" />
+                                      <span className="truncate max-w-[22rem] md:max-w-[28rem] lg:max-w-[34rem]">
+                                        {truncateMiddle(doc.document.fileName, 60)}
+                                      </span>
+                                      <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">{`(${(doc.document.fileSize / 1024 / 1024).toFixed(1)} MB)`}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </Tab.Panel>

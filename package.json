@@ -1,7 +1,7 @@
 {
   "name": "assetorbit",
   "private": true,
-  "version": "0.94.0",
+  "version": "0.96.0",
   "workspaces": [
     "packages/*"
   ],
@@ -9,7 +9,7 @@
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
     "dev:backend": "npm run dev --prefix packages/backend",
     "dev:frontend": "npm run dev --prefix packages/frontend",
-    "build": "npm run build --workspace=@ats/backend && npm run build --workspace=@ats/frontend && npm run build --workspace=@ats/shared",
+    "build": "npm run build --workspace=@ats/shared-transformations && npm run build --workspace=@ats/backend && npm run build --workspace=@ats/frontend",
     "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings=0",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css,html}\"",
     "prepare": "husky install"

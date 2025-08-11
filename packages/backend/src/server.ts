@@ -18,6 +18,7 @@ import activitiesRouter from './routes/activities';
 import staffRouter from './routes/staff';
 import workloadCategoriesRouter from './routes/workloadCategories';
 import importRouter from './routes/import';
+import invoiceRouter from './routes/invoice';
 import { initAuth, authenticateJwt } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -62,6 +63,7 @@ app.use('/api/activities', activitiesRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/workload-categories', workloadCategoriesRouter);
 app.use('/api/import', importRouter);
+app.use('/api/invoice', invoiceRouter);
 
 // Protected route example
 app.get('/api/protected', authenticateJwt, (req: Request, res: Response) => {

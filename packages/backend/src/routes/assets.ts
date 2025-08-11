@@ -714,6 +714,11 @@ router.get('/:id', async (req: Request, res: Response) => {
             category: true,
           },
         },
+        documents: {
+          include: {
+            document: true,
+          },
+        },
       },
     });
 

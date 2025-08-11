@@ -22,6 +22,7 @@ import StepConfirm from '../components/import-wizard/steps/StepConfirm';
 import type { ColumnMapping } from '../utils/ninjaMapping';
 // NEW: import resolver hook for usernames / locations / conflicts
 import { useResolveImport } from '../hooks/useResolveImport';
+import { useStore } from '../store';
 
 const BulkUpload: React.FC = () => {
   const navigate = useNavigate();
@@ -52,6 +53,9 @@ const BulkUpload: React.FC = () => {
   const [importSessionId, setImportSessionId] = useState<string | null>(null);
   const [importStartTime, setImportStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  // Document ID from invoice extraction (optional)
+  const [extractedDocumentId, setExtractedDocumentId] = useState<string | null>(null);
+  const { currentUser } = useStore();
 
   // NEW: resolved data from /import/resolve
   const [resolvedUserMap, setResolvedUserMap] = useState<Record<string, { id: string; displayName: string; officeLocation?: string } | null>>({});
@@ -157,7 +161,13 @@ const BulkUpload: React.FC = () => {
       setCurrentStep(2);
     } else if (currentStep === 2) {
       if (!selectedSource || uploadedFiles.length === 0 || !csvData) return;
+      // If source is 'invoice', skip mapping step entirely
+      if (selectedSource === 'invoice') {
+        setMappingValid(true);
+        setCurrentStep(4);
+      } else {
         setCurrentStep(3);
+      }
     } else if (currentStep === 3) {
       if (!mappingValid) return;
       
@@ -292,7 +302,7 @@ const BulkUpload: React.FC = () => {
     if (currentStep === 2) {
       if (!selectedSource) return 'Select Import Method';
       if (uploadedFiles.length === 0) return 'Choose File';
-      return 'Next: Map Columns';
+      return selectedSource === 'invoice' ? 'Next: Confirm Import' : 'Next: Map Columns';
     }
     if (currentStep === 3) return 'Next: Confirm Import';
     if (currentStep === 4) return 'Import Assets';
@@ -311,8 +321,16 @@ const BulkUpload: React.FC = () => {
     ? getImportSource(selectedCategory, selectedSource)
     : null;
 
-  const handleFileUploaded = (data: { headers: string[]; rows: Record<string, string>[] }) => {
+  const handleFileUploaded = (data: { headers: string[]; rows: Record<string, string>[]; documentId?: string; columnMappings?: ColumnMapping[] }) => {
     if (!selectedCategory) return;
+    
+    console.log('File uploaded data:', { 
+      headers: data.headers, 
+      rowCount: data.rows.length, 
+      firstRow: data.rows[0],
+      columnMappings: data.columnMappings 
+    });
+    
     // Apply filtering based on selected category and source
     const filterKey = getFilterKey(selectedSource || '', selectedCategory);
     const { filteredData, excludedData, filterStats } = applyImportFilter(
@@ -320,9 +338,38 @@ const BulkUpload: React.FC = () => {
       filterKey
     );
     
+    console.log('After filtering:', { 
+      originalCount: data.rows.length, 
+      filteredCount: filteredData.length, 
+      excludedCount: excludedData.length,
+      filterKey 
+    });
+    
     setCsvData({ headers: data.headers, rows: filteredData });
     setExcludedItems(excludedData);
     setFilterStats(filterStats);
+    if (data.documentId) setExtractedDocumentId(data.documentId);
+    
+    // If mappings are provided by extraction (invoice), apply and mark valid
+    if (selectedSource === 'invoice') {
+      if (data.columnMappings && data.columnMappings.length > 0) {
+        console.log('Setting invoice column mappings:', data.columnMappings);
+        setColumnMappings(data.columnMappings as ColumnMapping[]);
+      } else {
+        // Generate basic mappings based on headers for invoice import
+        console.log('Generating basic mappings for invoice headers:', data.headers);
+        const basicMappings = data.headers.map(header => ({
+          ninjaColumn: header,
+          targetField: header.toLowerCase().replace(/\s+/g, ''),
+          targetType: 'direct' as const,
+          description: `Extracted ${header}`,
+          required: header === 'Serial Number'
+        }));
+        setColumnMappings(basicMappings);
+      }
+      setMappingValid(true);
+      console.log('Invoice source: marking mapping as valid');
+    }
   };
 
   const removeItem = (index: number) => {
@@ -439,7 +486,8 @@ const BulkUpload: React.FC = () => {
   }, []);
 
   const confirmAndStartImport = (importData: any) => {
-    importMutation.mutate(importData);
+    const withDoc = extractedDocumentId ? { ...importData, documentId: extractedDocumentId } : importData;
+    importMutation.mutate(withDoc);
     handleStartImport(importData.sessionId);
   };
 
@@ -538,7 +586,7 @@ const BulkUpload: React.FC = () => {
           )}
 
         {/* Step 3: Column Mapping */}
-        {currentStep === 3 && csvData && (
+        {currentStep === 3 && csvData && selectedSource !== 'invoice' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }}>
             <StepMapping
               csvHeaders={csvData.headers}
@@ -610,6 +658,8 @@ const BulkUpload: React.FC = () => {
               importResults={importResults}
               onViewAssets={handleViewAssets}
               onImportMore={resetWizard}
+              invoiceDocumentId={extractedDocumentId}
+              isAdmin={currentUser?.role === 'ADMIN'}
             />
                     </motion.div>
         )}

@@ -19,6 +19,34 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.96',
+    date: 'August 10, 2025',
+    changes: {
+      features: [
+        'Invoice/PO Import via AI (Gemini): Upload PDF/JPG/PNG invoices to automatically extract Service Tags, hardware specs, warranty info, pricing, and vendor',
+        'Real‑time streaming of LLM thoughts and JSON output with auto‑scroll and manual override',
+        'Admin‑only persistent storage for invoice files with secure viewing from asset details',
+        'Bypass Column Mapping for invoice imports with backend‑provided mappings',
+      ],
+      improvements: [
+        'Lenovo pricing logic: purchase price = unit price + proportional support cost',
+        'Accessory filtering: ignore mouse/keyboard lines without service tags',
+        'Quantity validation: block import if quantity ≠ number of service tags (per line item)',
+        'Make/model preservation: skip shared transformations for INVOICE to avoid defaulting make to Dell',
+        'Specs mapping: CPU, RAM, Storage, GPU, Operating System stored under specifications JSON',
+        'Source labeling: new INVOICE source with purple badge and filter option',
+        'Auth resiliency: improved token refresh and error recovery during SSE extraction',
+      ],
+      bugFixes: [
+        'Fixed 401 on invoice file view by opening with Authorization token',
+        'Resolved JSON parsing errors from LLM streaming by extracting valid JSON window',
+        'Removed vendorId auto‑mapping to prevent FK violations on invoice imports',
+        'Fixed TypeScript error for nullable sourceType in invoice flow',
+        'Corrected filename overflow in invoice link with truncation',
+      ],
+    },
+  },
+  {
     version: 'v0.95',
     date: 'August 2, 2025',
     changes: {

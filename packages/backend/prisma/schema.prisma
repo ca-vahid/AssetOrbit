@@ -36,6 +36,8 @@ model User {
   createdAssets     Asset[]  @relation("CreatedBy")
   updatedAssets     Asset[]  @relation("UpdatedBy")
   activities        ActivityLog[]
+  // Document uploads
+  uploadedDocuments Document[]
 }
 
 // Department model
@@ -141,6 +143,8 @@ model Asset {
   customFieldValues CustomFieldValue[]
   // New many-to-many relation to workload categories
   workloadCategories AssetWorkloadCategory[]
+  // Linked documents
+  documents         AssetDocument[]
   
   @@index([assetType, status])
   @@index([serialNumber])
@@ -202,6 +206,32 @@ model Attachment {
   uploadedAt  DateTime @default(now())
   
   @@index([assetId])
+}
+
+// Documents stored once and linked to many assets (Admin-only by default)
+model Document {
+  id           String   @id @default(uuid())
+  fileName     String
+  fileType     String
+  fileSize     Int
+  storagePath  String
+  isAdminOnly  Boolean  @default(true)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+
+  assetLinks   AssetDocument[]
+}
+
+// Join between assets and documents
+model AssetDocument {
+  assetId    String
+  documentId String
+  asset      Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([assetId, documentId])
+  @@index([documentId])
 }
 
 // Custom Field Definitions for dynamic asset attributes

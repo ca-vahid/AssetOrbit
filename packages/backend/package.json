@@ -1,6 +1,6 @@
 {
   "name": "@ats/backend",
-  "version": "0.94.0",
+  "version": "0.96.0",
   "private": true,
   "main": "dist/server.js",
   "type": "commonjs",
@@ -22,6 +22,7 @@
   "dependencies": {
     "@ats/shared-transformations": "file:../shared",
     "@azure/identity": "^4.10.1",
+    "@google/genai": "^1.13.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
@@ -31,6 +32,7 @@
     "express": "^4.18.2",
     "helmet": "^7.0.0",
     "morgan": "^1.10.0",
+    "multer": "^2.0.2",
     "passport": "^0.6.0",
     "passport-azure-ad": "^4.3.0",
     "pino": "^8.14.0",
@@ -43,6 +45,7 @@
     "@types/express": "^4.17.17",
     "@types/helmet": "^4.0.0",
     "@types/morgan": "^1.9.4",
+    "@types/multer": "^2.0.0",
     "@types/node": "^20.8.6",
     "@types/passport": "^1.0.13",
     "@types/passport-azure-ad": "^4.0.4",

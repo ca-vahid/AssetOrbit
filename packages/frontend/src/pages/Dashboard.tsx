@@ -2,11 +2,25 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import {
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Bar,
+  Legend,
+  LineChart,
+  Line,
+} from 'recharts';
 import { 
   Server, 
   Users, 
   Package, 
-  TrendingUp,
   Activity,
   AlertTriangle,
   CheckCircle,
@@ -14,24 +28,19 @@ import {
   Plus,
   Download,
   Search,
-  Filter,
-  BarChart3,
-  PieChart,
   Laptop,
   Smartphone,
   Monitor,
   Tablet,
   Upload,
-  FileText,
-  Settings,
   Eye,
   ArrowRight,
-  Calendar,
   MapPin,
   Building
 } from 'lucide-react';
 import { useStore } from '../store';
-import { assetsApi, activitiesApi, usersApi, departmentsApi, locationsApi } from '../services/api';
+import { assetsApi, departmentsApi, locationsApi } from '../services/api';
+import type { Asset } from '../services/api';
 
 interface StatCard {
   title: string;
@@ -54,9 +63,15 @@ const Dashboard: React.FC = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const { data: recentAssetsData, isLoading: recentLoading } = useQuery({
+  const { data: recentAssetsData } = useQuery({
     queryKey: ['dashboard-recent-assets'],
     queryFn: () => assetsApi.getAll({ limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }),
+  });
+
+  // Lightweight analytics sample for charts and insights
+  const { data: analyticsSample } = useQuery({
+    queryKey: ['dashboard-analytics-sample'],
+    queryFn: () => assetsApi.getAll({ limit: 500, sortBy: 'createdAt', sortOrder: 'desc' }),
   });
 
   const { data: departmentsData } = useQuery({
@@ -139,6 +154,53 @@ const Dashboard: React.FC = () => {
       color: 'from-slate-500 to-slate-600'
     }
   ].filter(item => item.count > 0); // Only show types that have assets
+
+  // Derived analytics from sample
+  const sampleAssets: Asset[] = analyticsSample?.data ?? [];
+
+  const conditionCounts = sampleAssets.reduce<Record<string, number>>((acc, a) => {
+    const key = (a.condition || 'Unknown').toUpperCase();
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const conditionData = Object.entries(conditionCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  const statusData = Object.entries(statsData?.statuses || {})
+    .map(([k, v]) => ({ status: k, count: v as number }));
+
+  const typePieData = Object.entries(statsData?.assetTypes || {})
+    .map(([k, v]) => ({ name: k, value: v as number }))
+    .filter(d => d.value > 0);
+
+  const topModels = (() => {
+    const counts = new Map<string, number>();
+    for (const a of sampleAssets) {
+      const key = `${a.make || 'Unknown'} ${a.model || ''}`.trim();
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 7);
+  })();
+
+  const upcomingWarranties = sampleAssets
+    .filter(a => a.warrantyEndDate)
+    .map(a => ({
+      id: a.id,
+      assetTag: a.assetTag,
+      warrantyEndDate: new Date(a.warrantyEndDate as string),
+      daysLeft: Math.ceil((new Date(a.warrantyEndDate as string).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+    }))
+    .filter(x => x.daysLeft <= 120)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .slice(0, 6);
+
+  const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
 
   // Process recent activity
   const recentActivity = recentAssetsData?.data?.slice(0, 5)?.map(asset => ({
@@ -283,130 +345,113 @@ const Dashboard: React.FC = () => {
         ))}
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Asset Breakdown */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                Asset Breakdown
-              </h2>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/assets')}
-                className="btn-ghost flex items-center gap-2 text-sm"
-              >
-                View All <ArrowRight className="w-4 h-4" />
-              </motion.button>
-            </div>
-            <div className="space-y-4">
-              {assetBreakdown.length > 0 ? assetBreakdown.map((item, index) => (
-                <motion.div
-                  key={item.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => navigate(`/assets?type=${item.name.toUpperCase()}`)}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg bg-gradient-to-r ${item.color}`}>
-                      <item.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-slate-900 dark:text-slate-100">
-                        {item.name}
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        {item.count} assets
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-slate-900 dark:text-slate-100">
-                      {item.percentage.toFixed(1)}%
-                    </div>
-                    <div className="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${item.percentage}%` }}
-                        transition={{ delay: index * 0.1 + 0.3, duration: 0.6 }}
-                        className={`h-full bg-gradient-to-r ${item.color} rounded-full`}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )) : (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No assets found</p>
-                  <p className="text-sm">Add some assets to see the breakdown</p>
-                </div>
-              )}
-            </div>
+      {/* Charts and insights */}
+      <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6">
+        {/* Asset Type Distribution (Pie) */}
+        <motion.div variants={itemVariants} className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Asset Types</h2>
+            <button onClick={() => navigate('/assets')} className="btn-ghost text-sm">View</button>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RePieChart>
+                <Pie data={typePieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                  {typePieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </RePieChart>
+            </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
-        <motion.div variants={itemVariants}>
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                Recent Activity
-              </h2>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/assets')}
-                className="btn-ghost text-sm"
-              >
-                View All
-              </motion.button>
-            </div>
-            <div className="space-y-4">
-              {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                >
-                  <div className="mt-0.5">
-                    {getActivityIcon(activity.action)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {getAssetTypeIcon(activity.assetType)}
-                      <span className="font-mono text-sm text-brand-600 dark:text-brand-400">
-                        {activity.asset}
-                      </span>
+        {/* Status Distribution (Bar) */}
+        <motion.div variants={itemVariants} className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Status</h2>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statusData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="status" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Condition Breakdown (Pie/Bar) */}
+        <motion.div variants={itemVariants} className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Condition</h2>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RePieChart>
+                <Pie data={conditionData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80}>
+                  {conditionData.map((entry, index) => (
+                    <Cell key={`cond-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </RePieChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Lists and activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Top Models */}
+        <motion.div variants={itemVariants} className="card p-6 xl:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Top Models</h2>
+            <button onClick={() => navigate('/assets')} className="btn-ghost text-sm">Explore</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {topModels.length === 0 ? (
+              <div className="text-slate-500">No data</div>
+            ) : (
+              topModels.map((m, idx) => (
+                <div key={m.name} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-10 rounded bg-slate-300 dark:bg-slate-600" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                    <div className="truncate">
+                      <div className="font-medium text-slate-900 dark:text-slate-100 truncate">{m.name}</div>
+                      <div className="text-xs text-slate-500">{m.count} assets</div>
                     </div>
-                    <p className="text-sm text-slate-900 dark:text-slate-100">
-                      {activity.action === 'assigned' ? (
-                        <>Assigned to <span className="font-medium">{activity.user}</span></>
-                      ) : (
-                        <>Added by <span className="font-medium">{activity.user}</span></>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {activity.timestamp}
-                      </span>
-                    </div>
                   </div>
-                </motion.div>
-              )) : (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No recent activity</p>
-                  <p className="text-sm">Activity will appear here as you manage assets</p>
+                  <button onClick={() => navigate(`/assets?model=${encodeURIComponent(m.name)}`)} className="btn-ghost text-sm">View</button>
                 </div>
-              )}
-            </div>
+              ))
+            )}
+          </div>
+        </motion.div>
+
+        {/* Upcoming Warranties */}
+        <motion.div variants={itemVariants} className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Warranties (next 120 days)</h2>
+            <button onClick={() => navigate('/assets?sortBy=warrantyEndDate&sortOrder=asc')} className="btn-ghost text-sm">View</button>
+          </div>
+          <div className="space-y-3">
+            {upcomingWarranties.length === 0 ? (
+              <div className="text-slate-500">No upcoming expirations</div>
+            ) : (
+              upcomingWarranties.map(w => (
+                <div key={w.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="font-mono text-sm text-brand-600 dark:text-brand-400">{w.assetTag}</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">{w.warrantyEndDate.toLocaleDateString()} ({w.daysLeft}d)</div>
+                </div>
+              ))
+            )}
           </div>
         </motion.div>
       </div>

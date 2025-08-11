@@ -48,6 +48,11 @@ const SOURCE_CONFIG = {
     color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
     logo: '/logos/rogers.png',
   },
+  INVOICE: {
+    label: 'Invoice/PO Import',
+    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+    logo: '/logos/invoice.png', 
+  },
 } as const;
 
 const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'md' }) => {

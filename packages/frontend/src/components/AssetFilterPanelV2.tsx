@@ -96,6 +96,7 @@ const ASSET_SOURCES = [
   { value: 'NINJAONE', label: 'NinjaOne' },
   { value: 'INTUNE', label: 'Microsoft Intune' },
   { value: 'EXCEL', label: 'Excel Import' },
+  { value: 'INVOICE', label: 'Invoice/PO Import' },
   { value: 'BULK_UPLOAD', label: 'Bulk Upload' },
   { value: 'API', label: 'API Import' },
   { value: 'TELUS', label: 'Telus' },

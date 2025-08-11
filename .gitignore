@@ -24,3 +24,6 @@ coverage/
 
 # Husky
 .husky/_/ 
+
+#Invoices
+InvoiceSamples/

@@ -30,6 +30,9 @@ interface Props {
   importResults: ImportResult | null;
   onViewAssets: () => void;
   onImportMore: () => void;
+  // Optional invoice document link (Admin only)
+  invoiceDocumentId?: string | null;
+  isAdmin?: boolean;
 }
 
 const StepProgress: React.FC<Props> = ({
@@ -41,6 +44,8 @@ const StepProgress: React.FC<Props> = ({
   importResults,
   onViewAssets,
   onImportMore,
+  invoiceDocumentId,
+  isAdmin,
 }) => {
   // --- Loading State ---
   if (isLoading) {
@@ -292,6 +297,29 @@ const StepProgress: React.FC<Props> = ({
 
       {/* Metrics Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Invoice Document (Admin only) */}
+        {isAdmin && invoiceDocumentId && (
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
+                <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Invoice Document</div>
+              </div>
+            </div>
+            <div className="text-sm text-slate-700 dark:text-slate-300">
+              <a
+                href={`${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '')}/invoice/file/${invoiceDocumentId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                View Original Invoice (Admin)
+              </a>
+            </div>
+          </div>
+        )}
         {/* Successful */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
