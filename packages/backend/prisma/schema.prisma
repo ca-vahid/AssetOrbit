@@ -38,6 +38,8 @@ model User {
   activities        ActivityLog[]
   // Document uploads
   uploadedDocuments Document[]
+  // Import runs initiated by this user
+  initiatedImportRuns ImportSyncRun[] @relation("ImportSyncRunInitiatedBy")
 }
 
 // Department model
@@ -145,6 +147,8 @@ model Asset {
   workloadCategories AssetWorkloadCategory[]
   // Linked documents
   documents         AssetDocument[]
+  // Presence links per external source
+  externalSourceLinks ExternalSourceLink[]
   
   @@index([assetType, status])
   @@index([serialNumber])
@@ -316,4 +320,35 @@ model WorkloadCategoryRule {
   @@index([priority])
   @@index([categoryId])
   @@index([isActive])
+}
+
+// Tracks per-source presence of an asset (e.g., NinjaOne, Telus, Rogers)
+model ExternalSourceLink {
+  id           String   @id @default(uuid())
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sourceSystem String
+  externalId   String   // serialNumber used as externalId for all supported sources
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  isPresent    Boolean  @default(true)
+  metadata     String?  @db.NVarChar(2000)
+
+  @@unique([sourceSystem, externalId])
+  @@index([assetId])
+  @@index([sourceSystem, isPresent])
+}
+
+// Records an import run (snapshot) with aggregated stats for auditing
+model ImportSyncRun {
+  id             String   @id @default(uuid())
+  sourceSystem   String
+  isFullSnapshot Boolean  @default(true)
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime?
+  stats          String?  @db.NVarChar(4000)
+  initiatedById  String
+  initiatedBy    User     @relation("ImportSyncRunInitiatedBy", fields: [initiatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([sourceSystem, startedAt])
 }

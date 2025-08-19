@@ -4,7 +4,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ES2020"],
-    "types": ["node"],
+    "types": ["node", "jest"],
     "module": "CommonJS",
     "moduleResolution": "node",
     "target": "ES2020"

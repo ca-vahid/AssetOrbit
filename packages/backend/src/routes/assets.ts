@@ -184,6 +184,7 @@ router.get('/', async (req: Request, res: Response) => {
       assetTag,
       sortBy = 'createdAt',
       sortOrder = 'desc',
+      missingSource,
     } = req.query;
 
     const pageNum = parseInt(page as string);
@@ -191,7 +192,7 @@ router.get('/', async (req: Request, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: Prisma.AssetWhereInput = {};
+    const where: Prisma.AssetWhereInput = {} as any;
 
     // Search functionality
     if (search) {
@@ -294,6 +295,16 @@ router.get('/', async (req: Request, res: Response) => {
       if (vendorFilter) {
         where.vendorId = vendorFilter;
       }
+    }
+
+    // Missing by source filter (assets missing from a specific external source)
+    if (missingSource) {
+      (where as any).externalSourceLinks = {
+        some: {
+          sourceSystem: String(missingSource).toUpperCase(),
+          isPresent: false,
+        }
+      };
     }
     
     // Financial filters
@@ -582,20 +593,31 @@ router.get('/', async (req: Request, res: Response) => {
               category: true,
             },
           },
+          // External presence summary
+          // @ts-ignore externalSourceLinks relation exists after schema migration
+          externalSourceLinks: true,
         },
       }),
       prisma.asset.count({ where }),
     ]);
 
     // Parse specifications JSON
-    const assetsWithParsedSpecs = assets.map((asset) => ({
-      ...asset,
-      specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
-      customFields: (asset as any).customFieldValues?.reduce((obj: any, cfv: any) => {
-        obj[cfv.fieldId] = cfv.value;
-        return obj;
-      }, {}) || {},
-    }));
+    const assetsWithParsedSpecs = assets.map((asset) => {
+      const presence = (asset as any).externalSourceLinks?.map((l: any) => ({
+        source: l.sourceSystem,
+        isPresent: l.isPresent,
+        lastSeenAt: l.lastSeenAt
+      })) || [];
+      return {
+        ...asset,
+        specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
+        customFields: (asset as any).customFieldValues?.reduce((obj: any, cfv: any) => {
+          obj[cfv.fieldId] = cfv.value;
+          return obj;
+        }, {}) || {},
+        presence,
+      };
+    });
 
     // Enrich with staff information from Azure AD
     const enrichedAssets = await enrichAssetsWithStaffInfo(assetsWithParsedSpecs);
@@ -719,6 +741,8 @@ router.get('/:id', async (req: Request, res: Response) => {
             document: true,
           },
         },
+        // @ts-ignore presence links
+        externalSourceLinks: true,
       },
     });
 
@@ -732,6 +756,12 @@ router.get('/:id', async (req: Request, res: Response) => {
       return obj;
     }, {} as Record<string, any>);
 
+    const presence = (asset as any).externalSourceLinks?.map((l: any) => ({
+      source: l.sourceSystem,
+      isPresent: l.isPresent,
+      lastSeenAt: l.lastSeenAt,
+    })) || [];
+
     let assetWithParsedData: any = {
       ...asset,
       specifications: asset.specifications ? JSON.parse(asset.specifications) : null,
@@ -742,6 +772,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         ...activity,
         changes: activity.changes ? JSON.parse(activity.changes) : null,
       })),
+      presence,
     };
 
     // Enrich with staff information if assigned to Azure AD user

@@ -436,22 +436,28 @@ const AssetList: React.FC = () => {
 
   const handleFiltersChange = (newFilters: AssetFilters) => {
     const newParams = new URLSearchParams(searchParams);
-
-    // Get all current filter keys (anything not in the preserved list)
-    const preservedKeys = ['search', 'page', 'limit', 'sortBy', 'sortOrder'];
-    const currentFilterKeys = Array.from(newParams.keys()).filter(k => !preservedKeys.includes(k));
-    
-    // Remove all old filter keys
-    currentFilterKeys.forEach(key => newParams.delete(key));
-    
-    // Add new filter keys
+ 
+    // Reset page when filters change
+    newParams.delete('page');
+ 
+    // Preserve sort and limit
+    if (!newParams.get('sortBy')) newParams.set('sortBy', sortBy);
+    if (!newParams.get('sortOrder')) newParams.set('sortOrder', sortOrder);
+    if (!newParams.get('limit')) newParams.set('limit', String(limit));
+ 
     Object.entries(newFilters).forEach(([key, value]) => {
-      if (value) {
-        newParams.set(key, value);
+      if (value === undefined || value === null || value === '') {
+        newParams.delete(key);
+      } else {
+        if (Array.isArray(value)) {
+          newParams.set(key, value.join(','));
+        } else {
+          newParams.set(key, String(value));
+        }
       }
     });
-    
-    newParams.delete('page'); // Reset page
+ 
+    setFilters(newFilters);
     setSearchParams(newParams, { replace: true });
   };
 
@@ -997,8 +1003,8 @@ const AssetList: React.FC = () => {
         </div>
         
         <AssetFilterPanelV2
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
+          filters={filters as any}
+          onFiltersChange={(f: any) => handleFiltersChange(f as any)}
           activeFilterCount={activeFilterCount}
         />
       </div>
@@ -1273,8 +1279,8 @@ const AssetList: React.FC = () => {
             <table 
                 className="min-w-max" 
               style={{ 
-                minWidth: shouldShowSpecColumns(filters.assetType) 
-                    ? `${1200 + (getAssetSpecColumns(filters.assetType!).length * 150)}px` 
+                minWidth: shouldShowSpecColumns(String(filters.assetType)) 
+                    ? `${1200 + (getAssetSpecColumns(String(filters.assetType)).length * 150)}px` 
                     : '1200px'
               }}
             >
@@ -1289,7 +1295,7 @@ const AssetList: React.FC = () => {
                     />
                   </th>
                   
-                  {isPhoneView(filters.assetType) ? (
+                  {isPhoneView(String(filters.assetType)) ? (
                     // Phone-specific headers
                     <>
                       <SortableHeader columnKey="assignedToAadId" label="User" />
@@ -1308,8 +1314,8 @@ const AssetList: React.FC = () => {
                       <SortableHeader columnKey="make" label="Make/Model" />
                       
                       {/* Adaptive Specification Columns */}
-                      {shouldShowSpecColumns(filters.assetType) && 
-                        getAssetSpecColumns(filters.assetType!).map((column) => (
+                      {shouldShowSpecColumns(String(filters.assetType)) && 
+                        getAssetSpecColumns(String(filters.assetType)).map((column) => (
                           <SortableHeader 
                             key={column.key} 
                             columnKey={column.key} 
@@ -1348,7 +1354,7 @@ const AssetList: React.FC = () => {
                       />
                     </td>
                     
-                    {isPhoneView(filters.assetType) ? (
+                    {isPhoneView(String(filters.assetType)) ? (
                       // Phone-specific layout
                       <>
                         {/* User Column */}
@@ -1822,8 +1828,8 @@ const AssetList: React.FC = () => {
                         </td>
                         
                         {/* Adaptive Specification Cells */}
-                        {shouldShowSpecColumns(filters.assetType) && 
-                          getAssetSpecColumns(filters.assetType!).map((column) => {
+                        {shouldShowSpecColumns(String(filters.assetType)) && 
+                          getAssetSpecColumns(String(filters.assetType)).map((column) => {
                             const specs = parseSpecifications(asset.specifications);
                             const value = specs[column.key];
                             

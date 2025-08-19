@@ -167,6 +167,7 @@ export interface Asset {
       createdAt: string;
     };
   }>;
+  presence?: Array<{ source: string; isPresent: boolean; lastSeenAt: string }>;
 }
 
 export interface User {

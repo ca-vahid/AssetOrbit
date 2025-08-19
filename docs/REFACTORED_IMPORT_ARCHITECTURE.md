@@ -25,6 +25,11 @@ sequenceDiagram
     BE->>BE: second-pass copy from UI mappings (fills gaps)
     BE->>BE: sanitizePayload (moves unsupported fields into JSON)
     BE->>DB: prisma.asset.create(...)
+    BE->>DB: upsert ExternalSourceLink (sourceSystem, externalId=serial)
+    alt isFullSnapshot
+      BE->>DB: mark missing links isPresent=false (for this source)
+      BE->>DB: retire assets with no other present sources
+    end
     DB-->>BE: ✔︎
     BE-->>FE: Import summary
 ```
@@ -66,6 +71,17 @@ export const NINJA_ONE_MAPPINGS: ColumnMapping[] = [
   // …more
 ];
 ```
+
+## 4. Presence Tracking & Preview
+
+- ExternalSourceLink table records per-source presence via `firstSeenAt`, `lastSeenAt`, and `isPresent`.
+- Import supports full vs partial snapshots (UI toggle). Only full snapshots trigger retire sweep.
+- Preview endpoint (`POST /api/import/preview`) returns:
+  - `willRetire`: assets present previously in the source but not included this run
+  - `willReactivate`: retired assets that will reappear based on incoming serials
+- Overrides:
+  - `retireSkipAssetIds[]`: skip retiring these asset IDs
+  - `reactivationAllowSerials[]`: only these serials will be reactivated; others remain RETIRED
 
 Each module exports:
 * `MAPPINGS` – static array

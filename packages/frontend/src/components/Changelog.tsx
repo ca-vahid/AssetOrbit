@@ -19,6 +19,40 @@ interface ChangelogProps {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: 'v0.97',
+    date: 'August 19, 2025',
+    changes: {
+      features: [
+        'Asset Presence Tracking & Auto-Retirement: Comprehensive system to track asset presence per external source and automatically retire missing assets',
+        'Full Snapshot Import Control: Toggle to distinguish between full snapshot imports (trigger retirement) vs partial imports (no retirement)',
+        'Import Preview & Override System: Review "Will Retire" and "Will Reactivate" assets with per-item checkboxes to override decisions',
+        'Multi-Source Asset Support: Assets present in multiple sources remain active even if missing from one source',
+        'Import Run Auditing: Complete history of import runs with detailed statistics and affected assets',
+        'Missing Assets Reporting: Dedicated reports to view assets currently missing from specific sources',
+        'Asset Source Badges: Visual indicators showing which assets are missing from their source systems',
+      ],
+      improvements: [
+        'Enhanced Import Wizard: Prominent Full Snapshot toggle with clear explanations and preview functionality',
+        'Persistent Missing Asset Tracking: Skipped retirement assets continue to appear in subsequent import previews until resolved',
+        'Improved Phone Asset Tags: Unique suffixes prevent conflicts when users have multiple phones (e.g., "PH-John Smith-123456-ABC-001")',
+        'Optimized Import Performance: Increased batch size from 25 to 100 assets for faster processing',
+        'Smart Asset Tag Logic: Unique suffixes only applied to new assets, preserving clean tags on re-imports (BGC2334 stays BGC2334)',
+        'ExternalSourceLink Data Model: Tracks per-source asset presence with timestamps and metadata',
+        'Import Override Handling: Backend properly honors user skip/allow decisions from confirmation dialog',
+        'Enhanced Logging: Detailed import process logging for debugging and audit trails',
+      ],
+      bugFixes: [
+        'Fixed Asset Tag Corruption: Resolved issue where clean asset tags (BGC2334) became ugly suffixed versions (BGC3262-729317-SI57) on re-import',
+        'Fixed Retirement Override Logic: Backend now properly skips retirement for user-unchecked assets',
+        'Fixed ExternalSourceLink Mismatches: Cleaned up orphaned links and implemented prevention logic',
+        'Fixed Unique Constraint Violations: Resolved phone asset tag conflicts causing import failures',
+        'Fixed Missing Asset Detection: Corrected logic to properly identify and retire assets missing from source systems',
+        'Fixed Reactivation Logic: Assets reappearing in imports now properly revert from RETIRED to ASSIGNED/AVAILABLE status',
+        'Fixed Preview Logic: Skipped retirement assets now correctly reappear in subsequent import previews',
+      ],
+    },
+  },
+  {
     version: 'v0.96',
     date: 'August 10, 2025',
     changes: {

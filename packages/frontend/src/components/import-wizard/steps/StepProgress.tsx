@@ -12,6 +12,9 @@ interface ImportResult {
   errors: Array<{ index: number; error: string; data?: any }>;
   skippedItems: Array<{ index: number; reason: string; data?: any }>;
   created: Array<{ id: string; assetTag: string }>;
+  updated?: Array<{ id: string; assetTag: string }>;
+  retired?: Array<{ id: string; assetTag: string }>;
+  reactivated?: Array<{ id: string; assetTag: string }>;
   statistics?: {
     categorizedAssets: Array<{ assetTag: string; categoryName: string; ruleName: string }>;
     uniqueUsers: string[];
@@ -512,6 +515,62 @@ const StepProgress: React.FC<Props> = ({
           <div className="text-sm text-slate-600 dark:text-slate-400">
             Assets in import batch
           </div>
+        </div>
+
+        {/* Created */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+              <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{importResults.created?.length || 0}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Created</div>
+            </div>
+          </div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">Newly added assets</div>
+        </div>
+
+        {/* Updated */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
+              <Zap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{importResults.updated?.length || 0}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Updated</div>
+            </div>
+          </div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">Existing assets updated</div>
+        </div>
+
+        {/* Retired */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-md">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{importResults.retired?.length || 0}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Retired</div>
+            </div>
+          </div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">Assets retired due to missing</div>
+        </div>
+
+        {/* Reactivated */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
+              <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-green-600 dark:text-green-400">{importResults.reactivated?.length || 0}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Reactivated</div>
+            </div>
+          </div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">Previously retired, now present</div>
         </div>
       </div>
 

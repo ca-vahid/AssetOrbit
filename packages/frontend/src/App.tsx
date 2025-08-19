@@ -19,6 +19,8 @@ import WorkloadCategories from './pages/WorkloadCategories';
 import WorkloadRules from './pages/WorkloadRules';
 import Locations from './pages/Locations';
 import AdminSettings from './pages/AdminSettings';
+import ImportRuns from './pages/ImportRuns';
+import MissingBySource from './pages/MissingBySource';
 import { PhotoBatchProvider } from './contexts/PhotoBatchContext';
 
 // Create a query client for React Query
@@ -289,6 +291,8 @@ const App: React.FC = () => {
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="reports/analytics" element={<ReportsPage />} />
                   <Route path="reports/activity" element={<ReportsPage />} />
+                  <Route path="reports/import-runs" element={<ImportRuns />} />
+                  <Route path="reports/missing" element={<MissingBySource />} />
                   <Route path="reports/custom" element={<ReportsPage />} />
                   
                   {/* Settings */}

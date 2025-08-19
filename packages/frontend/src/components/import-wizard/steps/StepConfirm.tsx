@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   AlertTriangle, 
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import DataPreviewTable from '../../../components/DataPreviewTable';
+import { api } from '../../../services/api';
 import { generateSessionId } from '../../../hooks/useImportAssets';
 import type { ColumnMapping } from '../../../utils/ninjaMapping';
 
@@ -77,9 +78,135 @@ const StepConfirm: React.FC<Props> = ({
   const [excludedExpanded, setExcludedExpanded] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'ready' | 'conflicts' | 'excluded' | 'errors' | 'warnings'>('all');
+  const [isFullSnapshot, setIsFullSnapshot] = useState<boolean>(true);
   // Check if resolve is in progress
   const isResolving = resolveImportMutation.isLoading;
+  const [overrideRetireSkipIds, setOverrideRetireSkipIds] = useState<Set<string>>(new Set());
+  const [overrideReactivateAllowSerials, setOverrideReactivateAllowSerials] = useState<Set<string>>(new Set());
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<{
+    willRetire: Array<{ assetId: string; assetTag: string }>;
+    willReactivate: Array<{ assetId: string; assetTag: string; serialNumber: string }>;
+  } | null>(null);
+  const [missingSerialCount, setMissingSerialCount] = useState<number>(0);
 
+  useEffect(() => {
+    const loadPreview = async () => {
+      setPreviewError(null);
+      setPreviewData(null);
+      if (!selectedSource) return;
+      
+      // For sources with automatic transformations (Rogers, Telus, etc.), use the transformation logic to extract serial numbers
+      let serialNumbers: string[] = [];
+      
+      if (['rogers', 'telus', 'ninjaone', 'ninjaone-servers', 'bgc-template'].includes(selectedSource)) {
+        try {
+          // Import the transformation registry
+          const { transformImportRow } = await import('@shared/importSources/transformationRegistry');
+          
+          // Extract serial numbers using the same transformation logic as DataPreviewTable
+          const transformedSerials = previewRows.map(row => {
+            try {
+              const result = transformImportRow(selectedSource as any, row);
+              return result.directFields.serialNumber;
+            } catch (e) {
+              return null;
+            }
+          }).filter(s => s && String(s).trim()).map(s => String(s).trim());
+          
+          serialNumbers = Array.from(new Set(transformedSerials));
+          console.log(`[DEBUG] Extracted ${serialNumbers.length} serial numbers for ${selectedSource}:`, serialNumbers.slice(0, 10));
+        } catch (e) {
+          console.error('Failed to load transformation module:', e);
+          // Fallback to column mapping approach
+        }
+      }
+      
+      // Fallback to column mapping approach if transformation failed or for other sources
+      if (serialNumbers.length === 0) {
+        const serialMappings = columnMappings.filter(m => m.targetField === 'serialNumber');
+        const serialMapping = serialMappings.length > 0 ? serialMappings[serialMappings.length - 1] : null;
+        const serialCol = serialMapping?.ninjaColumn;
+        
+        if (serialCol) {
+          serialNumbers = Array.from(new Set(previewRows.map(r => String(r[serialCol] || '').trim()).filter(Boolean)));
+        }
+      }
+      
+      try {
+        setPreviewLoading(true);
+        const res = await api.post('/import/preview', {
+          source: selectedSource,
+          serialNumbers,
+          isFullSnapshot,
+        });
+        console.log('[Preview] Response:', res.data);
+        setPreviewData(res.data);
+        if (res.data?.willReactivate) {
+          setOverrideReactivateAllowSerials(new Set(res.data.willReactivate.map((x: any) => x.serialNumber)));
+        } else {
+          setOverrideReactivateAllowSerials(new Set());
+        }
+        setOverrideRetireSkipIds(new Set());
+      } catch (e: any) {
+        console.error('[Preview] Error:', e);
+        setPreviewError(e?.message || 'Failed to load preview');
+      } finally {
+        setPreviewLoading(false);
+      }
+    };
+    if (previewRows && previewRows.length > 0) {
+      loadPreview();
+    } else {
+      setPreviewData(null);
+    }
+  }, [selectedSource, isFullSnapshot, previewRows, columnMappings]);
+
+  // Compute missing-serial warnings for UI
+  useEffect(() => {
+    const computeMissingCount = async () => {
+      if (['rogers', 'telus', 'ninjaone', 'ninjaone-servers', 'bgc-template'].includes(selectedSource || '')) {
+        try {
+          const { transformImportRow } = await import('@shared/importSources/transformationRegistry');
+          
+          let missingCount = 0;
+          for (const row of previewRows) {
+            try {
+              const result = transformImportRow(selectedSource as any, row);
+              const serial = result.directFields.serialNumber;
+              if (!serial || !String(serial).trim()) {
+                missingCount++;
+              }
+            } catch (e) {
+              missingCount++; // Count transformation failures as missing
+            }
+          }
+          setMissingSerialCount(missingCount);
+          return;
+        } catch (e) {
+          console.warn('Failed to load transformation for missing count calculation');
+        }
+      }
+      
+      // Fallback to column mapping approach
+      const serialMappings = columnMappings.filter(m => m.targetField === 'serialNumber');
+      const serialMapping = serialMappings.length > 0 ? serialMappings[serialMappings.length - 1] : null;
+      const serialCol = serialMapping?.ninjaColumn;
+      
+      if (!serialCol) {
+        setMissingSerialCount(0);
+        return;
+      }
+      const count = previewRows.reduce((acc, row) => {
+        const val = String(row[serialCol] || '').trim();
+        return acc + (val ? 0 : 1);
+      }, 0);
+      setMissingSerialCount(count);
+    };
+    
+    computeMissingCount();
+  }, [columnMappings, previewRows, selectedSource]);
   // DataPreviewTable handles all filtering internally now
 
   const handleImportClick = async () => {
@@ -118,7 +245,10 @@ const StepConfirm: React.FC<Props> = ({
       source: selectedSource || '',
       sessionId: sessionId,
       resolvedUserMap: userMap,
-      resolvedLocationMap: locationMap
+      resolvedLocationMap: locationMap,
+      isFullSnapshot,
+      retireSkipAssetIds: Array.from(overrideRetireSkipIds),
+      reactivationAllowSerials: Array.from(overrideReactivateAllowSerials)
     };
 
     // Pass data to parent to start import process
@@ -185,6 +315,16 @@ const StepConfirm: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Serial missing warning */}
+      {missingSerialCount > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
+            <AlertTriangle className="w-4 h-4" />
+            {missingSerialCount} item{missingSerialCount !== 1 ? 's' : ''} are missing a serial number. They will be imported without presence tracking and will not affect retire/reactivate decisions.
+          </div>
+        </div>
+      )}
+
       {/* Summary Card */}
       <div className={`bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 ${isResolving ? 'opacity-50' : ''}`}>
         <div className="flex items-center gap-3 mb-6">
@@ -239,6 +379,133 @@ const StepConfirm: React.FC<Props> = ({
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{lastOnlineExcluded}</div>
               <p className="text-sm text-slate-600 dark:text-slate-400">By last online filter</p>
             </button>
+          )}
+        </div>
+
+        {/* Snapshot toggle - Enhanced */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-xl p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h4 className="text-xl font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                  Full Snapshot Mode
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">
+                  <span className="font-medium">Enable this</span> to automatically retire assets missing from this import file
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  ⚠️ Only enable if this file contains ALL active assets from this source
+                </p>
+              </div>
+              
+              {/* Toggle Switch */}
+              <div className="flex items-center ml-6">
+                <button
+                  type="button"
+                  onClick={() => setIsFullSnapshot(!isFullSnapshot)}
+                  className={`relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
+                    isFullSnapshot 
+                      ? 'bg-blue-600 dark:bg-blue-500' 
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span className="sr-only">Enable full snapshot mode</span>
+                  <span
+                    className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isFullSnapshot ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="ml-3 text-sm font-medium text-blue-900 dark:text-blue-100">
+                  {isFullSnapshot ? 'ON' : 'OFF'}
+                </span>
+              </div>
+            </div>
+            
+            {/* Status Indicator */}
+            <div className={`mt-4 px-3 py-2 rounded-lg text-xs font-medium ${
+              isFullSnapshot 
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700'
+                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
+            }`}>
+              {isFullSnapshot 
+                ? '✓ Assets missing from this file will be marked for retirement'
+                : '⚡ Partial import mode - no assets will be retired'
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* Preview: Retire / Reactivate groups */}
+        <div className="mb-6">
+          <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Review retirements and reactivations</h4>
+          {previewLoading && (
+            <div className="text-sm text-slate-600 dark:text-slate-400">Loading preview…</div>
+          )}
+          {previewError && (
+            <div className="text-sm text-red-600 dark:text-red-400">{previewError}</div>
+          )}
+          {previewData && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Will Reactivate</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{previewData.willReactivate.length}</div>
+                </div>
+                <div className="max-h-48 overflow-auto space-y-2">
+                  {previewData.willReactivate.length === 0 ? (
+                    <div className="text-xs text-slate-500">None</div>
+                  ) : previewData.willReactivate.map(item => (
+                    <label key={item.assetId} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={overrideReactivateAllowSerials.has(item.serialNumber)}
+                        onChange={(e) => {
+                          setOverrideReactivateAllowSerials(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(item.serialNumber); else next.delete(item.serialNumber);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="font-mono text-slate-700 dark:text-slate-300">{item.assetTag}</span>
+                      <span className="text-xs text-slate-400">({item.serialNumber})</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">Uncheck to keep asset in RETIRED state.</div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Will Retire</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{previewData.willRetire.length}</div>
+                </div>
+                <div className="max-h-48 overflow-auto space-y-2">
+                  {previewData.willRetire.length === 0 ? (
+                    <div className="text-xs text-slate-500">None</div>
+                  ) : previewData.willRetire.map(item => (
+                    <label key={item.assetId} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={overrideRetireSkipIds.has(item.assetId)}
+                        onChange={(e) => {
+                          setOverrideRetireSkipIds(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(item.assetId); else next.delete(item.assetId);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="font-mono text-slate-700 dark:text-slate-300">{item.assetTag}</span>
+                      <span className="text-xs text-slate-400">(Skip retire)</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">Check to skip retiring this asset in this run.</div>
+              </div>
+            </div>
           )}
         </div>
 

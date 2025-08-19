@@ -9,6 +9,7 @@ interface ImportPayload {
   conflictResolution: 'skip' | 'overwrite';
   source?: string;
   sessionId?: string;
+  isFullSnapshot?: boolean;
 }
 
 interface ImportResponse {
@@ -19,6 +20,9 @@ interface ImportResponse {
   errors: Array<{ index: number; error: string; data?: any }>;
   skippedItems: Array<{ index: number; reason: string; data?: any }>;
   created: Array<{ id: string; assetTag: string }>;
+  updated?: Array<{ id: string; assetTag: string }>;
+  reactivated?: Array<{ id: string; assetTag: string }>;
+  retired?: Array<{ id: string; assetTag: string }>;
   sessionId: string;
   statistics: {
     categorizedAssets: Array<{ assetTag: string; categoryName: string; ruleName: string }>;
@@ -27,6 +31,7 @@ interface ImportResponse {
     assetTypeBreakdown: Record<string, number>;
     statusBreakdown: Record<string, number>;
   };
+  syncRunId?: string;
 }
 
 export interface ImportProgress {

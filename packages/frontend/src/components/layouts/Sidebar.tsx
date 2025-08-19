@@ -86,6 +86,8 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Analytics', href: '/reports/analytics', icon: BarChart3 },
       { name: 'Activity Log', href: '/reports/activity', icon: Activity },
+      { name: 'Import Runs', href: '/reports/import-runs', icon: Upload },
+      { name: 'Missing by Source', href: '/reports/missing', icon: FileText },
       { name: 'Custom Reports', href: '/reports/custom', icon: FileText },
     ]
   },

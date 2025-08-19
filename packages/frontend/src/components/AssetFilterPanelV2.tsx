@@ -48,6 +48,7 @@ interface EnhancedAssetFilters {
   // Vendor and source filters
   vendorId?: string | string[];
   source?: string | string[];
+  missingSource?: string;
   
   // Date filters
   dateFrom?: string;
@@ -100,6 +101,13 @@ const ASSET_SOURCES = [
   { value: 'BULK_UPLOAD', label: 'Bulk Upload' },
   { value: 'API', label: 'API Import' },
   { value: 'TELUS', label: 'Telus' },
+];
+
+const PRESENCE_SOURCES = [
+  { value: 'NINJAONE', label: 'NinjaOne' },
+  { value: 'NINJAONE_SERVERS', label: 'NinjaOne Servers' },
+  { value: 'TELUS', label: 'Telus' },
+  { value: 'ROGERS', label: 'Rogers' },
 ];
 
 const WARRANTY_STATUSES = [
@@ -428,6 +436,26 @@ const AssetFilterPanelV2: React.FC<AssetFilterPanelV2Props> = ({
                         Source
                       </label>
                       {renderMultiSelect('source', ASSET_SOURCES, 'Select sources')}
+                    </div>
+
+                    {/* Missing from Source */}
+                    <div className="space-y-3">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        Missing from Source
+                      </label>
+                      <div className="relative">
+                        <select
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400"
+                          value={localFilters.missingSource || ''}
+                          onChange={(e) => updateLocalFilter('missingSource', e.target.value || undefined)}
+                        >
+                          <option value="">Any</option>
+                          {PRESENCE_SOURCES.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Asset Tag */}

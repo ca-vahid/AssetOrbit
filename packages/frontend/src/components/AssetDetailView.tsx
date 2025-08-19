@@ -359,8 +359,8 @@ const AssetDetailView: React.FC<AssetDetailViewProps> = ({
                 <>
                   {/* Compact Header */}
                   <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
                         {/* Asset Icon */}
                         <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                           {React.createElement(getAssetTypeIcon(asset.assetType), {

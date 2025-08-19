@@ -22,7 +22,7 @@ import {
 } from '@ats/shared-transformations';
 
 // Configuration for batch processing
-const BATCH_SIZE = 25;
+const BATCH_SIZE = 100;
 
 // Store for progress tracking
 const progressStore = new Map<string, {
@@ -123,13 +123,16 @@ async function processAssetBatch(
   trackingId: string,
   req: any,
   resolvedUserMap: Record<string, { id: string; displayName: string; officeLocation?: string } | null> = {},
-  resolvedLocationMap: Record<string, string | null> = {}
+  resolvedLocationMap: Record<string, string | null> = {},
+  reactivationAllowSerials: string[] = []
 ): Promise<Array<{
   success: boolean;
   index: number;
   result?: { id: string; assetTag: string };
   error?: string;
   skipped?: boolean;
+  operation?: 'create' | 'update';
+  reactivated?: boolean;
   statistics?: {
     assetType: string;
     status: string;
@@ -457,17 +460,22 @@ async function processAssetBatch(
                   phoneAssetTag += normalizedUser;
                 }
               } else {
-                // No user name available, use generic format
-                const timestamp = Date.now().toString().slice(-6);
-                const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
-                phoneAssetTag += `${timestamp}-${randomSuffix}`;
+                phoneAssetTag += normalizedUser;
               }
             }
+          }
+          
+          // Always add a unique suffix to prevent conflicts when users have multiple phones
+          const timestamp = Date.now().toString().slice(-6);
+          const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+          const indexSuffix = (index + 1).toString().padStart(3, '0');
+          
+          if (phoneAssetTag === 'PH-') {
+            // No user assigned, use generic format
+            phoneAssetTag += `${timestamp}-${randomSuffix}-${indexSuffix}`;
           } else {
-            // No assigned user, use generic format
-            const timestamp = Date.now().toString().slice(-6);
-            const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
-            phoneAssetTag += `${timestamp}-${randomSuffix}`;
+            // User assigned, add suffix to ensure uniqueness
+            phoneAssetTag += `-${timestamp}-${randomSuffix}-${indexSuffix}`;
           }
           
           assetData.assetTag = phoneAssetTag;
@@ -563,7 +571,7 @@ async function processAssetBatch(
         }
       }
       
-      // If no serial number conflict, check for asset tag conflict
+      // If no serial number conflict, check for asset tag conflict (should be rare now due to safety check above)
       if (!existingAsset && assetData.assetTag) {
         existingAsset = await prisma.asset.findFirst({
           where: { assetTag: assetData.assetTag }
@@ -627,6 +635,7 @@ async function processAssetBatch(
           delete (assetDataWithoutCustomFields as any).operatingSystem;
 
           // Update existing asset
+          const wasRetired = existingAsset.status === 'RETIRED';
           const updatedAsset = await prisma.asset.update({
             where: { id: existingAsset.id },
             data: {
@@ -635,6 +644,71 @@ async function processAssetBatch(
               updatedById: req.user?.userId
             }
           });
+
+          // If asset was retired and now status changed, log reactivation
+          if (wasRetired && updatedAsset.status !== 'RETIRED') {
+            try {
+              await prisma.activityLog.create({
+                data: {
+                  entityType: 'asset',
+                  entityId: updatedAsset.id,
+                  action: 'REACTIVATE',
+                  changes: 'Asset re-activated due to presence in import snapshot',
+                  userId: req.user?.userId
+                }
+              });
+            } catch (logErr) {
+              logger.warn('Failed to write reactivation activity log', logErr);
+            }
+          }
+
+          // Honor reactivation override: if was retired and serial not allowed, keep RETIRED
+          if (wasRetired && updatedAsset.status !== 'RETIRED' && reactivationAllowSerials.length > 0) {
+            if (!reactivationAllowSerials.includes(String(assetData.serialNumber))) {
+              logger.info(`KEEPING asset RETIRED: ${updatedAsset.assetTag} (serial ${assetData.serialNumber}) - not in reactivation allow list`);
+              await prisma.asset.update({ where: { id: updatedAsset.id }, data: { status: 'RETIRED' } });
+            } else {
+              logger.info(`ALLOWING reactivation: ${updatedAsset.assetTag} (serial ${assetData.serialNumber}) - in allow list`);
+            }
+          }
+
+          // Upsert ExternalSourceLink (presence tracking) for supported sources only
+          if (['NINJAONE', 'NINJAONE_SERVERS', 'TELUS', 'ROGERS'].includes(source) && assetData.serialNumber) {
+            // IMPORTANT: Ensure the link's externalId matches the asset's actual serialNumber
+            // First, check if there's an existing link with this externalId
+            const existingLink = await (prisma as any).externalSourceLink.findFirst({
+              where: { 
+                sourceSystem: source, 
+                externalId: String(assetData.serialNumber) 
+              }
+            });
+            
+            if (existingLink) {
+              // Update the existing link to point to the correct asset
+              await (prisma as any).externalSourceLink.update({
+                where: { id: existingLink.id },
+                data: { 
+                  assetId: updatedAsset.id, 
+                  lastSeenAt: new Date(), 
+                  isPresent: true 
+                }
+              });
+            } else {
+              // Create a new link
+              await (prisma as any).externalSourceLink.create({
+                data: { 
+                  assetId: updatedAsset.id, 
+                  sourceSystem: source, 
+                  externalId: String(assetData.serialNumber) 
+                }
+              });
+            }
+            
+            // Also ensure the asset's serialNumber matches what we're tracking
+            if (updatedAsset.serialNumber !== assetData.serialNumber) {
+              logger.warn(`Asset serial mismatch during update: DB has ${updatedAsset.serialNumber}, import has ${assetData.serialNumber}`);
+            }
+          }
 
           // Update custom field values if any
           if (customFields && Object.keys(customFields).length > 0) {
@@ -686,6 +760,8 @@ async function processAssetBatch(
             success: true, 
             index, 
             result: { id: updatedAsset.id, assetTag: updatedAsset.assetTag },
+            operation: 'update' as const,
+            reactivated: wasRetired && updatedAsset.status !== 'RETIRED',
             statistics: {
               assetType: assetData.assetType,
               status: assetData.status,
@@ -720,6 +796,34 @@ async function processAssetBatch(
       delete (assetDataWithoutCustomFields as any).ram;
       delete (assetDataWithoutCustomFields as any).operatingSystem;
 
+      // Final safety check for new assets: ensure asset tag is absolutely unique
+      // This only applies to new asset creation, not updates
+      let tagAttempts = 0;
+      let finalAssetTag = assetData.assetTag;
+      while (tagAttempts < 5) {
+        const existingTagAsset = await prisma.asset.findFirst({
+          where: { assetTag: finalAssetTag }
+        });
+        if (!existingTagAsset) {
+          break; // Tag is unique, we can use it
+        }
+        
+        // Tag is taken, generate a new one
+        tagAttempts++;
+        const timestamp = Date.now().toString().slice(-6);
+        const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
+        finalAssetTag = `${assetData.assetTag}-${timestamp}-${randomSuffix}`;
+        logger.warn(`Asset tag conflict for NEW asset ${assetData.assetTag}, trying ${finalAssetTag} (attempt ${tagAttempts})`);
+      }
+      
+      if (tagAttempts >= 5) {
+        return { success: false, index, error: `Could not generate unique asset tag after 5 attempts for ${assetData.assetTag}` };
+      }
+      
+      // Update the asset data with the final unique tag
+      assetData.assetTag = finalAssetTag;
+      assetDataWithoutCustomFields.assetTag = finalAssetTag;
+
       // Create new asset
       const newAsset = await prisma.asset.create({
         data: {
@@ -729,6 +833,40 @@ async function processAssetBatch(
           updatedById: req.user?.userId
         }
       });
+
+      // Upsert ExternalSourceLink (presence tracking) for supported sources only
+      if (['NINJAONE', 'NINJAONE_SERVERS', 'TELUS', 'ROGERS'].includes(source) && assetData.serialNumber) {
+        // For new assets, check if a link already exists with this externalId
+        // This can happen if an asset was deleted but the link remained
+        const existingLink = await (prisma as any).externalSourceLink.findFirst({
+          where: { 
+            sourceSystem: source, 
+            externalId: String(assetData.serialNumber) 
+          }
+        });
+        
+        if (existingLink) {
+          // Update the existing link to point to the new asset
+          await (prisma as any).externalSourceLink.update({
+            where: { id: existingLink.id },
+            data: { 
+              assetId: newAsset.id, 
+              lastSeenAt: new Date(), 
+              isPresent: true 
+            }
+          });
+          logger.info(`Updated existing link for serial ${assetData.serialNumber} to new asset ${newAsset.assetTag}`);
+        } else {
+          // Create a new link
+          await (prisma as any).externalSourceLink.create({
+            data: { 
+              assetId: newAsset.id, 
+              sourceSystem: source, 
+              externalId: String(assetData.serialNumber) 
+            }
+          });
+        }
+      }
 
       // Link a single shared document (invoice) to each created asset, if provided
       if ((req.body as any).documentId) {
@@ -784,6 +922,7 @@ async function processAssetBatch(
         success: true, 
         index, 
         result: { id: newAsset.id, assetTag: newAsset.assetTag },
+        operation: 'create' as const,
         // Include statistics for tracking
         statistics: {
           assetType: assetData.assetType,
@@ -978,6 +1117,74 @@ router.post('/resolve', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/import/preview – compute retire/reactivate candidates
+router.post('/preview', requireRole([USER_ROLES.READ, USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const { source: rawSource, serialNumbers = [], isFullSnapshot = true } = req.body as {
+      source?: string;
+      serialNumbers?: string[];
+      isFullSnapshot?: boolean;
+    };
+
+    const source = normalizeImportSource(rawSource);
+    const supported = ['NINJAONE', 'NINJAONE_SERVERS', 'TELUS', 'ROGERS'].includes(source);
+
+    const cleanSerials: string[] = (serialNumbers || [])
+      .map((s: any) => String(s ?? '').trim())
+      .filter((s: string): s is string => s.length > 0);
+
+    const result = {
+      willRetire: [] as Array<{ assetId: string; assetTag: string }>,
+      willReactivate: [] as Array<{ assetId: string; assetTag: string; serialNumber: string }>,
+      warnings: [] as string[]
+    };
+
+    // Reactivation candidates: retired assets that are part of incoming serials
+    if (cleanSerials.length > 0) {
+      const retiredBySerial = await prisma.asset.findMany({
+        where: { status: 'RETIRED', serialNumber: { in: cleanSerials } },
+        select: { id: true, assetTag: true, serialNumber: true }
+      });
+
+      retiredBySerial.forEach((a) => {
+        if (a.serialNumber) {
+          result.willReactivate.push({ assetId: a.id, assetTag: a.assetTag, serialNumber: a.serialNumber });
+        }
+      });
+    }
+
+    // Retirement candidates (only for full snapshot and supported sources)
+    if (isFullSnapshot && supported) {
+      // Find all links for this source whose externalId is not in incoming serials
+      // Include both present and previously missing links to handle skipped retirements
+      const whereClause: any = { sourceSystem: source };
+      if (cleanSerials.length > 0) {
+        whereClause.externalId = { notIn: cleanSerials } as any;
+      }
+      const linksToRetire = await (prisma as any).externalSourceLink.findMany({
+        where: whereClause,
+        include: {
+          asset: { select: { id: true, assetTag: true, status: true } }
+        }
+      });
+
+      // Only include assets that are not already retired
+      const eligibleAssets = linksToRetire
+        .filter((link: any) => link.asset && link.asset.status !== 'RETIRED')
+        .map((link: any) => ({ assetId: link.asset.id, assetTag: link.asset.assetTag }));
+      
+      result.willRetire = eligibleAssets;
+    }
+
+
+
+    res.json(result);
+  } catch (e) {
+    logger.error('Failed to preview import impact', e);
+    res.status(500).json({ error: 'Failed to preview import impact' });
+  }
+});
+
 // POST /api/import/assets
 router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
   try {
@@ -995,7 +1202,10 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       source: rawSource = 'BULK_UPLOAD',
       sessionId,
       resolvedUserMap = {},
-      resolvedLocationMap = {}
+      resolvedLocationMap = {},
+      isFullSnapshot = true,
+      retireSkipAssetIds = [],
+      reactivationAllowSerials = []
     } = req.body as {
       assets: Record<string, string>[];
       columnMappings: Array<{
@@ -1009,6 +1219,9 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       sessionId?: string;
       resolvedUserMap?: Record<string, { id: string; displayName: string; officeLocation?: string } | null>;
       resolvedLocationMap?: Record<string, string | null>;
+      isFullSnapshot?: boolean;
+      retireSkipAssetIds?: string[];
+      reactivationAllowSerials?: string[];
     };
 
     if (!assets || !Array.isArray(assets) || assets.length === 0) {
@@ -1045,6 +1258,9 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       errors: [] as Array<{ index: number; error: string; data?: any }>,
       skippedItems: [] as Array<{ index: number; reason: string; data?: any }>,
       created: [] as Array<{ id: string; assetTag: string }>,
+      updated: [] as Array<{ id: string; assetTag: string }>,
+      reactivated: [] as Array<{ id: string; assetTag: string }>,
+      retired: [] as Array<{ id: string; assetTag: string }>,
       sessionId: trackingId,
       // Enhanced statistics
       statistics: {
@@ -1057,9 +1273,61 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
     };
 
     logger.info(`Starting bulk import of ${assets.length} assets with session ${trackingId}`);
+    logger.info(`Override arrays: retireSkipAssetIds=${retireSkipAssetIds.length}, reactivationAllowSerials=${reactivationAllowSerials.length}`);
+    if (retireSkipAssetIds.length > 0) {
+      logger.info(`Assets to skip retiring: ${retireSkipAssetIds.slice(0, 5).join(', ')}${retireSkipAssetIds.length > 5 ? '...' : ''}`);
+    }
+    if (reactivationAllowSerials.length > 0) {
+      logger.info(`Serials allowed to reactivate: ${reactivationAllowSerials.slice(0, 5).join(', ')}${reactivationAllowSerials.length > 5 ? '...' : ''}`);
+    }
 
     // Normalize source label once and reuse for all batches
     const source = normalizeImportSource(rawSource);
+
+    // Presence tracking applies only to supported sources
+    const presenceTrackingEnabled = ['NINJAONE', 'NINJAONE_SERVERS', 'TELUS', 'ROGERS'].includes(source);
+    const syncStartTime = new Date();
+    
+    // Clean up any orphaned ExternalSourceLinks before starting import
+    if (presenceTrackingEnabled) {
+      logger.info(`Cleaning orphaned ExternalSourceLinks for source ${source}`);
+      const orphanedLinks = await (prisma as any).externalSourceLink.findMany({
+        where: { sourceSystem: source },
+        include: { asset: { select: { id: true, serialNumber: true } } }
+      });
+      
+      let cleanedCount = 0;
+      for (const link of orphanedLinks) {
+        // If the link's externalId doesn't match the asset's serialNumber, it's orphaned
+        if (link.asset && link.externalId !== link.asset.serialNumber) {
+          try {
+            await (prisma as any).externalSourceLink.delete({ where: { id: link.id } });
+            cleanedCount++;
+            logger.info(`Deleted orphaned link: externalId=${link.externalId}, asset.serialNumber=${link.asset.serialNumber}`);
+          } catch (e) {
+            logger.warn(`Failed to delete orphaned link ${link.id}:`, e);
+          }
+        }
+      }
+      if (cleanedCount > 0) {
+        logger.info(`Cleaned ${cleanedCount} orphaned ExternalSourceLinks`);
+      }
+    }
+
+    // Create an import run row for auditing
+    let syncRunId: string | null = null;
+    try {
+      const run = await (prisma as any).importSyncRun.create({
+        data: {
+          sourceSystem: source,
+          isFullSnapshot: Boolean(isFullSnapshot),
+          initiatedById: (user as any)?.id || (req as any).user?.id || (req as any).user?.userId || 'unknown'
+        }
+      });
+      syncRunId = run.id;
+    } catch (e) {
+      logger.warn('Failed to create ImportSyncRun record', e);
+    }
 
     // Process assets in batches for better performance
     const batchCount = Math.ceil(assets.length / BATCH_SIZE);
@@ -1092,7 +1360,8 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
           trackingId,
           req,
           resolvedUserMap,
-          resolvedLocationMap
+          resolvedLocationMap,
+          reactivationAllowSerials
         );
 
         // Update results and progress for each completed asset
@@ -1102,7 +1371,14 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
           if (result.success) {
             results.successful++;
             if (result.result) {
-              results.created.push(result.result);
+              if (result.operation === 'create') {
+                results.created.push(result.result);
+              } else if (result.operation === 'update') {
+                results.updated.push(result.result);
+              }
+              if (result.reactivated) {
+                results.reactivated.push(result.result);
+              }
             }
             
             // Collect statistics for successful imports
@@ -1245,6 +1521,100 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       }
     }
 
+    // End-of-run presence sweep: retire assets missing from this full snapshot
+    if (presenceTrackingEnabled && isFullSnapshot) {
+      logger.info('Running end-of-run presence sweep for source', { source });
+
+      // Use lastSeenAt relative to the run's syncStartTime to determine presence.
+      // Any link not touched (upserted) during this run has lastSeenAt < syncStartTime.
+      const allLinks = await (prisma as any).externalSourceLink.findMany({
+        where: { sourceSystem: source },
+        include: {
+          asset: { select: { id: true, assetTag: true, serialNumber: true, status: true } }
+        }
+      });
+
+      logger.info(`Found ${allLinks.length} total links for ${source}`);
+
+      const linksNotSeenThisRun = allLinks.filter((link: any) => new Date(link.lastSeenAt) < syncStartTime);
+
+      // Links to mark missing: were previously present and were not seen in this run
+      const linksToMarkMissing = linksNotSeenThisRun.filter((link: any) => link.isPresent);
+
+      // Links whose assets should be retired: not seen this run and asset not already retired
+      const linksToRetire = linksNotSeenThisRun.filter((link: any) => link.asset && link.asset.status !== 'RETIRED');
+
+      logger.info(`Links to mark as missing: ${linksToMarkMissing.length}`);
+      logger.info(`Assets to retire: ${linksToRetire.length}`);
+
+      linksToRetire.forEach((link: any) => {
+        logger.info(`  Will retire: externalId=${link.externalId} -> assetTag=${link.asset?.assetTag} assetSerial=${link.asset?.serialNumber} (status: ${link.asset?.status})`);
+      });
+
+      // First, mark all missing links as not present
+      // This happens regardless of whether retirement will be skipped - ensures they show up in future imports
+      for (const link of linksToMarkMissing) {
+        try {
+          await (prisma as any).externalSourceLink.update({
+            where: { id: link.id },
+            data: { isPresent: false }
+          });
+          logger.info(`Marked as missing: ${link.externalId} -> ${link.asset?.assetTag}`);
+        } catch (err) {
+          logger.error(`Failed to mark link as missing: ${link.id}`, err);
+        }
+      }
+
+      // Then, retire assets that should be retired
+      for (const link of linksToRetire) {
+        try {
+          logger.info(`Processing retirement for: ${link.externalId} -> ${link.asset?.assetTag}`);
+          
+          // Check if this asset ID is in the skip list (user unchecked it in the UI)
+          if (retireSkipAssetIds.includes(link.assetId)) {
+            logger.info(`SKIPPING retirement for ${link.asset?.assetTag} (${link.assetId}) - user override`);
+            continue;
+          }
+
+          // Check if this asset has any other present links from different sources
+          const otherPresent = await (prisma as any).externalSourceLink.findFirst({
+            where: {
+              assetId: link.assetId,
+              isPresent: true,
+              sourceSystem: { not: source } // Only check other sources
+            }
+          });
+
+          logger.info(`Other present links for ${link.asset?.assetTag}: ${otherPresent ? 'YES' : 'NO'}`);
+
+          if (!otherPresent) {
+            const retired = await prisma.asset.update({
+              where: { id: link.assetId },
+              data: { status: 'RETIRED', updatedById: user?.userId }
+            });
+
+            logger.info(`Successfully retired asset: ${retired.assetTag} (${retired.id})`);
+            results.retired.push({ id: retired.id, assetTag: retired.assetTag });
+
+            // Audit log
+            await prisma.activityLog.create({
+              data: {
+                entityType: 'asset',
+                entityId: retired.id,
+                action: 'RETIRE',
+                changes: `Asset retired due to missing from full snapshot for source ${source}`,
+                userId: (user as any)?.id || (req as any).user?.id || (req as any).user?.userId
+              }
+            });
+          } else {
+            logger.info(`Asset NOT retired (has other present links): ${link.asset?.assetTag}`);
+          }
+        } catch (sweepErr) {
+          logger.error('Failed to process retirement for link', { linkId: link.id, assetTag: link.asset?.assetTag, error: sweepErr });
+        }
+      }
+    }
+
     // Final progress update
     const finalProgress = progressStore.get(trackingId);
     if (finalProgress) {
@@ -1253,12 +1623,99 @@ router.post('/assets', requireRole([USER_ROLES.WRITE, USER_ROLES.ADMIN]), async 
       progressStore.set(trackingId, finalProgress);
     }
 
-    logger.info(`Bulk import completed: ${results.successful} successful, ${results.failed} failed, ${results.skipped} skipped`);
-    res.json(results);
+    // Finalize ImportSyncRun
+    if (syncRunId) {
+      try {
+        await (prisma as any).importSyncRun.update({
+          where: { id: syncRunId },
+          data: {
+            finishedAt: new Date(),
+            stats: JSON.stringify({
+              total: results.total,
+              successful: results.successful,
+              failed: results.failed,
+              skipped: results.skipped,
+              created: results.created.length,
+              updated: results.updated.length,
+              reactivated: results.reactivated.length,
+              retired: results.retired.length
+            })
+          }
+        });
+      } catch (e) {
+        logger.warn('Failed to finalize ImportSyncRun', e);
+      }
+    }
+
+    logger.info(`Bulk import completed: ${results.successful} successful, ${results.failed} failed, ${results.skipped} skipped, ${results.retired.length} retired, ${results.reactivated.length} reactivated`);
+    res.json({ ...results, syncRunId });
 
   } catch (err: any) {
     logger.error('Bulk import error:', err);
     res.status(500).json({ error: 'Failed to import assets' });
+  }
+});
+
+// GET /api/import/runs - list recent import runs
+router.get('/runs', requireRole([USER_ROLES.READ, USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const { limit = '50', source } = req.query as { limit?: string; source?: string };
+    const where: any = {};
+    if (source) where.sourceSystem = String(source).toUpperCase();
+    const runs = await (prisma as any).importSyncRun.findMany({
+      where,
+      orderBy: { startedAt: 'desc' },
+      take: Math.min(parseInt(String(limit)) || 50, 200)
+    });
+    const mapped = runs.map((r: any) => ({
+      id: r.id,
+      sourceSystem: r.sourceSystem,
+      isFullSnapshot: r.isFullSnapshot,
+      startedAt: r.startedAt,
+      finishedAt: r.finishedAt,
+      stats: typeof r.stats === 'string' ? JSON.parse(r.stats) : r.stats
+    }));
+    res.json({ runs: mapped });
+  } catch (e) {
+    logger.error('Failed to list import runs', e);
+    res.status(500).json({ error: 'Failed to list import runs' });
+  }
+});
+
+// GET /api/import/missing - list assets missing from a source
+router.get('/missing', requireRole([USER_ROLES.READ, USER_ROLES.WRITE, USER_ROLES.ADMIN]), async (req: Request, res: Response) => {
+  try {
+    const { source, since } = req.query as { source?: string; since?: string };
+    if (!source) return res.status(400).json({ error: 'source is required' });
+    const sourceSystem = normalizeImportSource(String(source));
+
+    const sinceDate = since ? new Date(since) : undefined;
+
+    const links = await (prisma as any).externalSourceLink.findMany({
+      where: {
+        sourceSystem,
+        isPresent: false,
+        ...(sinceDate ? { lastSeenAt: { gte: sinceDate } } : {})
+      },
+      select: { id: true, assetId: true, lastSeenAt: true }
+    });
+
+    const assetIds = links.map((l: any) => l.assetId);
+    const assets = await prisma.asset.findMany({
+      where: { id: { in: assetIds } },
+      select: { id: true, assetTag: true, status: true, serialNumber: true, assetType: true }
+    });
+    const assetById = new Map(assets.map(a => [a.id, a]));
+
+    const result = links.map((l: any) => ({
+      linkId: l.id,
+      asset: assetById.get(l.assetId) || { id: l.assetId, assetTag: 'UNKNOWN', status: 'UNKNOWN' },
+      missingSince: l.lastSeenAt
+    }));
+    res.json({ source: sourceSystem, count: result.length, items: result });
+  } catch (e) {
+    logger.error('Failed to list missing assets by source', e);
+    res.status(500).json({ error: 'Failed to list missing assets by source' });
   }
 });
 
